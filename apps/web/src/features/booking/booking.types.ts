@@ -93,6 +93,14 @@ export interface GuestInfo {
   notes: string
 }
 
+/** A completed booking for one service (used when booking multiple services). */
+export interface ServiceBooking {
+  service:      Service
+  professional: Professional
+  date:         string          // YYYY-MM-DD
+  slot:         AvailableSlot
+}
+
 export interface BookingState {
   step:                 BookingStep
   selectedServices:     Service[]
@@ -102,6 +110,9 @@ export interface BookingState {
   guestInfo:            GuestInfo
   conflictError:        boolean         // true after a 409 response
   submitError:          string | null   // non-409 submit errors
+  // Multi-service iteration
+  currentServiceIndex:  number          // which service we're currently booking
+  serviceBookings:      ServiceBooking[] // completed bookings per service
 }
 
 export const INITIAL_BOOKING_STATE: BookingState = {
@@ -113,4 +124,6 @@ export const INITIAL_BOOKING_STATE: BookingState = {
   guestInfo:            { name: '', email: '', phone: '', notes: '' },
   conflictError:        false,
   submitError:          null,
+  currentServiceIndex:  0,
+  serviceBookings:      [],
 }

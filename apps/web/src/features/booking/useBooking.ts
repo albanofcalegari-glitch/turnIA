@@ -12,6 +12,7 @@ import {
   BookingState,
   BookingStep,
   GuestInfo,
+  ServiceBooking,
   INITIAL_BOOKING_STATE,
 } from './booking.types'
 
@@ -34,13 +35,19 @@ export function useBooking(tenantSlug: string) {
 
   // ── Submission ────────────────────────────────────────────────────────────
   const [submitting,          setSubmitting]          = useState(false)
-  const [createdAppointment,  setCreatedAppointment]  = useState<CreatedAppointment | null>(null)
+  const [createdAppointments, setCreatedAppointments] = useState<CreatedAppointment[]>([])
 
   // ── Booking flow state ────────────────────────────────────────────────────
   const [state, setState] = useState<BookingState>(INITIAL_BOOKING_STATE)
 
   const update = (patch: Partial<BookingState>) =>
     setState(s => ({ ...s, ...patch }))
+
+  // ── Derived: are we in multi-service mode? ────────────────────────────────
+  const isMultiService = state.selectedServices.length > 1
+  const currentService = isMultiService
+    ? state.selectedServices[state.currentServiceIndex] ?? null
+    : null
 
   // ── Load initial data ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -58,8 +65,7 @@ export function useBooking(tenantSlug: string) {
         setProfessionals(pros.filter(p => p.acceptsOnlineBooking))
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
-          // Tenant no existe — dejar initError null para que BookingFlow
-          // muestre el mensaje por defecto "Negocio no encontrado"
+          // Tenant no existe
         } else {
           setInitError('No se pudo cargar la página de reservas. Por favor intentá de nuevo.')
         }
@@ -75,7 +81,7 @@ export function useBooking(tenantSlug: string) {
     tenantId:      string,
     proId:         string,
     date:          string,
-    selectedSvcs:  Service[],
+    svcList:       Service[],
   ) => {
     setSlotsLoading(true)
     setSlotsError(null)
@@ -85,7 +91,7 @@ export function useBooking(tenantSlug: string) {
         tenantId,
         proId,
         date,
-        selectedSvcs.map(s => s.id),
+        svcList.map(s => s.id),
       )
       setSlotsResponse(res)
     } catch {
@@ -96,7 +102,7 @@ export function useBooking(tenantSlug: string) {
   }, [])
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Step navigation actions
+  // Step navigation
   // ─────────────────────────────────────────────────────────────────────────
 
   const STEP_ORDER: BookingStep[] = [
@@ -105,7 +111,25 @@ export function useBooking(tenantSlug: string) {
 
   function goBack() {
     const idx = STEP_ORDER.indexOf(state.step)
-    if (idx > 0) update({ step: STEP_ORDER[idx - 1] })
+
+    if (isMultiService && state.step === 'professional' && state.currentServiceIndex > 0) {
+      // Go back to previous service's slot selection
+      const prevIndex = state.currentServiceIndex - 1
+      const prevBooking = state.serviceBookings[prevIndex]
+      update({
+        currentServiceIndex: prevIndex,
+        serviceBookings: state.serviceBookings.slice(0, prevIndex),
+        selectedProfessional: prevBooking?.professional ?? null,
+        selectedDate: prevBooking?.date ?? '',
+        selectedSlot: prevBooking?.slot ?? null,
+        step: 'slots',
+      })
+      return
+    }
+
+    if (idx > 0) {
+      update({ step: STEP_ORDER[idx - 1] })
+    }
   }
 
   // ── Step 1: Toggle service selection ─────────────────────────────────────
@@ -119,7 +143,11 @@ export function useBooking(tenantSlug: string) {
 
   function confirmServices() {
     if (state.selectedServices.length === 0) return
-    update({ step: 'professional' })
+    update({
+      step: 'professional',
+      currentServiceIndex: 0,
+      serviceBookings: [],
+    })
   }
 
   // ── Step 2: Select professional ───────────────────────────────────────────
@@ -130,18 +158,62 @@ export function useBooking(tenantSlug: string) {
   // ── Step 3: Select date ───────────────────────────────────────────────────
   function selectDate(date: string) {
     if (!tenant || !state.selectedProfessional) return
+
+    // In multi-service mode, fetch slots for the current service only
+    const svcList = isMultiService && currentService
+      ? [currentService]
+      : state.selectedServices
+
     update({ selectedDate: date, selectedSlot: null, step: 'slots' })
-    fetchSlots(tenant.id, state.selectedProfessional.id, date, state.selectedServices)
+    fetchSlots(tenant.id, state.selectedProfessional.id, date, svcList)
   }
 
   // ── Step 4: Select slot ───────────────────────────────────────────────────
   function selectSlot(slot: AvailableSlot) {
-    update({ selectedSlot: slot, step: 'details', conflictError: false })
+    if (isMultiService && currentService && state.selectedProfessional) {
+      // Save this service's booking and advance to next service or details
+      const booking: ServiceBooking = {
+        service:      currentService,
+        professional: state.selectedProfessional,
+        date:         state.selectedDate,
+        slot,
+      }
+
+      const newBookings = [...state.serviceBookings, booking]
+      const nextIndex = state.currentServiceIndex + 1
+
+      if (nextIndex < state.selectedServices.length) {
+        // More services to book — go back to professional selection
+        update({
+          serviceBookings: newBookings,
+          currentServiceIndex: nextIndex,
+          selectedProfessional: null,
+          selectedDate: '',
+          selectedSlot: null,
+          step: 'professional',
+          conflictError: false,
+        })
+      } else {
+        // All services booked — go to details
+        update({
+          serviceBookings: newBookings,
+          selectedSlot: slot,
+          step: 'details',
+          conflictError: false,
+        })
+      }
+    } else {
+      // Single service — original flow
+      update({ selectedSlot: slot, step: 'details', conflictError: false })
+    }
   }
 
   function refreshSlots() {
     if (!tenant || !state.selectedProfessional || !state.selectedDate) return
-    fetchSlots(tenant.id, state.selectedProfessional.id, state.selectedDate, state.selectedServices)
+    const svcList = isMultiService && currentService
+      ? [currentService]
+      : state.selectedServices
+    fetchSlots(tenant.id, state.selectedProfessional.id, state.selectedDate, svcList)
   }
 
   // ── Step 5: Update guest info ─────────────────────────────────────────────
@@ -151,34 +223,47 @@ export function useBooking(tenantSlug: string) {
 
   // ── Step 5: Submit ────────────────────────────────────────────────────────
   async function submit() {
-    if (!tenant || !state.selectedProfessional || !state.selectedSlot) return
-
+    if (!tenant) return
     setSubmitting(true)
     update({ submitError: null, conflictError: false })
 
     try {
-      const appt = await apiClient.createAppointment(tenant.id, {
-        professionalId: state.selectedProfessional.id,
-        startAt:        state.selectedSlot.startAt,
-        items:          state.selectedServices.map(s => ({ serviceId: s.id })),
-        notes:          state.guestInfo.notes || undefined,
-        guestName:      state.guestInfo.name,
-        guestEmail:     state.guestInfo.email,
-        guestPhone:     state.guestInfo.phone || undefined,
-      })
+      const appointments: CreatedAppointment[] = []
 
-      setCreatedAppointment(appt)
+      if (isMultiService) {
+        // Create one appointment per service booking
+        for (const b of state.serviceBookings) {
+          const appt = await apiClient.createAppointment(tenant.id, {
+            professionalId: b.professional.id,
+            startAt:        b.slot.startAt,
+            items:          [{ serviceId: b.service.id }],
+            notes:          state.guestInfo.notes || undefined,
+            guestName:      state.guestInfo.name,
+            guestEmail:     state.guestInfo.email,
+            guestPhone:     state.guestInfo.phone || undefined,
+          })
+          appointments.push(appt)
+        }
+      } else {
+        // Single service — original flow
+        if (!state.selectedProfessional || !state.selectedSlot) return
+        const appt = await apiClient.createAppointment(tenant.id, {
+          professionalId: state.selectedProfessional.id,
+          startAt:        state.selectedSlot.startAt,
+          items:          state.selectedServices.map(s => ({ serviceId: s.id })),
+          notes:          state.guestInfo.notes || undefined,
+          guestName:      state.guestInfo.name,
+          guestEmail:     state.guestInfo.email,
+          guestPhone:     state.guestInfo.phone || undefined,
+        })
+        appointments.push(appt)
+      }
+
+      setCreatedAppointments(appointments)
       update({ step: 'success' })
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        // Slot was taken by a concurrent booking.
-        // Clear the selected slot, refresh the slots list, go back to pick another.
-        update({
-          conflictError: true,
-          selectedSlot:  null,
-          step:          'slots',
-        })
-        refreshSlots()
+        update({ conflictError: true, submitError: 'Uno de los horarios ya fue tomado. Por favor volvé a elegir.' })
       } else {
         const message = err instanceof ApiError
           ? err.message
@@ -194,7 +279,7 @@ export function useBooking(tenantSlug: string) {
   function reset() {
     setState(INITIAL_BOOKING_STATE)
     setSlotsResponse(null)
-    setCreatedAppointment(null)
+    setCreatedAppointments([])
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -202,16 +287,24 @@ export function useBooking(tenantSlug: string) {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Professionals who offer ALL currently selected services.
-   * Recomputed whenever selectedServices changes.
+   * Professionals who offer the current service being booked.
+   * In multi-service mode: filtered by current service only.
+   * In single-service mode: must offer ALL selected services.
    */
-  const eligibleProfessionals = professionals.filter(p =>
-    state.selectedServices.every(svc =>
-      p.services.some(ps => ps.serviceId === svc.id),
-    ),
-  )
+  const eligibleProfessionals = isMultiService && currentService
+    ? professionals.filter(p =>
+        p.services.some(ps => ps.serviceId === currentService.id),
+      )
+    : professionals.filter(p =>
+        state.selectedServices.every(svc =>
+          p.services.some(ps => ps.serviceId === svc.id),
+        ),
+      )
 
   const timezone = slotsResponse?.timezone ?? tenant?.timezone ?? 'America/Argentina/Buenos_Aires'
+
+  // For backward compatibility: expose first created appointment
+  const createdAppointment = createdAppointments[0] ?? null
 
   return {
     // Data
@@ -220,10 +313,13 @@ export function useBooking(tenantSlug: string) {
     eligibleProfessionals,
     slotsResponse,
     createdAppointment,
+    createdAppointments,
     timezone,
 
     // State
     ...state,
+    isMultiService,
+    currentService,
 
     // Loading / error
     initLoading,

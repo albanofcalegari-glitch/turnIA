@@ -105,13 +105,13 @@ export function BookingFlow({ tenantSlug }: Props) {
   }
 
   // ── Success screen ────────────────────────────────────────────────────────
-  if (step === 'success' && booking.createdAppointment) {
+  if (step === 'success' && booking.createdAppointments.length > 0) {
     return (
       <div className="min-h-screen bg-gray-50">
         <BookingHeader tenant={tenant} />
         <main className="mx-auto max-w-2xl px-4 py-10">
           <BookingSuccess
-            appointment={booking.createdAppointment}
+            appointments={booking.createdAppointments}
             timezone={booking.timezone}
             onReset={booking.reset}
           />
@@ -140,6 +140,14 @@ export function BookingFlow({ tenantSlug }: Props) {
           >
             ← Volver
           </button>
+        )}
+
+        {/* Multi-service indicator */}
+        {booking.isMultiService && booking.currentService && step !== 'services' && step !== 'details' && (
+          <div className="mb-4 rounded-lg border border-brand-100 bg-brand-50 px-4 py-2.5 text-sm text-brand-700">
+            Reservando: <span className="font-semibold">{booking.currentService.name}</span>
+            {' '}({booking.currentServiceIndex + 1} de {booking.selectedServices.length})
+          </div>
         )}
 
         {/* Step content */}

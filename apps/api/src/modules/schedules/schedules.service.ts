@@ -597,7 +597,16 @@ export class SchedulesService {
     })
     if (!professional) throw new NotFoundException('Profesional no encontrado')
 
-    const isAdmin = caller.isSuperAdmin || caller.role === TenantRole.ADMIN
+    // Resolve role from DB (JWT doesn't carry it)
+    let isAdmin = caller.isSuperAdmin
+    if (!isAdmin) {
+      const membership = await this.prisma.tenantUser.findUnique({
+        where:  { userId_tenantId: { userId: caller.sub, tenantId } },
+        select: { role: true },
+      })
+      isAdmin = membership?.role === TenantRole.ADMIN
+    }
+
     if (!isAdmin && professional.userId !== caller.sub) {
       throw new ForbiddenException('No tenés permiso para modificar este horario')
     }
