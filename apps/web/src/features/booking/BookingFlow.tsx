@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { useBooking } from './useBooking'
@@ -108,7 +109,7 @@ export function BookingFlow({ tenantSlug }: Props) {
   if (step === 'success' && booking.createdAppointments.length > 0) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <BookingHeader tenant={tenant} />
+        <BookingHeader tenant={tenant} slug={tenantSlug} />
         <main className="mx-auto max-w-2xl px-4 py-10">
           <BookingSuccess
             appointments={booking.createdAppointments}
@@ -124,7 +125,7 @@ export function BookingFlow({ tenantSlug }: Props) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <BookingHeader tenant={tenant} />
+      <BookingHeader tenant={tenant} slug={tenantSlug} />
 
       <main className="mx-auto max-w-2xl px-4 py-8">
         {/* Step indicator */}
@@ -163,7 +164,7 @@ export function BookingFlow({ tenantSlug }: Props) {
 
 // ── Shared header ──────────────────────────────────────────────────────────
 
-function BookingHeader({ tenant }: { tenant: { name: string; logoUrl: string | null } }) {
+function BookingHeader({ tenant, slug }: { tenant: { name: string; logoUrl: string | null }; slug: string }) {
   return (
     <header className="border-b bg-white px-6 py-4">
       <div className="mx-auto flex max-w-2xl items-center gap-3">
@@ -172,7 +173,12 @@ function BookingHeader({ tenant }: { tenant: { name: string; logoUrl: string | n
           <img src={tenant.logoUrl} alt={tenant.name} className="h-8 w-8 rounded-full object-cover" />
         )}
         <h1 className="text-lg font-bold text-gray-900">{tenant.name}</h1>
-        <span className="ml-auto text-sm text-gray-400">Reservar turno</span>
+        <div className="ml-auto flex items-center gap-4">
+          <span className="text-sm text-gray-400">Reservar turno</span>
+          <Link href={`/${slug}/cancelar`} className="text-sm text-red-500 hover:text-red-700">
+            Cancelar turno
+          </Link>
+        </div>
       </div>
     </header>
   )

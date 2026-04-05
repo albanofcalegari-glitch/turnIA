@@ -46,6 +46,34 @@ export class AppointmentsController {
     return this.appointmentsService.create(tenantId, user?.sub ?? null, dto)
   }
 
+  /**
+   * GET /appointments/guest?email=xxx
+   * Public — returns active future appointments for a guest email.
+   */
+  @Get('guest')
+  @UseGuards(TenantGuard)
+  findByGuestEmail(
+    @TenantId() tenantId: string,
+    @Query('email') email: string,
+  ) {
+    return this.appointmentsService.findByGuestEmail(tenantId, email)
+  }
+
+  /**
+   * PATCH /appointments/:id/guest-cancel
+   * Public — cancels an appointment after verifying the guest email.
+   */
+  @Patch(':id/guest-cancel')
+  @UseGuards(TenantGuard)
+  guestCancel(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body('email') email: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.appointmentsService.guestCancel(tenantId, id, email, reason)
+  }
+
   // ── Routes below require authentication ────────────────────────────────
 
   @Get()

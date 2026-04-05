@@ -15,6 +15,20 @@ export interface UserProfile {
   }>
 }
 
+export interface GuestAppointment {
+  id:           string
+  startAt:      string
+  endAt:        string
+  status:       string
+  totalMinutes: number
+  totalPrice:   number | string
+  currency:     string
+  guestName:    string | null
+  guestEmail:   string | null
+  professional: { id: string; displayName: string }
+  items:        Array<{ serviceName: string; durationMinutes: number; price: number | string }>
+}
+
 export interface WorkScheduleItem {
   id:             string
   professionalId: string
@@ -172,6 +186,20 @@ class ApiClient {
   deleteWorkSchedule = (tenantId: string, professionalId: string, id: string) =>
     this.request(`/schedules/${professionalId}/work-schedule/${id}`, {
       method:  'DELETE',
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  // ── Guest appointments (public) ────────────────────────────────────────
+
+  getGuestAppointments = (tenantId: string, email: string) =>
+    this.request<GuestAppointment[]>(`/appointments/guest?email=${encodeURIComponent(email)}`, {
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  guestCancelAppointment = (tenantId: string, id: string, email: string, reason?: string) =>
+    this.request(`/appointments/${id}/guest-cancel`, {
+      method:  'PATCH',
+      body:    JSON.stringify({ email, reason }),
       headers: { 'X-Tenant-ID': tenantId },
     })
 

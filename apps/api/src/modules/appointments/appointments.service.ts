@@ -583,6 +583,50 @@ export class AppointmentsService {
     return appt
   }
 
+  /**
+   * Find active appointments by guest email (public — no auth required).
+   * Only returns PENDING and CONFIRMED appointments in the future.
+   */
+  async findByGuestEmail(tenantId: string, email: string) {
+    return this.prisma.appointment.findMany({
+      where: {
+        tenantId,
+        guestEmail: email,
+        status:     { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
+        startAt:    { gte: new Date() },
+      },
+      include: {
+        items:        { include: { service: true }, orderBy: { order: 'asc' } },
+        professional: { select: { id: true, displayName: true } },
+      },
+      orderBy: { startAt: 'asc' },
+    })
+  }
+
+  /**
+   * Cancel an appointment as a guest — verifies the email matches before cancelling.
+   */
+  async guestCancel(tenantId: string, id: string, email: string, reason?: string) {
+    const appt = await this.findOne(tenantId, id)
+
+    if (appt.guestEmail !== email) {
+      throw new ForbiddenException('El email no corresponde a este turno')
+    }
+
+    if (appt.status === AppointmentStatus.CANCELLED) {
+      throw new BadRequestException('Este turno ya fue cancelado')
+    }
+
+    return this.prisma.appointment.update({
+      where: { id },
+      data: {
+        status:             AppointmentStatus.CANCELLED,
+        cancelledAt:        new Date(),
+        cancellationReason: reason ?? 'Cancelado por el cliente',
+      },
+    })
+  }
+
   async cancel(tenantId: string, id: string, cancelledBy: string, reason?: string) {
     await this.findOne(tenantId, id)
     return this.prisma.appointment.update({

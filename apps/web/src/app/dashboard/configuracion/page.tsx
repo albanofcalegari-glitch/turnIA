@@ -42,10 +42,13 @@ const BUSINESS_TYPES: Record<string, string> = {
   custom:     'Otro',
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-      <span className="text-sm text-gray-500">{label}</span>
+      <div>
+        <span className="text-sm text-gray-500">{label}</span>
+        {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
+      </div>
       <span className="text-sm font-medium text-gray-900">{value}</span>
     </div>
   )
@@ -122,7 +125,7 @@ export default function ConfiguracionPage() {
               <h2 className="text-sm font-semibold text-gray-700">Reglas de agenda</h2>
             </div>
             <div className="px-1">
-              <InfoRow label="Intervalo de turnos" value={`${rules.slotDurationMinutes} minutos`} />
+              <InfoRow label="Grilla de la agenda" value={`cada ${rules.slotDurationMinutes} min`} hint="Frecuencia con la que se ofrecen horarios (ej: 9:00, 9:15, 9:30...). La duración real del turno la define cada servicio." />
               <InfoRow label="Ventana de reserva" value={`${rules.bookingWindowDays} días`} />
               <InfoRow label="Anticipación mínima" value={`${rules.minAdvanceMinutes} minutos`} />
               <InfoRow label="Cancelación mínima" value={`${rules.cancelHoursMin} horas antes`} />
