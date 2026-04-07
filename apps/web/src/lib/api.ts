@@ -11,7 +11,15 @@ export interface UserProfile {
   tenants: Array<{
     tenantId: string
     role:     string
-    tenant:   { id: string; slug: string; name: string; type: string; timezone: string }
+    tenant:   {
+      id:                  string
+      slug:                string
+      name:                string
+      type:                string
+      timezone:            string
+      isActive:            boolean
+      membershipExpiresAt: string | null
+    }
   }>
 }
 

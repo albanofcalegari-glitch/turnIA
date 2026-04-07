@@ -48,7 +48,19 @@ export class AuthService {
       where:   { id: userId },
       include: {
         tenants: {
-          include: { tenant: { select: { id: true, slug: true, name: true, type: true, timezone: true } } },
+          include: {
+            tenant: {
+              select: {
+                id:                  true,
+                slug:                true,
+                name:                true,
+                type:                true,
+                timezone:            true,
+                isActive:            true,
+                membershipExpiresAt: true,
+              },
+            },
+          },
         },
       },
     })

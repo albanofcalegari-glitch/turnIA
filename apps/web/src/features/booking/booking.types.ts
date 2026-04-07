@@ -11,6 +11,8 @@ export interface Tenant {
   logoUrl:  string | null
   phone:    string | null
   address:  string | null
+  /** When false, the tenant exists but its membership is suspended — bookings are blocked. */
+  isActive: boolean
 }
 
 export interface ServiceCategory {

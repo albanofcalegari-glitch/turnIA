@@ -9,8 +9,28 @@ import {
   type ReactNode,
 } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiClient, ApiError } from '@/lib/api'
+import { apiClient, ApiError, type UserProfile } from '@/lib/api'
 import { getSession, setSession, clearSession, type AuthSession, type UserSession } from '@/lib/auth-store'
+
+// Profile → UserSession projection. Used by both login and the rehydrate refresh
+// so the two paths can never drift apart.
+function profileToUserSession(profile: UserProfile): UserSession {
+  const primary = profile.tenants?.[0] ?? null
+  return {
+    id:                        profile.id,
+    email:                     profile.email,
+    firstName:                 profile.firstName,
+    lastName:                  profile.lastName,
+    isSuperAdmin:              profile.isSuperAdmin,
+    tenantId:                  primary?.tenantId                   ?? null,
+    tenantSlug:                primary?.tenant.slug                ?? null,
+    tenantName:                primary?.tenant.name                ?? null,
+    tenantTimezone:            primary?.tenant.timezone            ?? null,
+    tenantIsActive:            primary?.tenant.isActive            ?? null,
+    tenantMembershipExpiresAt: primary?.tenant.membershipExpiresAt ?? null,
+    role:                      primary?.role                       ?? null,
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Context types
@@ -35,14 +55,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<AuthSession | null>(null)
   const [loading, setLoading]      = useState(true)
 
-  // Rehydrate from localStorage on mount
+  // Rehydrate from localStorage on mount, then refresh from server so the user
+  // sees fresh tenant status (e.g. SuperAdmin deactivated the membership while
+  // the user was logged in — the cached session would otherwise stay stale).
   useEffect(() => {
     const stored = getSession()
-    if (stored) {
-      apiClient.setToken(stored.accessToken)
-      setSessionState(stored)
+    if (!stored) {
+      setLoading(false)
+      return
     }
+    apiClient.setToken(stored.accessToken)
+    setSessionState(stored)
     setLoading(false)
+
+    apiClient.getProfile()
+      .then(profile => {
+        const refreshed: AuthSession = {
+          accessToken: stored.accessToken,
+          user:        profileToUserSession(profile),
+        }
+        setSession(refreshed)
+        setSessionState(refreshed)
+      })
+      .catch(err => {
+        // 401 → token expired/revoked: drop the session
+        if (err instanceof ApiError && err.status === 401) {
+          clearSession()
+          apiClient.clearToken()
+          setSessionState(null)
+        }
+        // other errors: keep the cached session, user can retry later
+      })
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
@@ -52,20 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Step 2: fetch profile to get tenant + role info
     const profile = await apiClient.getProfile()
-    const primary = profile.tenants?.[0] ?? null
-
-    const user: UserSession = {
-      id:          profile.id,
-      email:       profile.email,
-      firstName:   profile.firstName,
-      lastName:    profile.lastName,
-      isSuperAdmin: profile.isSuperAdmin,
-      tenantId:       primary?.tenantId          ?? null,
-      tenantSlug:     primary?.tenant.slug       ?? null,
-      tenantName:     primary?.tenant.name       ?? null,
-      tenantTimezone: primary?.tenant.timezone   ?? null,
-      role:           primary?.role              ?? null,
-    }
+    const user    = profileToUserSession(profile)
 
     const newSession: AuthSession = { accessToken, user }
     setSession(newSession)

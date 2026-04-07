@@ -56,11 +56,16 @@ export function useBooking(tenantSlug: string) {
       setInitError(null)
       try {
         const t = await apiClient.getTenantBySlug(tenantSlug)
+        setTenant(t)
+        // If the tenant's membership is suspended, skip loading services and
+        // professionals — those endpoints would also reject the request.
+        // BookingFlow will show a "temporalmente no disponible" screen.
+        if (!t.isActive) return
+
         const [svcs, pros] = await Promise.all([
           apiClient.getServices(t.id),
           apiClient.getProfessionals(t.id),
         ])
-        setTenant(t)
         setServices(svcs.filter(s => s.isPublic))
         setProfessionals(pros.filter(p => p.acceptsOnlineBooking))
       } catch (err) {

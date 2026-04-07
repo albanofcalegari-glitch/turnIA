@@ -105,6 +105,32 @@ export function BookingFlow({ tenantSlug }: Props) {
     )
   }
 
+  // ── Tenant existe pero membresía suspendida ───────────────────────────────
+  if (!tenant.isActive) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md rounded-2xl border bg-white p-8 text-center shadow-sm">
+          <p className="text-3xl">🔒</p>
+          <p className="mt-3 text-lg font-semibold text-gray-900">
+            {tenant.name}
+          </p>
+          <p className="mt-2 text-sm text-gray-600">
+            Las reservas online están temporalmente no disponibles.
+          </p>
+          <div className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-left text-xs text-amber-800">
+            El negocio está al día con su mantenimiento. Por favor contactalo directamente para coordinar tu turno.
+          </div>
+          {(tenant.phone || tenant.address) && (
+            <div className="mt-4 space-y-1 text-xs text-gray-500">
+              {tenant.phone   && <p>📞 {tenant.phone}</p>}
+              {tenant.address && <p>📍 {tenant.address}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   // ── Success screen ────────────────────────────────────────────────────────
   if (step === 'success' && booking.createdAppointments.length > 0) {
     return (

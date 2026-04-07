@@ -16,6 +16,9 @@ export interface UserSession {
   tenantSlug:     string | null
   tenantName:     string | null
   tenantTimezone: string | null
+  /** Membership state — used to block the dashboard when SuperAdmin deactivates the tenant. */
+  tenantIsActive:            boolean | null
+  tenantMembershipExpiresAt: string | null
   role:           string | null
 }
 

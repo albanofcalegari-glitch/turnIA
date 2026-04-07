@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X } from 'lucide-react'
+import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -35,6 +35,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Show nothing while checking session to avoid flash
   if (loading || !user) return null
+
+  // Tenant deactivated by SuperAdmin → block the whole dashboard with a notice.
+  // SuperAdmins (without their own tenant) and users that aren't bound to a
+  // tenant are not affected.
+  if (user.tenantId && user.tenantIsActive === false) {
+    return <DeactivatedScreen
+      tenantName={user.tenantName}
+      expiresAt={user.tenantMembershipExpiresAt}
+      onLogout={logout}
+    />
+  }
 
   const initials = [user.firstName?.[0], user.lastName?.[0]]
     .filter(Boolean)
@@ -133,6 +144,60 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content */}
       <main className="flex-1 overflow-auto p-4 pt-18 sm:p-6 md:pt-6">{children}</main>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deactivated tenant — full-screen takeover
+// ─────────────────────────────────────────────────────────────────────────────
+
+function DeactivatedScreen({
+  tenantName,
+  expiresAt,
+  onLogout,
+}: {
+  tenantName: string | null
+  expiresAt:  string | null
+  onLogout:   () => void
+}) {
+  const formattedExpiry = expiresAt
+    ? new Date(expiresAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md rounded-2xl border bg-white p-6 text-center shadow-sm sm:p-8">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+          <ShieldOff className="text-red-600" size={28} />
+        </div>
+
+        <h1 className="mt-4 text-xl font-bold text-gray-900 sm:text-2xl">
+          Membresía desactivada
+        </h1>
+
+        <p className="mt-2 text-sm text-gray-600">
+          {tenantName ? <>La cuenta de <strong>{tenantName}</strong> está</> : 'Tu cuenta está'}{' '}
+          temporalmente suspendida y los clientes ya no pueden reservar turnos online.
+        </p>
+
+        {formattedExpiry && (
+          <p className="mt-3 text-xs text-gray-500">
+            Vencimiento de la membresía: <strong>{formattedExpiry}</strong>
+          </p>
+        )}
+
+        <div className="mt-6 rounded-lg bg-amber-50 p-3 text-left text-xs text-amber-800">
+          Para reactivar el servicio, comunicate con el administrador de TurnIA y regularizá el pago de tu membresía.
+        </div>
+
+        <button
+          onClick={onLogout}
+          className="mt-6 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+        >
+          Cerrar sesión
+        </button>
+      </div>
     </div>
   )
 }

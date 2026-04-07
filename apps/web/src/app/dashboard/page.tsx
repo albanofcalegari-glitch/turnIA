@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CalendarDays, CalendarRange, Users } from 'lucide-react'
+import { CalendarDays, CalendarRange, Users, Link2, Copy, Check, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
@@ -21,6 +21,72 @@ function StatCard({ label, value, highlight = false }: { label: string; value: n
       <p className={cn('mt-1 text-3xl font-bold', highlight ? 'text-brand-700' : 'text-gray-900')}>
         {value}
       </p>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public booking URL — visible on the dashboard so the owner can copy/share it
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PublicUrlCard({ slug }: { slug: string }) {
+  const [copied, setCopied] = useState(false)
+  // Build the full URL on the client to pick up the actual host:port the
+  // owner is using (works for localhost dev as well as the prod domain).
+  const [url, setUrl] = useState(`/${slug}`)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setUrl(`${window.location.origin}/${slug}`)
+    }
+  }, [slug])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // clipboard API blocked — fall back to opening the link
+      window.open(url, '_blank')
+    }
+  }
+
+  return (
+    <div className="mb-6 flex flex-col gap-3 rounded-xl border border-brand-100 bg-brand-50/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
+          <Link2 size={16} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-brand-800">Tu link público para reservar turnos</p>
+          <p className="truncate text-sm font-mono text-gray-700">{url}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-shrink-0 items-center gap-2">
+        <button
+          onClick={copy}
+          className={cn(
+            'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+            copied
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-brand-200 bg-white text-brand-700 hover:bg-brand-50',
+          )}
+        >
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          {copied ? 'Copiado' : 'Copiar'}
+        </button>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+        >
+          <ExternalLink size={13} />
+          Abrir
+        </a>
+      </div>
     </div>
   )
 }
@@ -49,6 +115,9 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {/* Public booking URL — only for tenant users (not super-admins without tenant) */}
+      {user?.tenantSlug && <PublicUrlCard slug={user.tenantSlug} />}
+
       {/* Page header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Agenda</h1>

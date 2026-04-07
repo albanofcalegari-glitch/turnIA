@@ -45,8 +45,12 @@ export class TenantsService {
   }
 
   async findBySlug(slug: string) {
+    // Note: we DO NOT filter by isActive here. The frontend needs to
+    // distinguish between "tenant doesn't exist" (404) and "tenant exists but
+    // membership is suspended" so it can show a meaningful message instead of
+    // a generic not-found. The `isActive` field is included in the response.
     const tenant = await this.prisma.tenant.findUnique({
-      where:   { slug, isActive: true },
+      where:   { slug },
       include: { scheduleRules: true },
     })
     if (!tenant) throw new NotFoundException('Negocio no encontrado')
