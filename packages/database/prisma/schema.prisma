@@ -21,10 +21,11 @@ model Tenant {
   phone     String?
   address   String?
   settings  Json     @default("{}")
-  isActive  Boolean  @default(true)
-  plan      String   @default("free") // free | starter | pro — para billing futuro
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive             Boolean   @default(true)
+  plan                 String    @default("free") // free | starter | pro
+  membershipExpiresAt  DateTime? // null = sin vencimiento (plan free o lifetime)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   users              TenantUser[]
   services           Service[]

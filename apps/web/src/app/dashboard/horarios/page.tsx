@@ -243,8 +243,8 @@ export default function HorariosPage() {
             </div>
           ) : (
             <div className="rounded-xl border bg-white">
-              {/* Header */}
-              <div className="grid grid-cols-[160px_60px_1fr_1fr] items-center gap-4 border-b bg-gray-50 px-5 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+              {/* Header — hidden on mobile */}
+              <div className="hidden sm:grid grid-cols-[160px_60px_1fr_1fr] items-center gap-4 border-b bg-gray-50 px-5 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
                 <span>Día</span>
                 <span className="text-center">Activo</span>
                 <span>Entrada</span>
@@ -258,50 +258,58 @@ export default function HorariosPage() {
                   <div
                     key={dayIndex}
                     className={cn(
-                      'grid grid-cols-[160px_60px_1fr_1fr] items-center gap-4 px-5 py-3',
+                      'flex flex-col gap-2 px-4 py-3 sm:grid sm:grid-cols-[160px_60px_1fr_1fr] sm:items-center sm:gap-4 sm:px-5',
                       dayIndex < 6 && 'border-b',
                       row.enabled ? 'bg-white' : 'bg-gray-50/50',
                     )}
                   >
-                    <span className={cn('text-sm font-medium', row.enabled ? 'text-gray-900' : 'text-gray-400')}>
-                      {label}
-                    </span>
+                    <div className="flex items-center justify-between sm:contents">
+                      <span className={cn('text-sm font-medium', row.enabled ? 'text-gray-900' : 'text-gray-400')}>
+                        {label}
+                      </span>
 
-                    {/* Toggle */}
-                    <div className="flex justify-center">
-                      <button
-                        onClick={() => updateDay(dayIndex, { enabled: !row.enabled })}
-                        className={cn(
-                          'relative h-6 w-11 rounded-full transition-colors',
-                          row.enabled ? 'bg-brand-600' : 'bg-gray-300',
-                        )}
-                      >
-                        <span
+                      {/* Toggle */}
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => updateDay(dayIndex, { enabled: !row.enabled })}
                           className={cn(
-                            'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-                            row.enabled && 'translate-x-5',
+                            'relative h-6 w-11 rounded-full transition-colors',
+                            row.enabled ? 'bg-brand-600' : 'bg-gray-300',
                           )}
-                        />
-                      </button>
+                        >
+                          <span
+                            className={cn(
+                              'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+                              row.enabled && 'translate-x-5',
+                            )}
+                          />
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Start time */}
-                    <input
-                      type="time"
-                      value={row.startTime}
-                      disabled={!row.enabled}
-                      onChange={e => updateDay(dayIndex, { startTime: e.target.value })}
-                      className={inputCls}
-                    />
-
-                    {/* End time */}
-                    <input
-                      type="time"
-                      value={row.endTime}
-                      disabled={!row.enabled}
-                      onChange={e => updateDay(dayIndex, { endTime: e.target.value })}
-                      className={inputCls}
-                    />
+                    {/* Time inputs — side by side on mobile */}
+                    {row.enabled && (
+                      <div className="grid grid-cols-2 gap-2 sm:contents">
+                        <input
+                          type="time"
+                          value={row.startTime}
+                          onChange={e => updateDay(dayIndex, { startTime: e.target.value })}
+                          className={inputCls}
+                        />
+                        <input
+                          type="time"
+                          value={row.endTime}
+                          onChange={e => updateDay(dayIndex, { endTime: e.target.value })}
+                          className={inputCls}
+                        />
+                      </div>
+                    )}
+                    {!row.enabled && (
+                      <div className="hidden sm:contents">
+                        <input type="time" value={row.startTime} disabled className={inputCls} />
+                        <input type="time" value={row.endTime} disabled className={inputCls} />
+                      </div>
+                    )}
                   </div>
                 )
               })}

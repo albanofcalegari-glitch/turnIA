@@ -111,9 +111,9 @@ export default function ProfesionalesPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Profesionales</h1>
-        <Button onClick={() => setShowForm(true)}>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Profesionales</h1>
+        <Button onClick={() => setShowForm(true)} className="self-start sm:self-auto">
           <Plus size={16} />
           Agregar profesional
         </Button>

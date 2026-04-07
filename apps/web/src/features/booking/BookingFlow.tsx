@@ -166,16 +166,16 @@ export function BookingFlow({ tenantSlug }: Props) {
 
 function BookingHeader({ tenant, slug }: { tenant: { name: string; logoUrl: string | null }; slug: string }) {
   return (
-    <header className="border-b bg-white px-6 py-4">
+    <header className="border-b bg-white px-4 py-3 sm:px-6 sm:py-4">
       <div className="mx-auto flex max-w-2xl items-center gap-3">
         {tenant.logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={tenant.logoUrl} alt={tenant.name} className="h-8 w-8 rounded-full object-cover" />
         )}
-        <h1 className="text-lg font-bold text-gray-900">{tenant.name}</h1>
-        <div className="ml-auto flex items-center gap-4">
-          <span className="text-sm text-gray-400">Reservar turno</span>
-          <Link href={`/${slug}/cancelar`} className="text-sm text-red-500 hover:text-red-700">
+        <h1 className="text-base font-bold text-gray-900 sm:text-lg">{tenant.name}</h1>
+        <div className="ml-auto flex items-center gap-2 sm:gap-4">
+          <span className="hidden text-sm text-gray-400 sm:block">Reservar turno</span>
+          <Link href={`/${slug}/cancelar`} className="text-xs text-red-500 hover:text-red-700 sm:text-sm">
             Cancelar turno
           </Link>
         </div>

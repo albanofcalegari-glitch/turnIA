@@ -304,6 +304,38 @@ class ApiClient {
       method:  'PATCH',
       headers: { 'X-Tenant-ID': tenantId },
     })
+
+  // ── SuperAdmin ──────────────────────────────────────────────────────────
+
+  getAllTenants = () =>
+    this.request<AdminTenant[]>('/tenants/admin/all')
+
+  updateTenant = (id: string, data: { isActive?: boolean; plan?: string; membershipExpiresAt?: string | null }) =>
+    this.request<AdminTenant>(`/tenants/admin/${id}`, {
+      method: 'PATCH',
+      body:   JSON.stringify(data),
+    })
+
+  deactivateExpiredTenants = () =>
+    this.request<{ deactivated: number }>('/tenants/admin/deactivate-expired', {
+      method: 'POST',
+    })
+}
+
+export interface AdminTenant {
+  id:                  string
+  slug:                string
+  name:                string
+  type:                string
+  plan:                string
+  isActive:            boolean
+  membershipExpiresAt: string | null
+  createdAt:           string
+  _count: {
+    appointments:  number
+    professionals: number
+    services:      number
+  }
 }
 
 export const apiClient = new ApiClient()

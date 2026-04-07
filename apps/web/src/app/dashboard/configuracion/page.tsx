@@ -44,12 +44,12 @@ const BUSINESS_TYPES: Record<string, string> = {
 
 function InfoRow({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-      <div>
+    <div className="flex flex-col gap-1 py-3 border-b border-gray-100 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="min-w-0">
         <span className="text-sm text-gray-500">{label}</span>
         {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
       </div>
-      <span className="text-sm font-medium text-gray-900">{value}</span>
+      <span className="text-sm font-medium text-gray-900 sm:text-right sm:flex-shrink-0">{value}</span>
     </div>
   )
 }

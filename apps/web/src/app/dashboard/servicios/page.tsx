@@ -83,9 +83,9 @@ export default function ServiciosPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Servicios</h1>
-        <Button onClick={() => setShowForm(true)}>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Servicios</h1>
+        <Button onClick={() => setShowForm(true)} className="self-start sm:self-auto">
           <Plus size={16} />
           Nuevo servicio
         </Button>
@@ -137,7 +137,7 @@ export default function ServiciosPage() {
       {!loading && services.length > 0 && (
         <div className="space-y-3">
           {services.map(svc => (
-            <div key={svc.id} className="flex items-center justify-between rounded-xl border bg-white p-4">
+            <div key={svc.id} className="flex flex-col gap-2 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3 min-w-0">
                 {svc.color && (
                   <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: svc.color }} />
@@ -149,7 +149,7 @@ export default function ServiciosPage() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+              <div className="flex items-center gap-3 flex-shrink-0 sm:ml-4">
                 <span className="text-sm text-gray-500">{svc.durationMinutes} min</span>
                 <span className="text-sm font-semibold text-gray-900">{formatPrice(svc.price, svc.currency)}</span>
                 {!svc.isPublic && (

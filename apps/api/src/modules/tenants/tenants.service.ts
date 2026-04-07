@@ -60,4 +60,38 @@ export class TenantsService {
     if (!tenant) throw new NotFoundException('Negocio no encontrado')
     return tenant
   }
+
+  // ── SuperAdmin methods ──────────────────────────────────────────────────
+
+  async findAll() {
+    return this.prisma.tenant.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { appointments: true, professionals: true, services: true } },
+      },
+    })
+  }
+
+  async updateTenant(id: string, data: {
+    isActive?: boolean
+    plan?: string
+    membershipExpiresAt?: Date | null
+  }) {
+    return this.prisma.tenant.update({
+      where: { id },
+      data,
+    })
+  }
+
+  async deactivateExpired() {
+    const now = new Date()
+    const result = await this.prisma.tenant.updateMany({
+      where: {
+        isActive: true,
+        membershipExpiresAt: { not: null, lt: now },
+      },
+      data: { isActive: false },
+    })
+    return { deactivated: result.count }
+  }
 }

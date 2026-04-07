@@ -15,7 +15,7 @@ export function middleware(request: NextRequest) {
   const token    = request.cookies.get('turnia_token')?.value
   const { pathname } = request.nextUrl
 
-  if (pathname.startsWith('/dashboard') && !token) {
+  if ((pathname.startsWith('/dashboard') || pathname.startsWith('/admin')) && !token) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('next', pathname)
@@ -32,5 +32,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/register'],
+  matcher: ['/dashboard/:path*', '/admin/:path*', '/login', '/register'],
 }

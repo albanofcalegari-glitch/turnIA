@@ -70,7 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const newSession: AuthSession = { accessToken, user }
     setSession(newSession)
     setSessionState(newSession)
-    router.push('/dashboard')
+
+    // SuperAdmin sin tenant → panel admin; usuario con tenant → dashboard
+    if (user.isSuperAdmin && !user.tenantId) {
+      router.push('/admin')
+    } else {
+      router.push('/dashboard')
+    }
   }, [router])
 
   const logout = useCallback(() => {

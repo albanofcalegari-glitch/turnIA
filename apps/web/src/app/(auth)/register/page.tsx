@@ -103,7 +103,7 @@ export default function RegisterPage() {
           <p className="mt-1 text-sm text-gray-500">Creá tu cuenta y empezá a recibir turnos</p>
         </div>
 
-        <div className="rounded-2xl border bg-white p-8 shadow-sm">
+        <div className="rounded-2xl border bg-white p-5 shadow-sm sm:p-8">
           <h1 className="mb-6 text-xl font-bold text-gray-900">Registrar tu negocio</h1>
 
           <form onSubmit={handleSubmit} className="space-y-4">

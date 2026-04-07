@@ -50,10 +50,10 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Page header */}
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Agenda</h1>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Agenda</h1>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Professional filter */}
           {professionals.length > 0 && (
             <div className="flex items-center gap-1.5 rounded-lg border bg-white px-2 py-1.5">
@@ -102,7 +102,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats row — always show for day view; for week view shows selected day */}
-      <div className="mb-6 grid grid-cols-4 gap-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <StatCard label="Turnos"      value={stats.total}     />
         <StatCard label="Confirmados" value={stats.confirmed} highlight />
         <StatCard label="Pendientes"  value={stats.pending}   />
@@ -110,7 +110,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Agenda view */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border bg-white p-3 sm:p-5 overflow-x-auto">
         {view === 'day'
           ? <DayView  agenda={agenda} timezone={timezone} />
           : <WeekView agenda={agenda} timezone={timezone} />
