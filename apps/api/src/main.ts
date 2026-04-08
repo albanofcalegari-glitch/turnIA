@@ -4,6 +4,14 @@ import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter'
 
 async function bootstrap() {
+  // Hard guard: never boot in production with the dev JWT fallback. The
+  // signing key is consulted in two places (auth.module + jwt.strategy) and
+  // both fall back to 'dev-secret' if missing — that would silently issue
+  // tokens anyone could forge. Crash early instead.
+  if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required in production')
+  }
+
   const app = await NestFactory.create(AppModule)
 
   app.setGlobalPrefix('api/v1')
@@ -28,7 +36,10 @@ async function bootstrap() {
     credentials: true,
   })
 
-  const port = process.env.API_PORT ?? 4000
+  // PORT is what most PaaS providers (Railway, Render, Fly) inject; API_PORT
+  // is our local-dev convention. Honor PORT first so the same image runs in
+  // production without env-var aliasing tricks.
+  const port = process.env.PORT ?? process.env.API_PORT ?? 4000
   await app.listen(port)
   console.log(`TurnIA API running on http://localhost:${port}/api/v1`)
 }

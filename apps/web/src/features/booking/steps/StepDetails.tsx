@@ -238,7 +238,7 @@ export function StepDetails({ booking }: Props) {
       </Button>
 
       <p className="mt-3 text-center text-xs text-gray-400">
-        Recibirás un email de confirmación con los detalles del turno.
+        Anotá la fecha y hora del turno. Si necesitás cancelarlo, podés hacerlo desde la sección "Cancelar turno".
       </p>
     </div>
   )
