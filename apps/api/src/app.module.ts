@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { TenantsModule } from './modules/tenants/tenants.module'
+import { BranchesModule } from './modules/branches/branches.module'
 import { UsersModule } from './modules/users/users.module'
 import { ServicesModule } from './modules/services/services.module'
 import { ProfessionalsModule } from './modules/professionals/professionals.module'
@@ -17,6 +18,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware'
     PrismaModule,
     AuthModule,
     TenantsModule,
+    BranchesModule,
     UsersModule,
     ServicesModule,
     ProfessionalsModule,

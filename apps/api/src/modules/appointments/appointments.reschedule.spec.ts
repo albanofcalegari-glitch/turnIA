@@ -8,6 +8,7 @@ import { Prisma, AppointmentStatus } from '@prisma/client'
 import { AppointmentsService } from './appointments.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { SchedulesService } from '../schedules/schedules.service'
+import { BranchesService } from '../branches/branches.service'
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,6 +23,8 @@ const SVC_ID         = 'svc_001'
 const NEW_SVC_ID     = 'svc_002'
 const ORIGINAL_ID    = 'appt_original'
 const NEW_APPT_ID    = 'appt_new'
+const ORIGINAL_BRANCH_ID = 'br_default'
+const NEW_BRANCH_ID      = 'br_new'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Factories
@@ -62,6 +65,7 @@ function makeOriginalAppointment(overrides: Record<string, unknown> = {}) {
   return {
     id:              ORIGINAL_ID,
     tenantId:        TENANT_ID,
+    branchId:        ORIGINAL_BRANCH_ID,
     clientId:        CLIENT_ID,
     professionalId:  PRO_ID,
     status:          AppointmentStatus.CONFIRMED,
@@ -147,6 +151,10 @@ describe('AppointmentsService.reschedule', () => {
     resolveServices:      jest.fn(),
     computeTotalDuration: jest.fn(),
   }
+  const mockBranches = {
+    resolveBranchId:             jest.fn(),
+    requireProfessionalInBranch: jest.fn(),
+  }
 
   // Builds a $transaction mock that calls the callback with a fresh tx object.
   //
@@ -190,6 +198,7 @@ describe('AppointmentsService.reschedule', () => {
         AppointmentsService,
         { provide: PrismaService,    useValue: mockPrisma    },
         { provide: SchedulesService, useValue: mockSchedules },
+        { provide: BranchesService,  useValue: mockBranches  },
       ],
     }).compile()
 
@@ -201,6 +210,12 @@ describe('AppointmentsService.reschedule', () => {
     mockPrisma.professional.findFirst.mockResolvedValue(makeProfessional())
     mockSchedules.resolveServices.mockResolvedValue(makeServices())
     mockSchedules.computeTotalDuration.mockReturnValue(35)
+    // Default: branch resolves to whatever was requested (or original branch
+    // when fallback path runs); pro-in-branch always passes.
+    mockBranches.resolveBranchId.mockImplementation(async (_t: string, b?: string) =>
+      b ?? ORIGINAL_BRANCH_ID,
+    )
+    mockBranches.requireProfessionalInBranch.mockResolvedValue(undefined)
   })
 
   // ── Pre-transaction validation ─────────────────────────────────────────────
@@ -587,6 +602,86 @@ describe('AppointmentsService.reschedule', () => {
 
       expect(mockTx.appointment.create).not.toHaveBeenCalled()
       expect(mockTx.appointment.update).not.toHaveBeenCalled()
+    })
+  })
+
+  // ── Branch (sucursal) handling ─────────────────────────────────────────────
+
+  describe('branch handling', () => {
+    it('keeps the original branchId when dto.branchId is omitted', async () => {
+      const mockTx = setupTransactionMock()
+
+      await service.reschedule(TENANT_ID, ORIGINAL_ID, makeDto())
+
+      // resolveBranchId is called with the original.branchId so the
+      // fallback path inside the service has a value to validate.
+      expect(mockBranches.resolveBranchId).toHaveBeenCalledWith(TENANT_ID, ORIGINAL_BRANCH_ID)
+      expect(mockTx.appointment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ branchId: ORIGINAL_BRANCH_ID }),
+        }),
+      )
+    })
+
+    it('honors dto.branchId when explicitly overriding the sucursal', async () => {
+      const mockTx = setupTransactionMock()
+
+      await service.reschedule(TENANT_ID, ORIGINAL_ID, makeDto({ branchId: NEW_BRANCH_ID }))
+
+      expect(mockBranches.resolveBranchId).toHaveBeenCalledWith(TENANT_ID, NEW_BRANCH_ID)
+      expect(mockTx.appointment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ branchId: NEW_BRANCH_ID }),
+        }),
+      )
+    })
+
+    it('verifies the (possibly new) professional atende en la sucursal resuelta', async () => {
+      setupTransactionMock()
+
+      await service.reschedule(
+        TENANT_ID,
+        ORIGINAL_ID,
+        makeDto({ branchId: NEW_BRANCH_ID, professionalId: NEW_PRO_ID }),
+      )
+
+      expect(mockBranches.requireProfessionalInBranch).toHaveBeenCalledWith(NEW_BRANCH_ID, NEW_PRO_ID)
+    })
+
+    it('rejects when target sucursal does not exist or is inactive', async () => {
+      mockBranches.resolveBranchId.mockRejectedValue(
+        new NotFoundException('Sucursal no encontrada o inactiva'),
+      )
+
+      await expect(
+        service.reschedule(TENANT_ID, ORIGINAL_ID, makeDto({ branchId: 'br_alien' })),
+      ).rejects.toThrow(NotFoundException)
+    })
+
+    it('rejects when professional does not atender en la sucursal de destino', async () => {
+      mockBranches.requireProfessionalInBranch.mockRejectedValue(
+        new BadRequestException('El profesional no atiende en esta sucursal'),
+      )
+
+      await expect(
+        service.reschedule(TENANT_ID, ORIGINAL_ID, makeDto({ branchId: NEW_BRANCH_ID })),
+      ).rejects.toThrow(BadRequestException)
+    })
+
+    it('overlap query stays branch-agnostic on reschedule (cross-branch double-booking guard)', async () => {
+      const mockTx = setupTransactionMock()
+
+      await service.reschedule(TENANT_ID, ORIGINAL_ID, makeDto({ branchId: NEW_BRANCH_ID }))
+
+      const countCall = mockTx.appointment.count.mock.calls[0][0]
+      expect(countCall.where).not.toHaveProperty('branchId')
+      expect(countCall.where).toEqual(
+        expect.objectContaining({
+          professionalId: PRO_ID,
+          tenantId:       TENANT_ID,
+          id:             { not: ORIGINAL_ID },
+        }),
+      )
     })
   })
 })

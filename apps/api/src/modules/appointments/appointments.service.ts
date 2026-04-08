@@ -8,6 +8,7 @@ import {
 import { Prisma, AppointmentStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { SchedulesService } from '../schedules/schedules.service'
+import { BranchesService } from '../branches/branches.service'
 import { CreateAppointmentDto } from './dto/create-appointment.dto'
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto'
 
@@ -36,6 +37,7 @@ export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly schedulesService: SchedulesService,
+    private readonly branches: BranchesService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -83,6 +85,12 @@ export class AppointmentsService {
   ) {
     const startAt = new Date(dto.startAt)
 
+    // ── 0. Resolve branch (validates ownership + single-branch fallback) ──
+    // Fail loudly if a multi-branch tenant forgets to send branchId; for
+    // single-branch tenants this falls through to the default branch so
+    // existing clients keep working unchanged.
+    const branchId = await this.branches.resolveBranchId(tenantId, dto.branchId)
+
     // ── 1. Load professional + tenant config ─────────────────────────────
     const professional = await this.prisma.professional.findFirst({
       where: { id: dto.professionalId, tenantId, isActive: true },
@@ -96,6 +104,11 @@ export class AppointmentsService {
     if (!professional.acceptsOnlineBooking) {
       throw new BadRequestException('Este profesional no acepta reservas online')
     }
+
+    // Verify the professional actually atende en esa sucursal — protects
+    // multi-branch tenants from booking a pro at a sucursal where they
+    // don't work.
+    await this.branches.requireProfessionalInBranch(branchId, dto.professionalId)
 
     const { tenant } = professional
     const rules    = tenant.scheduleRules
@@ -195,6 +208,7 @@ export class AppointmentsService {
           return tx.appointment.create({
             data: {
               tenantId,
+              branchId,
               clientId:       resolvedClientId,
               professionalId: dto.professionalId,
               status,
@@ -316,6 +330,19 @@ export class AppointmentsService {
     })
     if (!professional) throw new NotFoundException('Profesional no encontrado')
 
+    // Resolve branch for the rescheduled appointment.
+    //
+    // Precedence:
+    //   1. dto.branchId (explicit override — caller wants a different sucursal)
+    //   2. original.branchId (most common: same sucursal, just a new time)
+    //   3. resolveBranchId fallback (single-branch tenant default)
+    //
+    // After phase 2 the database guarantees original.branchId is non-null,
+    // but during phase 1 we still have to tolerate null and fall back.
+    const requestedBranchId = dto.branchId ?? original.branchId ?? undefined
+    const newBranchId = await this.branches.resolveBranchId(tenantId, requestedBranchId)
+    await this.branches.requireProfessionalInBranch(newBranchId, newProfessionalId)
+
     const rules   = professional.tenant.scheduleRules
     const startAt = new Date(dto.startAt)
 
@@ -393,6 +420,7 @@ export class AppointmentsService {
           const created = await tx.appointment.create({
             data: {
               tenantId,
+              branchId:          newBranchId,
               clientId:          original.clientId,
               professionalId:    newProfessionalId,
               status,
@@ -536,7 +564,10 @@ export class AppointmentsService {
   // Read helpers
   // ─────────────────────────────────────────────────────────────────────────
 
-  async findAll(tenantId: string, filters?: { professionalId?: string; date?: string; from?: string; to?: string }) {
+  async findAll(
+    tenantId: string,
+    filters?: { professionalId?: string; branchId?: string; date?: string; from?: string; to?: string },
+  ) {
     // Build date filter: prefer from/to range, fallback to single date
     let dateFilter: Record<string, unknown> | undefined
     if (filters?.from && filters?.to) {
@@ -559,6 +590,11 @@ export class AppointmentsService {
       where: {
         tenantId,
         ...(filters?.professionalId && { professionalId: filters.professionalId }),
+        // branchId is intentionally NOT auto-resolved here: the agenda
+        // endpoint may legitimately want to see appointments across all
+        // sucursales (admin overview). Pass branchId only when the caller
+        // wants to scope the agenda to a single sucursal.
+        ...(filters?.branchId && { branchId: filters.branchId }),
         ...dateFilter,
       },
       include: {

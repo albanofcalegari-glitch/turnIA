@@ -20,13 +20,15 @@ export interface AvailableSlot {
 }
 
 export type UnavailableReason =
-  | 'NOT_WORKING'      // professional has no schedule for this day
+  | 'NOT_WORKING'      // professional has no schedule for this day at this branch
   | 'EXCEPTION_BLOCK'  // full-day exception (vacation, holiday, manual block)
   | 'FULLY_BLOCKED'    // schedule exists but all slots are taken
 
 export interface SlotsResponse {
   date:               string           // YYYY-MM-DD (local to tenant timezone)
   professionalId:     string
+  /** Branch (sucursal) the slots were computed for. Always set in phase 2. */
+  branchId:           string
   timezone:           string
   totalDurationMinutes: number
   slotIntervalMinutes:  number

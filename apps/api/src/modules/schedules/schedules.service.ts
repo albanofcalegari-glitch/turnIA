@@ -19,6 +19,7 @@ import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto'
 import { UpdateWorkScheduleDto } from './dto/update-work-schedule.dto'
 import { CreateScheduleExceptionDto } from './dto/create-schedule-exception.dto'
 import { UpdateScheduleExceptionDto } from './dto/update-schedule-exception.dto'
+import { BranchesService } from '../branches/branches.service'
 
 /** Active appointment statuses that block calendar time */
 const BLOCKING_STATUSES: AppointmentStatus[] = [
@@ -34,16 +35,23 @@ const FULL_DAY_BLOCK_TYPES: ExceptionType[] = [
 
 @Injectable()
 export class SchedulesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly branches: BranchesService,
+  ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
   // WorkSchedule — CRUD
   // ─────────────────────────────────────────────────────────────────────────
 
-  async getWorkSchedule(professionalId: string) {
+  async getWorkSchedule(professionalId: string, branchId?: string) {
     return this.prisma.workSchedule.findMany({
-      where:   { professionalId, isActive: true },
-      orderBy: { dayOfWeek: 'asc' },
+      where:   {
+        professionalId,
+        isActive: true,
+        ...(branchId && { branchId }),
+      },
+      orderBy: [{ branchId: 'asc' }, { dayOfWeek: 'asc' }],
     })
   }
 
@@ -66,18 +74,26 @@ export class SchedulesService {
 
     this.validateTimeRange(dto.startTime, dto.endTime)
 
+    // Resolve branch (validates ownership + single-branch fallback) and
+    // verify the professional actually atende en esa sucursal.
+    const branchId = await this.branches.resolveBranchId(tenantId, dto.branchId)
+    await this.branches.requireProfessionalInBranch(branchId, professional.id)
+
+    // Uniqueness is per (branchId, professionalId, dayOfWeek): the same pro
+    // can have different hours on the same weekday at different sucursales.
     const existing = await this.prisma.workSchedule.findFirst({
-      where: { professionalId: professional.id, dayOfWeek: dto.dayOfWeek },
+      where: { professionalId: professional.id, branchId, dayOfWeek: dto.dayOfWeek },
     })
     if (existing) {
       throw new ConflictException(
-        `Ya existe un horario laboral para el día ${dto.dayOfWeek} (id: ${existing.id}). Usá PATCH para actualizarlo.`,
+        `Ya existe un horario laboral para el día ${dto.dayOfWeek} en esta sucursal (id: ${existing.id}). Usá PATCH para actualizarlo.`,
       )
     }
 
     return this.prisma.workSchedule.create({
       data: {
         tenantId:       tenantId,
+        branchId,
         professionalId: professional.id,
         dayOfWeek:      dto.dayOfWeek,
         startTime:      dto.startTime,
@@ -261,7 +277,13 @@ export class SchedulesService {
     professionalId: string,
     date:           string,   // YYYY-MM-DD in tenant's local timezone
     serviceIds:     string[], // ordered — determines booking sequence
+    requestedBranchId?: string,
   ): Promise<SlotsResponse> {
+
+    // ── 0. Resolve branch (validates ownership + single-branch fallback) ───
+    // For multi-branch tenants the caller must send branchId; for single-
+    // branch tenants we transparently fall back to the only active branch.
+    const branchId = await this.branches.resolveBranchId(tenantId, requestedBranchId)
 
     // ── 1. Load professional + tenant ──────────────────────────────────────
     const professional = await this.prisma.professional.findFirst({
@@ -273,6 +295,11 @@ export class SchedulesService {
       },
     })
     if (!professional) throw new NotFoundException('Profesional no encontrado')
+
+    // Verify the professional actually atende en esta sucursal — otherwise
+    // a multi-branch tenant could query slots for a pro that doesn't work
+    // here and silently get an empty set, masking the misconfiguration.
+    await this.branches.requireProfessionalInBranch(branchId, professionalId)
 
     const { tenant }       = professional
     const timezone         = tenant.timezone
@@ -294,18 +321,25 @@ export class SchedulesService {
     // ── 4. Determine working window for this date ──────────────────────────
     const dayOfWeek = this.getDayOfWeek(date, timezone) // 0=Sun … 6=Sat
 
+    // WorkSchedule lookup is BRANCH-scoped: the same professional can have
+    // different hours per sucursal, so we filter by (professionalId,
+    // branchId, dayOfWeek). Phase 1 backfilled branchId on every existing
+    // row to the tenant's default branch, so this is safe across both phases.
     const schedule = await this.prisma.workSchedule.findFirst({
-      where: { professionalId, dayOfWeek, isActive: true },
+      where: { professionalId, branchId, dayOfWeek, isActive: true },
     })
 
     if (!schedule) {
-      return this.buildEmptyResponse(date, professionalId, timezone, totalDurationMins, slotIntervalMins, services, 'NOT_WORKING')
+      return this.buildEmptyResponse(date, professionalId, branchId, timezone, totalDurationMins, slotIntervalMins, services, 'NOT_WORKING')
     }
 
     let workStartMins = this.timeToMinutes(schedule.startTime)
     let workEndMins   = this.timeToMinutes(schedule.endTime)
 
     // ── 5. Check schedule exceptions ──────────────────────────────────────
+    // ScheduleException stays personal to the professional (no branchId):
+    // a vacation or holiday applies across every sucursal where the pro
+    // works. Same goes for partial-day blocks (a sick afternoon).
     const exceptions = await this.prisma.scheduleException.findMany({
       where: {
         professionalId,
@@ -322,7 +356,7 @@ export class SchedulesService {
         FULL_DAY_BLOCK_TYPES.includes(ex.type) ||
         (ex.type === ExceptionType.BLOCK && !ex.startTime && !ex.endTime)
       ) {
-        return this.buildEmptyResponse(date, professionalId, timezone, totalDurationMins, slotIntervalMins, services, 'EXCEPTION_BLOCK')
+        return this.buildEmptyResponse(date, professionalId, branchId, timezone, totalDurationMins, slotIntervalMins, services, 'EXCEPTION_BLOCK')
       }
 
       // Custom hours override the work schedule for this specific date
@@ -333,7 +367,13 @@ export class SchedulesService {
     }
 
     // ── 6. Collect busy intervals ──────────────────────────────────────────
-    // Query appointments that overlap the requested day (in UTC)
+    // Query appointments that overlap the requested day (in UTC).
+    //
+    // CRITICAL: this query is intentionally BRANCH-AGNOSTIC. The same
+    // physical professional cannot be in two branches at once, so an
+    // appointment they have at branch A must block their slots at branch B
+    // for that same time window. Filtering by branchId here would re-introduce
+    // the cross-branch double-booking bug we explicitly designed against.
     const dayStartUtc = this.localToUtc(date, '00:00', timezone)
     const dayEndUtc   = this.localToUtc(date, '23:59', timezone)
 
@@ -392,6 +432,7 @@ export class SchedulesService {
     return {
       date,
       professionalId,
+      branchId,
       timezone,
       totalDurationMinutes: totalDurationMins,
       slotIntervalMinutes:  slotIntervalMins,
@@ -663,6 +704,7 @@ export class SchedulesService {
   private buildEmptyResponse(
     date:               string,
     professionalId:     string,
+    branchId:           string,
     timezone:           string,
     totalDurationMins:  number,
     slotIntervalMins:   number,
@@ -672,6 +714,7 @@ export class SchedulesService {
     return {
       date,
       professionalId,
+      branchId,
       timezone,
       totalDurationMinutes: totalDurationMins,
       slotIntervalMinutes:  slotIntervalMins,

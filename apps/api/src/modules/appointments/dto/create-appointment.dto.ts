@@ -19,6 +19,17 @@ export class AppointmentItemDto {
 }
 
 export class CreateAppointmentDto {
+  /**
+   * Branch (sucursal) where the appointment will take place.
+   * Optional: when omitted the API falls back to the tenant's only active
+   * branch (single-location tenants get this for free, no UI changes).
+   * Multi-branch tenants MUST send this — otherwise the request is rejected
+   * with 400.
+   */
+  @IsOptional()
+  @IsString()
+  branchId?: string
+
   /** Professional to book with (must belong to the same tenant). */
   @IsString()
   professionalId!: string

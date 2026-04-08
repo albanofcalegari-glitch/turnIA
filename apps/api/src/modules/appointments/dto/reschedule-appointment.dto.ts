@@ -18,6 +18,16 @@ export class RescheduleAppointmentDto {
   startAt!: string
 
   /**
+   * Override the branch (sucursal) for the rescheduled appointment.
+   * When omitted the original appointment's branch is kept.
+   * Useful when a multi-branch professional moves a booking to a
+   * different sucursal as part of the reschedule.
+   */
+  @IsOptional()
+  @IsString()
+  branchId?: string
+
+  /**
    * Override the professional for the rescheduled appointment.
    * When omitted the original professional is kept.
    */

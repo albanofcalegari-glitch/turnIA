@@ -81,11 +81,12 @@ export class AppointmentsController {
   findAll(
     @TenantId() tenantId: string,
     @Query('professionalId') professionalId?: string,
+    @Query('branchId') branchId?: string,
     @Query('date') date?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.appointmentsService.findAll(tenantId, { professionalId, date, from, to })
+    return this.appointmentsService.findAll(tenantId, { professionalId, branchId, date, from, to })
   }
 
   @Get(':id')

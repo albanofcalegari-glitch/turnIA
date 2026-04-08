@@ -47,10 +47,12 @@ export class SchedulesController {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * GET /schedules/:professionalId/slots?date=YYYY-MM-DD&serviceIds=id1,id2
+   * GET /schedules/:professionalId/slots?date=YYYY-MM-DD&serviceIds=id1,id2&branchId=...
    *
    * Public — no JWT required. Supports the guest booking flow.
-   * Returns all available start times for the given professional, date, and services.
+   * Returns all available start times for the given professional, date,
+   * services and (optionally) sucursal. Single-branch tenants can omit
+   * branchId; multi-branch tenants MUST send it.
    */
   @Get(':professionalId/slots')
   getAvailableSlots(
@@ -63,6 +65,7 @@ export class SchedulesController {
       professionalId,
       query.date,
       query.serviceIds,
+      query.branchId,
     )
   }
 
@@ -71,13 +74,17 @@ export class SchedulesController {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * GET /schedules/:professionalId/work-schedule
-   * Returns the active recurring weekly schedule for a professional.
+   * GET /schedules/:professionalId/work-schedule?branchId=...
+   * Returns the active recurring weekly schedule for a professional,
+   * optionally filtered by sucursal.
    */
   @Get(':professionalId/work-schedule')
   @UseGuards(JwtAuthGuard)
-  getWorkSchedule(@Param('professionalId') professionalId: string) {
-    return this.schedulesService.getWorkSchedule(professionalId)
+  getWorkSchedule(
+    @Param('professionalId') professionalId: string,
+    @Query('branchId')       branchId?:      string,
+  ) {
+    return this.schedulesService.getWorkSchedule(professionalId, branchId)
   }
 
   /**

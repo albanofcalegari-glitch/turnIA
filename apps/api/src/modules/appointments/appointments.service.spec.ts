@@ -9,6 +9,7 @@ import { Prisma, AppointmentStatus } from '@prisma/client'
 import { AppointmentsService } from './appointments.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { SchedulesService } from '../schedules/schedules.service'
+import { BranchesService } from '../branches/branches.service'
 import { CreateAppointmentDto } from './dto/create-appointment.dto'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20,6 +21,8 @@ const PRO_ID     = 'pro_001'
 const USER_ID    = 'usr_client'   // JWT sub / User entity ID
 const CLIENT_ID  = 'cli_001'      // Client entity ID (CRM record)
 const SVC_ID     = 'svc_001'
+const BRANCH_ID  = 'br_default'   // Resolved by BranchesService.resolveBranchId
+const OTHER_BRANCH_ID = 'br_other'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Factories
@@ -128,6 +131,10 @@ describe('AppointmentsService.create', () => {
     resolveServices:      jest.fn(),
     computeTotalDuration: jest.fn(),
   }
+  const mockBranches = {
+    resolveBranchId:             jest.fn(),
+    requireProfessionalInBranch: jest.fn(),
+  }
 
   /**
    * Builds a mock $transaction that calls the callback with a tx object.
@@ -167,8 +174,9 @@ describe('AppointmentsService.create', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentsService,
-        { provide: PrismaService,   useValue: mockPrisma    },
+        { provide: PrismaService,    useValue: mockPrisma    },
         { provide: SchedulesService, useValue: mockSchedules },
+        { provide: BranchesService,  useValue: mockBranches  },
       ],
     }).compile()
 
@@ -181,6 +189,10 @@ describe('AppointmentsService.create', () => {
     mockPrisma.user.findUnique.mockResolvedValue(makeUser())
     mockSchedules.resolveServices.mockResolvedValue(makeServices())
     mockSchedules.computeTotalDuration.mockReturnValue(TOTAL_MINUTES)
+    // BranchesService default: single-branch fallback resolves to the
+    // tenant default; pro is linked to that branch.
+    mockBranches.resolveBranchId.mockResolvedValue(BRANCH_ID)
+    mockBranches.requireProfessionalInBranch.mockResolvedValue(undefined)
   })
 
   // ── Pre-transaction validation failures ───────────────────────────────────
@@ -694,6 +706,98 @@ describe('AppointmentsService.create', () => {
       expect((result2 as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException)
     })
 
+  })
+
+  // ── Branch (sucursal) handling ────────────────────────────────────────────
+
+  describe('branch handling', () => {
+    const dtoWithBranch = (branchId?: string) => makeDto({ branchId })
+
+    it('resolves branch via BranchesService and persists branchId on insert', async () => {
+      const dto    = dtoWithBranch(BRANCH_ID)
+      const mockTx = setupTransactionMock(0, makeCreatedAppointment(new Date(dto.startAt)))
+
+      await service.create(TENANT_ID, USER_ID, dto)
+
+      expect(mockBranches.resolveBranchId).toHaveBeenCalledWith(TENANT_ID, BRANCH_ID)
+      expect(mockTx.appointment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ branchId: BRANCH_ID }),
+        }),
+      )
+    })
+
+    it('falls back to single active branch when dto.branchId is omitted', async () => {
+      // The default mock already returns BRANCH_ID for an undefined input —
+      // this mirrors the single-branch tenant scenario.
+      const dto = dtoWithBranch(undefined)
+      setupTransactionMock(0, makeCreatedAppointment(new Date(dto.startAt)))
+
+      await service.create(TENANT_ID, USER_ID, dto)
+
+      expect(mockBranches.resolveBranchId).toHaveBeenCalledWith(TENANT_ID, undefined)
+    })
+
+    it('rejects when BranchesService.resolveBranchId throws (multi-branch + no branchId)', async () => {
+      mockBranches.resolveBranchId.mockRejectedValue(
+        new BadRequestException('Debés especificar la sucursal (branchId)'),
+      )
+
+      await expect(service.create(TENANT_ID, USER_ID, dtoWithBranch(undefined)))
+        .rejects.toThrow(BadRequestException)
+    })
+
+    it('rejects with NotFoundException when branchId belongs to another tenant', async () => {
+      mockBranches.resolveBranchId.mockRejectedValue(
+        new NotFoundException('Sucursal no encontrada o inactiva'),
+      )
+
+      await expect(service.create(TENANT_ID, USER_ID, dtoWithBranch('br_alien')))
+        .rejects.toThrow(NotFoundException)
+    })
+
+    it('rejects when professional does not atender en esa sucursal', async () => {
+      mockBranches.requireProfessionalInBranch.mockRejectedValue(
+        new BadRequestException('El profesional no atiende en esta sucursal'),
+      )
+
+      await expect(service.create(TENANT_ID, USER_ID, dtoWithBranch(OTHER_BRANCH_ID)))
+        .rejects.toThrow(BadRequestException)
+    })
+
+    it('overlap query stays branch-agnostic (cross-branch double-booking guard)', async () => {
+      // CRITICAL: even though we resolved a specific branchId, the overlap
+      // count must NOT filter by branchId — the same physical pro cannot
+      // be in two sucursales at once.
+      const dto    = dtoWithBranch(BRANCH_ID)
+      const mockTx = setupTransactionMock(0, makeCreatedAppointment(new Date(dto.startAt)))
+
+      await service.create(TENANT_ID, USER_ID, dto)
+
+      const countCall = mockTx.appointment.count.mock.calls[0][0]
+      expect(countCall.where).not.toHaveProperty('branchId')
+      expect(countCall.where).toEqual(
+        expect.objectContaining({
+          professionalId: PRO_ID,
+          tenantId:       TENANT_ID,
+        }),
+      )
+    })
+
+    it('returns ConflictException when the same pro is already booked at another branch (overlap > 0)', async () => {
+      // Simulates: pro_001 has an existing appointment at OTHER_BRANCH_ID
+      // overlapping the requested time. Even though the new booking is at
+      // BRANCH_ID, the count finds it because the query is branch-agnostic.
+      setupTransactionMock(1, null)
+
+      await expect(service.create(TENANT_ID, USER_ID, dtoWithBranch(BRANCH_ID)))
+        .rejects.toThrow(ConflictException)
+    })
+  })
+
+  // ── Concurrent booking simulation (continued) ─────────────────────────────
+
+  describe('concurrent booking simulation (extended)', () => {
     it('only one booking succeeds when two overlapping slots race (SERIALIZABLE conflict)', async () => {
       const dto1 = makeDto()
       const dto2 = makeDto({

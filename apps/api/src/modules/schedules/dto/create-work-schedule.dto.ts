@@ -1,9 +1,19 @@
-import { IsBoolean, IsInt, IsOptional, Matches, Max, Min } from 'class-validator'
+import { IsBoolean, IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator'
 
 /** Regex for "HH:MM" 24-hour time format (00:00 – 23:59). */
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export class CreateWorkScheduleDto {
+  /**
+   * Branch (sucursal) where this schedule applies.
+   * Optional: when omitted the API falls back to the tenant's only active
+   * branch. Multi-branch tenants MUST send this so a professional can
+   * legitimately have different hours per sucursal.
+   */
+  @IsOptional()
+  @IsString()
+  branchId?: string
+
   /**
    * Day of week: 0 = Sunday, 1 = Monday … 6 = Saturday.
    * Matches the JavaScript Date.getDay() convention.

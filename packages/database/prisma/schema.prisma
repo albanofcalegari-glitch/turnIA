@@ -24,10 +24,15 @@ model Tenant {
   isActive             Boolean   @default(true)
   plan                 String    @default("free") // free | starter | pro
   membershipExpiresAt  DateTime? // null = sin vencimiento (plan free o lifetime)
+  /// Stage 1 (branches): drives whether the UI exposes branch selection.
+  /// Single-branch tenants keep this false and never see branch UI; the
+  /// default branch still exists in the DB to satisfy NOT NULL FKs.
+  hasMultipleBranches  Boolean   @default(false)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
   users              TenantUser[]
+  branches           Branch[]
   services           Service[]
   categories         ServiceCategory[]
   professionals      Professional[]
@@ -40,6 +45,70 @@ model Tenant {
   scheduleExceptions ScheduleException[]
 
   @@map("tenants")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BRANCH (sucursal)
+//
+// Stage 1: every tenant has at least one Branch (the default one created at
+// onboarding). Single-location tenants leave Tenant.hasMultipleBranches=false
+// and the UI hides every branch concept; the row still exists so that
+// branchId FKs on WorkSchedule / Appointment / Resource are well-defined.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Branch {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  slug      String   // unique per tenant — used in admin UI and (future) URLs
+  address   String?
+  phone     String?
+  timezone  String?  // null → inherits Tenant.timezone
+  isActive  Boolean  @default(true)
+  isDefault Boolean  @default(false) // exactly one default per tenant (enforced at app layer)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  professionals       ProfessionalBranch[]
+  serviceAvailability ServiceBranch[]
+  workSchedules       WorkSchedule[]
+  appointments        Appointment[]
+  resources           Resource[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, isActive])
+  @@map("branches")
+}
+
+// Join: which branches a professional works at. M:N because the same
+// physical professional may rotate across multiple sucursales.
+model ProfessionalBranch {
+  professionalId String
+  branchId       String
+  createdAt      DateTime @default(now())
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([professionalId, branchId])
+  @@index([branchId])
+  @@map("professional_branches")
+}
+
+// Join: opt-in restriction list. NO rows for a service ⇒ available everywhere.
+// This way single-branch tenants and existing services need zero rows here.
+model ServiceBranch {
+  serviceId String
+  branchId  String
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, branchId])
+  @@index([branchId])
+  @@map("service_branches")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,6 +208,7 @@ model Service {
   professionals    ProfessionalService[]
   appointmentItems AppointmentItem[]
   serviceResources ServiceResource[]
+  branches         ServiceBranch[]
 
   @@map("services")
 }
@@ -166,6 +236,7 @@ model Professional {
   schedules    WorkSchedule[]
   exceptions   ScheduleException[]
   appointments Appointment[]
+  branches     ProfessionalBranch[]
 
   @@map("professionals")
 }
@@ -197,6 +268,10 @@ model ProfessionalService {
 model WorkSchedule {
   id             String   @id @default(cuid())
   tenantId       String   // agregado en Stage 1
+  /// Stage 1 (branches) — phase 2: NOT NULL + uniqueness moved to
+  /// (branchId, professionalId, dayOfWeek) so the same pro can have
+  /// different hours per sucursal on the same weekday.
+  branchId       String
   professionalId String
   dayOfWeek      Int      // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
   startTime      String   // "09:00" — migrar a @db.Time en Etapa 2 previa validación
@@ -206,11 +281,14 @@ model WorkSchedule {
   updatedAt      DateTime @updatedAt      // agregado en Stage 1
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
   professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
-  // Un profesional no puede tener dos entradas para el mismo día de semana
-  @@unique([tenantId, professionalId, dayOfWeek])
+  // A pro can have one weekly entry per (branch, day). Phase 2 dropped the
+  // tenant-scoped unique key in favour of this branch-scoped one.
+  @@unique([branchId, professionalId, dayOfWeek])
   @@index([tenantId, professionalId])
+  @@index([branchId])
   @@map("work_schedules")
 }
 
@@ -253,6 +331,10 @@ enum ExceptionType {
 model Appointment {
   id                 String            @id @default(cuid())
   tenantId           String
+  /// Stage 1 (branches) — phase 2: NOT NULL. Every appointment is anchored
+  /// to exactly one sucursal; the slot engine and create/reschedule writes
+  /// guarantee a value at insert time.
+  branchId           String
   clientId           String?           // FK → Client
   professionalId     String
   status             AppointmentStatus @default(PENDING)
@@ -280,6 +362,7 @@ model Appointment {
   updatedAt          DateTime          @updatedAt
 
   tenant               Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch               Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
   client               Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
   professional         Professional         @relation(fields: [professionalId], references: [id])
   items                AppointmentItem[]
@@ -288,6 +371,7 @@ model Appointment {
   @@index([tenantId, startAt])
   @@index([tenantId, status, startAt]) // agregado en Stage 1 — dashboard queries
   @@index([professionalId, startAt])
+  @@index([branchId, startAt])         // agregado en Stage 1 (branches) — agenda por sede
   @@index([clientId])
   @@map("appointments")
 }
@@ -331,6 +415,10 @@ model AppointmentItem {
 model Resource {
   id          String   @id @default(cuid())
   tenantId    String
+  /// Stage 1 (branches) — phase 2: NOT NULL. Resources (cabinas, sillas,
+  /// salas, equipos) are physical assets and always live at exactly one
+  /// sucursal.
+  branchId    String
   name        String
   type        String   // → migrar a resourceTypeId FK en Etapa 2
   description String?  // agregado en Stage 1
@@ -340,9 +428,11 @@ model Resource {
   updatedAt   DateTime @updatedAt      // agregado en Stage 1
 
   tenant               Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch               Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
   services             ServiceResource[]
   appointmentResources AppointmentResource[] // agregado en Stage 1
 
+  @@index([branchId])
   @@map("resources")
 }
 

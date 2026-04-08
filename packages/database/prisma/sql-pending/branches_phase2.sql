@@ -1,0 +1,12 @@
+-- ─────────────────────────────────────────────────────────────────────────────
+-- DEPRECATED — superseded by a real Prisma migration.
+--
+-- The contents of this file have been moved to:
+--   prisma/migrations/20260407120100_add_branches_phase2/migration.sql
+--
+-- Run `npx prisma migrate dev` (or `prisma migrate deploy` in CI/prod) to
+-- apply both phases atomically. This file is kept only as a historical
+-- record of the staged-SQL approach we used during phase 1 development;
+-- do NOT execute it manually anymore — it will collide with the migration
+-- that Prisma now applies on its own.
+-- ─────────────────────────────────────────────────────────────────────────────

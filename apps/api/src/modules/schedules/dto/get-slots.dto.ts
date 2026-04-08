@@ -1,4 +1,4 @@
-import { IsDateString, IsArray, IsString, ArrayMinSize } from 'class-validator'
+import { IsDateString, IsArray, IsString, IsOptional, ArrayMinSize } from 'class-validator'
 import { Transform } from 'class-transformer'
 
 export class GetSlotsDto {
@@ -22,4 +22,15 @@ export class GetSlotsDto {
   @ArrayMinSize(1)
   @IsString({ each: true })
   serviceIds!: string[]
+
+  /**
+   * Branch (sucursal) at which the booking will take place.
+   * Optional for single-branch tenants: when omitted the API falls back to
+   * the tenant's only active branch (BranchesService.resolveBranchId).
+   * Multi-branch tenants MUST send this — otherwise the request fails with
+   * 400 because there is no unambiguous default to choose.
+   */
+  @IsOptional()
+  @IsString()
+  branchId?: string
 }
