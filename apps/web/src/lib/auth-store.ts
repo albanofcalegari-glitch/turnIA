@@ -19,6 +19,8 @@ export interface UserSession {
   /** Membership state — used to block the dashboard when SuperAdmin deactivates the tenant. */
   tenantIsActive:            boolean | null
   tenantMembershipExpiresAt: string | null
+  /** Stage 1 (branches): drives whether the dashboard exposes the Sucursales nav item. */
+  tenantHasMultipleBranches: boolean
   role:           string | null
 }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { apiClient, ApiError } from '@/lib/api'
 import {
   Tenant,
+  Branch,
   Service,
   Professional,
   AvailableSlot,
@@ -23,6 +24,7 @@ import {
 export function useBooking(tenantSlug: string) {
   // ── Initial data (fetched once on mount) ──────────────────────────────────
   const [tenant,        setTenant]        = useState<Tenant | null>(null)
+  const [branches,      setBranches]      = useState<Branch[]>([])
   const [services,      setServices]      = useState<Service[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [initLoading,   setInitLoading]   = useState(true)
@@ -62,12 +64,28 @@ export function useBooking(tenantSlug: string) {
         // BookingFlow will show a "temporalmente no disponible" screen.
         if (!t.isActive) return
 
-        const [svcs, pros] = await Promise.all([
+        const [svcs, pros, brs] = await Promise.all([
           apiClient.getServices(t.id),
           apiClient.getProfessionals(t.id),
+          apiClient.getBranches(t.id),
         ])
         setServices(svcs.filter(s => s.isPublic))
         setProfessionals(pros.filter(p => p.acceptsOnlineBooking))
+        setBranches(brs)
+
+        // Stage 1 (branches): decide whether the booking flow needs to ASK
+        // the user to pick a sucursal. The branch step is shown only when
+        // the tenant declared multi-branch AND there's actually >1 active
+        // branch. In every other case (single-branch tenant, multi-branch
+        // tenant with one active branch only) we auto-pick the first branch
+        // — usually the default one — and start at the services step as
+        // before. The backend's resolveBranchId fallback handles the rest.
+        const needsBranchPick = t.hasMultipleBranches && brs.length > 1
+        if (needsBranchPick) {
+          setState(s => ({ ...s, step: 'branch' }))
+        } else if (brs.length > 0) {
+          setState(s => ({ ...s, selectedBranch: brs[0] }))
+        }
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           // Tenant no existe
@@ -87,6 +105,7 @@ export function useBooking(tenantSlug: string) {
     proId:         string,
     date:          string,
     svcList:       Service[],
+    branchId:      string | null,
   ) => {
     setSlotsLoading(true)
     setSlotsError(null)
@@ -97,10 +116,18 @@ export function useBooking(tenantSlug: string) {
         proId,
         date,
         svcList.map(s => s.id),
+        branchId,
       )
       setSlotsResponse(res)
-    } catch {
-      setSlotsError('No se pudieron cargar los horarios. Intentá de nuevo.')
+    } catch (err) {
+      // The backend returns 400 "El profesional no atiende en esta sucursal"
+      // when the chosen pro isn't linked to the selected branch. Surface that
+      // exact message so the user knows to pick a different professional.
+      if (err instanceof ApiError && err.status === 400) {
+        setSlotsError(err.message)
+      } else {
+        setSlotsError('No se pudieron cargar los horarios. Intentá de nuevo.')
+      }
     } finally {
       setSlotsLoading(false)
     }
@@ -110,9 +137,13 @@ export function useBooking(tenantSlug: string) {
   // Step navigation
   // ─────────────────────────────────────────────────────────────────────────
 
-  const STEP_ORDER: BookingStep[] = [
-    'services', 'professional', 'date', 'slots', 'details',
-  ]
+  // The branch step is only present when the tenant has multiple sucursales
+  // AND there's actually >1 active branch. We compute STEP_ORDER dynamically
+  // so single-branch tenants never have to step through (or back into) it.
+  const showBranchStep = !!tenant?.hasMultipleBranches && branches.length > 1
+  const STEP_ORDER: BookingStep[] = showBranchStep
+    ? ['branch', 'services', 'professional', 'date', 'slots', 'details']
+    : ['services', 'professional', 'date', 'slots', 'details']
 
   function goBack() {
     const idx = STEP_ORDER.indexOf(state.step)
@@ -135,6 +166,23 @@ export function useBooking(tenantSlug: string) {
     if (idx > 0) {
       update({ step: STEP_ORDER[idx - 1] })
     }
+  }
+
+  // ── Step 0 (optional): Select branch ─────────────────────────────────────
+  function selectBranch(branch: Branch) {
+    // Picking a different branch wipes any service/pro/slot picks because the
+    // pool of professionals + their availability is sucursal-scoped on the
+    // backend. Keeping stale picks around would just produce 400s downstream.
+    update({
+      selectedBranch:       branch,
+      selectedServices:     [],
+      selectedProfessional: null,
+      selectedDate:         '',
+      selectedSlot:         null,
+      currentServiceIndex:  0,
+      serviceBookings:      [],
+      step:                 'services',
+    })
   }
 
   // ── Step 1: Toggle service selection ─────────────────────────────────────
@@ -170,7 +218,13 @@ export function useBooking(tenantSlug: string) {
       : state.selectedServices
 
     update({ selectedDate: date, selectedSlot: null, step: 'slots' })
-    fetchSlots(tenant.id, state.selectedProfessional.id, date, svcList)
+    fetchSlots(
+      tenant.id,
+      state.selectedProfessional.id,
+      date,
+      svcList,
+      state.selectedBranch?.id ?? null,
+    )
   }
 
   // ── Step 4: Select slot ───────────────────────────────────────────────────
@@ -218,7 +272,13 @@ export function useBooking(tenantSlug: string) {
     const svcList = isMultiService && currentService
       ? [currentService]
       : state.selectedServices
-    fetchSlots(tenant.id, state.selectedProfessional.id, state.selectedDate, svcList)
+    fetchSlots(
+      tenant.id,
+      state.selectedProfessional.id,
+      state.selectedDate,
+      svcList,
+      state.selectedBranch?.id ?? null,
+    )
   }
 
   // ── Step 5: Update guest info ─────────────────────────────────────────────
@@ -235,6 +295,12 @@ export function useBooking(tenantSlug: string) {
     try {
       const appointments: CreatedAppointment[] = []
 
+      // The same branchId is sent on every appointment in this booking,
+      // because the branch step gates which professionals are even visible
+      // for selection. Single-branch tenants just send undefined (the
+      // backend resolves to the default branch on its own).
+      const branchId = state.selectedBranch?.id
+
       if (isMultiService) {
         // Create one appointment per service booking
         for (const b of state.serviceBookings) {
@@ -246,6 +312,7 @@ export function useBooking(tenantSlug: string) {
             guestName:      state.guestInfo.name,
             guestEmail:     state.guestInfo.email,
             guestPhone:     state.guestInfo.phone || undefined,
+            branchId,
           })
           appointments.push(appt)
         }
@@ -260,6 +327,7 @@ export function useBooking(tenantSlug: string) {
           guestName:      state.guestInfo.name,
           guestEmail:     state.guestInfo.email,
           guestPhone:     state.guestInfo.phone || undefined,
+          branchId,
         })
         appointments.push(appt)
       }
@@ -314,12 +382,14 @@ export function useBooking(tenantSlug: string) {
   return {
     // Data
     tenant,
+    branches,
     services,
     eligibleProfessionals,
     slotsResponse,
     createdAppointment,
     createdAppointments,
     timezone,
+    showBranchStep,
 
     // State
     ...state,
@@ -334,6 +404,7 @@ export function useBooking(tenantSlug: string) {
     submitting,
 
     // Actions
+    selectBranch,
     toggleService,
     confirmServices,
     selectProfessional,

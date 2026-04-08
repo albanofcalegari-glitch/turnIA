@@ -1,4 +1,4 @@
-import type { Tenant, Service, Professional, SlotsResponse, CreatedAppointment } from '@/features/booking/booking.types'
+import type { Tenant, Branch, Service, Professional, SlotsResponse, CreatedAppointment } from '@/features/booking/booking.types'
 import type { Appointment } from '@/features/agenda/agenda.types'
 
 // Profile response from GET /auth/me
@@ -19,8 +19,25 @@ export interface UserProfile {
       timezone:            string
       isActive:            boolean
       membershipExpiresAt: string | null
+      hasMultipleBranches: boolean
     }
   }>
+}
+
+/** Admin view of a branch — includes inactive ones and isActive flag. */
+export interface AdminBranch {
+  id:        string
+  tenantId:  string
+  name:      string
+  slug:      string
+  address:   string | null
+  phone:     string | null
+  timezone:  string | null
+  isDefault: boolean
+  isActive:  boolean
+  order:     number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface GuestAppointment {
@@ -131,6 +148,45 @@ class ApiClient {
   getTenantBySlug = (slug: string) =>
     this.request<Tenant>(`/tenants/${slug}/public`)
 
+  // ── Branches ──────────────────────────────────────────────────────────────
+
+  /**
+   * Public — returns active branches for the current tenant. Used by both
+   * the public booking flow (to render the branch picker step) and the
+   * dashboard (as a lighter-weight read than the admin endpoint).
+   */
+  getBranches = (tenantId: string) =>
+    this.request<Branch[]>('/branches', {
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  /** Admin — returns all branches including inactive ones. */
+  getAllBranches = (tenantId: string) =>
+    this.request<AdminBranch[]>('/branches/admin/all', {
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  createBranch = (tenantId: string, data: object) =>
+    this.request<AdminBranch>('/branches', {
+      method:  'POST',
+      body:    JSON.stringify(data),
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  updateBranch = (tenantId: string, id: string, data: object) =>
+    this.request<AdminBranch>(`/branches/${id}`, {
+      method:  'PATCH',
+      body:    JSON.stringify(data),
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  /** Soft-delete: backend marks isActive=false; default branch can't be removed. */
+  deleteBranch = (tenantId: string, id: string) =>
+    this.request<AdminBranch>(`/branches/${id}`, {
+      method:  'DELETE',
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
   // ── Services (public — no auth required) ─────────────────────────────────
 
   /**
@@ -163,12 +219,24 @@ class ApiClient {
    * @param proId        Professional ID
    * @param date         YYYY-MM-DD in tenant's local timezone
    * @param serviceIds   Ordered list of service IDs to book in sequence
+   * @param branchId     Optional sucursal id. When omitted the backend falls
+   *                     back to the tenant's only active branch (single-branch
+   *                     tenants get this for free).
    */
-  getSlots = (tenantId: string, proId: string, date: string, serviceIds: string[]) =>
-    this.request<SlotsResponse>(
-      `/schedules/${proId}/slots?date=${date}&serviceIds=${serviceIds.join(',')}`,
+  getSlots = (
+    tenantId:    string,
+    proId:       string,
+    date:        string,
+    serviceIds:  string[],
+    branchId?:   string | null,
+  ) => {
+    const params = new URLSearchParams({ date, serviceIds: serviceIds.join(',') })
+    if (branchId) params.set('branchId', branchId)
+    return this.request<SlotsResponse>(
+      `/schedules/${proId}/slots?${params.toString()}`,
       { headers: { 'X-Tenant-ID': tenantId } },
     )
+  }
 
   // ── Work Schedules (admin) ─────────────────────────────────────────────
 

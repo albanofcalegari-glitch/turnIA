@@ -13,6 +13,27 @@ export interface Tenant {
   address:  string | null
   /** When false, the tenant exists but its membership is suspended — bookings are blocked. */
   isActive: boolean
+  /**
+   * Stage 1 (branches): UI hint. When true the booking flow shows a branch
+   * picker step (only if there's actually >1 active branch). When false the
+   * booking flow stays single-sucursal and never mentions branches at all.
+   */
+  hasMultipleBranches: boolean
+}
+
+/**
+ * Public branch info exposed by `GET /branches`. Mirrors the select in
+ * BranchesService.findActiveByTenant.
+ */
+export interface Branch {
+  id:        string
+  name:      string
+  slug:      string
+  address:   string | null
+  phone:     string | null
+  timezone:  string | null
+  isDefault: boolean
+  order:     number
 }
 
 export interface ServiceCategory {
@@ -81,6 +102,7 @@ export interface CreatedAppointment {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type BookingStep =
+  | 'branch'
   | 'services'
   | 'professional'
   | 'date'
@@ -105,6 +127,9 @@ export interface ServiceBooking {
 
 export interface BookingState {
   step:                 BookingStep
+  /** Stage 1 (branches): null until the user picks a branch (or the hook
+   *  auto-picks the only active one for single-branch tenants). */
+  selectedBranch:       Branch | null
   selectedServices:     Service[]
   selectedProfessional: Professional | null
   selectedDate:         string          // YYYY-MM-DD
@@ -119,6 +144,7 @@ export interface BookingState {
 
 export const INITIAL_BOOKING_STATE: BookingState = {
   step:                 'services',
+  selectedBranch:       null,
   selectedServices:     [],
   selectedProfessional: null,
   selectedDate:         '',

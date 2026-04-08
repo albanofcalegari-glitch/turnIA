@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 
@@ -39,6 +40,11 @@ export default function RegisterPage() {
   const [type,         setType]         = useState('peluqueria')
   const [email,        setEmail]        = useState('')
   const [password,     setPassword]     = useState('')
+  // Stage 1 (branches): the owner declares whether the business has multiple
+  // sucursales. If they say yes, they can also name the first branch.
+  // Single-location tenants leave both at default and never see branch UI.
+  const [hasMultipleBranches, setHasMultipleBranches] = useState(false)
+  const [defaultBranchName,   setDefaultBranchName]   = useState('')
   const [loading,      setLoading]      = useState(false)
   const [error,        setError]        = useState<string | null>(null)
 
@@ -76,6 +82,13 @@ export default function RegisterPage() {
         adminPassword:  password,
         adminFirstName: firstName.trim(),
         adminLastName:  lastName.trim(),
+        hasMultipleBranches,
+        // Only send the custom branch name when the owner declared multi-branch
+        // AND actually typed something. Otherwise let the backend default to
+        // "Sucursal principal".
+        defaultBranchName: hasMultipleBranches && defaultBranchName.trim()
+          ? defaultBranchName.trim()
+          : undefined,
       })
 
       // 2. Auto-login with the new credentials
@@ -182,6 +195,56 @@ export default function RegisterPage() {
                   <option key={bt.value} value={bt.value}>{bt.label}</option>
                 ))}
               </select>
+            </div>
+
+            {/* ── Multi-branch question ──────────────────────────────────── */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                ¿Tu negocio tiene varias sucursales?
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setHasMultipleBranches(false)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
+                    !hasMultipleBranches
+                      ? 'border-brand-500 bg-brand-50 text-brand-700'
+                      : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50',
+                  )}
+                >
+                  No, una sola
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHasMultipleBranches(true)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
+                    hasMultipleBranches
+                      ? 'border-brand-500 bg-brand-50 text-brand-700'
+                      : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50',
+                  )}
+                >
+                  Sí, varias
+                </button>
+              </div>
+              {hasMultipleBranches && (
+                <div className="mt-3">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    Nombre de la sucursal principal
+                  </label>
+                  <input
+                    type="text"
+                    value={defaultBranchName}
+                    onChange={e => setDefaultBranchName(e.target.value)}
+                    placeholder="Ej: Sucursal Centro"
+                    className={inputCls}
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Después podés agregar más sucursales desde el panel.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Email */}

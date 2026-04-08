@@ -23,15 +23,15 @@ export class TenantsService {
           slug:     dto.slug,
           type:     dto.type,
           timezone: dto.timezone ?? 'America/Argentina/Buenos_Aires',
+          // Stage 1 (branches): the owner declares this at registration. The
+          // flag drives whether the dashboard exposes the branch UI; the
+          // default branch row below exists either way so branchId FKs on
+          // appointments / work_schedules / resources stay satisfiable.
+          hasMultipleBranches: dto.hasMultipleBranches ?? false,
           scheduleRules: { create: {} },
-          // Stage 1 (branches): every tenant is born with exactly one
-          // default branch. Single-location tenants will never see this
-          // surfaced in the UI (Tenant.hasMultipleBranches stays false),
-          // but the row exists so that branchId FKs on appointments,
-          // work_schedules and resources are always satisfiable.
           branches: {
             create: {
-              name:      'Sucursal principal',
+              name:      dto.defaultBranchName?.trim() || 'Sucursal principal',
               slug:      'principal',
               address:   null,
               phone:     null,

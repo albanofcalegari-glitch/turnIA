@@ -3,15 +3,32 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff } from 'lucide-react'
+import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 
-const NAV = [
+interface NavItem {
+  href: string
+  label: string
+  icon: typeof Calendar
+  /** When set, the item is only rendered if the predicate returns true. */
+  show?: (user: { tenantHasMultipleBranches: boolean }) => boolean
+}
+
+const NAV: NavItem[] = [
   { href: '/dashboard',               label: 'Agenda',         icon: Calendar  },
   { href: '/dashboard/servicios',     label: 'Servicios',      icon: Scissors  },
   { href: '/dashboard/profesionales', label: 'Profesionales',  icon: Users     },
   { href: '/dashboard/horarios',      label: 'Horarios',       icon: Clock     },
+  // Stage 1 (branches): only shown when the tenant declared multiple sucursales
+  // at registration. Single-branch tenants never see this entry, keeping the
+  // dashboard identical to the pre-Phase-3 experience.
+  {
+    href:  '/dashboard/sucursales',
+    label: 'Sucursales',
+    icon:  Building2,
+    show:  (u) => u.tenantHasMultipleBranches,
+  },
   { href: '/dashboard/configuracion', label: 'Configuración',  icon: Settings  },
 ]
 
@@ -64,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 p-3">
-        {NAV.map(item => {
+        {NAV.filter(item => !item.show || item.show({ tenantHasMultipleBranches: user.tenantHasMultipleBranches })).map(item => {
           const isActive = item.href === '/dashboard'
             ? pathname === '/dashboard'
             : pathname.startsWith(item.href)

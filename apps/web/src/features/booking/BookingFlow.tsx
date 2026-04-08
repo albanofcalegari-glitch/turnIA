@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { useBooking } from './useBooking'
+import { StepBranch } from './steps/StepBranch'
 import { StepServices } from './steps/StepServices'
 import { StepProfessional } from './steps/StepProfessional'
 import { StepDate } from './steps/StepDate'
@@ -18,7 +19,7 @@ interface Props {
 
 // ── Step indicator ─────────────────────────────────────────────────────────
 
-const STEPS: { id: BookingStep; label: string }[] = [
+const BASE_STEPS: { id: BookingStep; label: string }[] = [
   { id: 'services',     label: 'Servicio'     },
   { id: 'professional', label: 'Profesional'  },
   { id: 'date',         label: 'Fecha'        },
@@ -26,8 +27,11 @@ const STEPS: { id: BookingStep; label: string }[] = [
   { id: 'details',      label: 'Confirmación' },
 ]
 
-function StepIndicator({ current }: { current: BookingStep }) {
+const BRANCH_STEP = { id: 'branch' as BookingStep, label: 'Sucursal' }
+
+function StepIndicator({ current, showBranchStep }: { current: BookingStep; showBranchStep: boolean }) {
   if (current === 'success') return null
+  const STEPS = showBranchStep ? [BRANCH_STEP, ...BASE_STEPS] : BASE_STEPS
   const currentIdx = STEPS.findIndex(s => s.id === current)
 
   return (
@@ -147,7 +151,10 @@ export function BookingFlow({ tenantSlug }: Props) {
     )
   }
 
-  const canGoBack = step !== 'services'
+  // The first step is `branch` for multi-branch tenants and `services`
+  // otherwise — neither one has anything to go back to.
+  const firstStep: BookingStep = booking.showBranchStep ? 'branch' : 'services'
+  const canGoBack = step !== firstStep
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -156,7 +163,7 @@ export function BookingFlow({ tenantSlug }: Props) {
       <main className="mx-auto max-w-2xl px-4 py-8">
         {/* Step indicator */}
         <div className="mb-8 flex justify-center">
-          <StepIndicator current={step} />
+          <StepIndicator current={step} showBranchStep={booking.showBranchStep} />
         </div>
 
         {/* Back button */}
@@ -169,8 +176,17 @@ export function BookingFlow({ tenantSlug }: Props) {
           </button>
         )}
 
+        {/* Selected branch indicator — only shown after the user has actually
+            picked one in a multi-branch tenant. Gives the user a persistent
+            reminder of which sucursal they're booking against. */}
+        {booking.showBranchStep && booking.selectedBranch && step !== 'branch' && (
+          <div className="mb-4 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600">
+            Sucursal: <span className="font-semibold text-gray-900">{booking.selectedBranch.name}</span>
+          </div>
+        )}
+
         {/* Multi-service indicator */}
-        {booking.isMultiService && booking.currentService && step !== 'services' && step !== 'details' && (
+        {booking.isMultiService && booking.currentService && step !== 'services' && step !== 'details' && step !== 'branch' && (
           <div className="mb-4 rounded-lg border border-brand-100 bg-brand-50 px-4 py-2.5 text-sm text-brand-700">
             Reservando: <span className="font-semibold">{booking.currentService.name}</span>
             {' '}({booking.currentServiceIndex + 1} de {booking.selectedServices.length})
@@ -178,6 +194,7 @@ export function BookingFlow({ tenantSlug }: Props) {
         )}
 
         {/* Step content */}
+        {step === 'branch'       && <StepBranch       booking={booking} />}
         {step === 'services'     && <StepServices     booking={booking} />}
         {step === 'professional' && <StepProfessional booking={booking} />}
         {step === 'date'         && <StepDate         booking={booking} />}

@@ -58,6 +58,11 @@ export class AuthService {
                 timezone:            true,
                 isActive:            true,
                 membershipExpiresAt: true,
+                // Stage 1 (branches): the dashboard uses this flag to decide
+                // whether to show the Sucursales nav item and the per-page
+                // branch selector. Single-branch tenants leave it false and
+                // never see any branch UI.
+                hasMultipleBranches: true,
               },
             },
           },
