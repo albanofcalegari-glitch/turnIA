@@ -191,10 +191,11 @@ export function StepDetails({ booking }: Props) {
         <Field label="Teléfono">
           <input
             type="tel"
+            inputMode="tel"
             className={inputCls}
             placeholder="+54 9 11 1234-5678"
             value={guestInfo.phone}
-            onChange={e => updateGuestInfo('phone', e.target.value)}
+            onChange={e => updateGuestInfo('phone', e.target.value.replace(/[^\d+\-\s()]/g, ''))}
             autoComplete="tel"
           />
         </Field>
