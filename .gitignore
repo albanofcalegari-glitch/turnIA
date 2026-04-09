@@ -2,8 +2,12 @@ node_modules/
 dist/
 .next/
 .turbo/
-*.env
-!*.env.example
+# Env files: secretos por workspace. Los .example sí se commitean.
+# El patrón cubre .env, .env.local, .env.production, .env.development, etc.
+.env
+.env.*
+!.env.example
+!.env.*.example
 .DS_Store
 coverage/
 *.log
