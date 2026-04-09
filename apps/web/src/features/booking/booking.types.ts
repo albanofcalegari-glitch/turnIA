@@ -76,6 +76,12 @@ export interface AvailableSlot {
   durationMinutes: number
 }
 
+export interface UnavailableSlot {
+  startAt:         string   // ISO UTC
+  endAt:           string   // ISO UTC
+  durationMinutes: number
+}
+
 export interface SlotsResponse {
   date:                string
   professionalId:      string
@@ -83,7 +89,21 @@ export interface SlotsResponse {
   totalDurationMinutes: number
   slotIntervalMinutes: number
   slots:               AvailableSlot[]
+  unavailableSlots:    UnavailableSlot[]
   unavailableReason?:  'NOT_WORKING' | 'EXCEPTION_BLOCK' | 'FULLY_BLOCKED'
+}
+
+export interface DayAvailability {
+  date:      string   // YYYY-MM-DD
+  available: boolean
+  reason?:   string
+}
+
+export interface AvailableDaysResponse {
+  month:          string
+  professionalId: string
+  branchId:       string
+  days:           DayAvailability[]
 }
 
 export interface CreatedAppointment {

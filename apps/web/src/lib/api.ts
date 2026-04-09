@@ -1,4 +1,4 @@
-import type { Tenant, Branch, Service, Professional, SlotsResponse, CreatedAppointment } from '@/features/booking/booking.types'
+import type { Tenant, Branch, Service, Professional, SlotsResponse, AvailableDaysResponse, CreatedAppointment } from '@/features/booking/booking.types'
 import type { Appointment } from '@/features/agenda/agenda.types'
 
 // Profile response from GET /auth/me
@@ -245,6 +245,20 @@ class ApiClient {
     if (branchId) params.set('branchId', branchId)
     return this.request<SlotsResponse>(
       `/schedules/${proId}/slots?${params.toString()}`,
+      { headers: { 'X-Tenant-ID': tenantId } },
+    )
+  }
+
+  getAvailableDays = (
+    tenantId:    string,
+    proId:       string,
+    month:       string,
+    branchId?:   string | null,
+  ) => {
+    const params = new URLSearchParams({ month })
+    if (branchId) params.set('branchId', branchId)
+    return this.request<AvailableDaysResponse>(
+      `/schedules/${proId}/available-days?${params.toString()}`,
       { headers: { 'X-Tenant-ID': tenantId } },
     )
   }

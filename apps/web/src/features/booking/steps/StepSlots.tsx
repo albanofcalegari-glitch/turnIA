@@ -1,10 +1,11 @@
 'use client'
 
+import { useMemo } from 'react'
 import { cn, formatDateLong, formatTime } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import type { useBooking } from '../useBooking'
-import type { AvailableSlot } from '../booking.types'
+import type { AvailableSlot, UnavailableSlot } from '../booking.types'
 
 type BookingHook = ReturnType<typeof useBooking>
 
@@ -18,17 +19,30 @@ const UNAVAILABLE_MESSAGES: Record<string, string> = {
   FULLY_BLOCKED:   'No hay horarios disponibles para esta fecha. Probá con otro día.',
 }
 
+type MergedSlot = { startAt: string; endAt: string; durationMinutes: number; available: boolean }
+
 function SlotButton({
   slot,
   selected,
   timezone,
   onSelect,
 }: {
-  slot:     AvailableSlot
+  slot:     MergedSlot
   selected: boolean
   timezone: string
   onSelect: () => void
 }) {
+  if (!slot.available) {
+    return (
+      <div
+        className="rounded-xl border-2 border-gray-100 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-300 line-through cursor-not-allowed"
+        aria-disabled
+      >
+        {formatTime(slot.startAt, timezone)}
+      </div>
+    )
+  }
+
   return (
     <button
       onClick={onSelect}
@@ -58,6 +72,19 @@ export function StepSlots({ booking }: Props) {
     refreshSlots,
     goBack,
   } = booking
+
+  // Merge available + unavailable slots into a single sorted list
+  const mergedSlots = useMemo(() => {
+    if (!slotsResponse) return []
+    const available: MergedSlot[] = slotsResponse.slots.map(s => ({ ...s, available: true }))
+    const unavailable: MergedSlot[] = (slotsResponse.unavailableSlots ?? []).map(s => ({ ...s, available: false }))
+    return [...available, ...unavailable].sort(
+      (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+    )
+  }, [slotsResponse])
+
+  const hasAnySlots = mergedSlots.length > 0
+  const hasAvailableSlots = slotsResponse ? slotsResponse.slots.length > 0 : false
 
   return (
     <div>
@@ -98,8 +125,8 @@ export function StepSlots({ booking }: Props) {
         </div>
       )}
 
-      {/* No slots available */}
-      {!slotsLoading && !slotsError && slotsResponse && slotsResponse.slots.length === 0 && (
+      {/* No slots at all (not working / exception block) */}
+      {!slotsLoading && !slotsError && slotsResponse && !hasAnySlots && (
         <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
           <p className="text-4xl mb-3">📅</p>
           <p className="font-medium text-gray-700">Sin horarios disponibles</p>
@@ -114,20 +141,33 @@ export function StepSlots({ booking }: Props) {
         </div>
       )}
 
-      {/* Slot grid */}
-      {!slotsLoading && !slotsError && slotsResponse && slotsResponse.slots.length > 0 && (
+      {/* Slot grid (with both available and grayed-out unavailable) */}
+      {!slotsLoading && !slotsError && slotsResponse && hasAnySlots && (
         <>
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-            {slotsResponse.slots.map((slot: AvailableSlot) => (
+            {mergedSlots.map((slot) => (
               <SlotButton
                 key={slot.startAt}
                 slot={slot}
-                selected={selectedSlot?.startAt === slot.startAt}
+                selected={slot.available && selectedSlot?.startAt === slot.startAt}
                 timezone={timezone}
-                onSelect={() => selectSlot(slot)}
+                onSelect={() => {
+                  if (slot.available) {
+                    selectSlot(slot as AvailableSlot)
+                  }
+                }}
               />
             ))}
           </div>
+
+          {!hasAvailableSlots && (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-500">Todos los horarios están ocupados.</p>
+              <Button variant="outline" size="sm" className="mt-2" onClick={goBack}>
+                Elegir otra fecha
+              </Button>
+            </div>
+          )}
 
           <p className="mt-4 text-xs text-gray-400 text-center">
             Duración total: {slotsResponse.totalDurationMinutes} min

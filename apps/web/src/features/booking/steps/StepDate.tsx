@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { cn, formatMonthYear, toDateString } from '@/lib/utils'
 import type { useBooking } from '../useBooking'
 
@@ -28,7 +28,11 @@ function buildCalendarGrid(year: number, month: number): (number | null)[] {
 }
 
 export function StepDate({ booking }: Props) {
-  const { selectedDate, selectDate } = booking
+  const {
+    selectedDate, selectDate,
+    tenant, availableDays, fetchAvailableDays,
+    selectedProfessional, selectedBranch,
+  } = booking
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -36,6 +40,29 @@ export function StepDate({ booking }: Props) {
 
   const [viewYear,  setViewYear]  = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth()) // 0-indexed
+
+  // Fetch available days when the viewed month changes
+  const monthKey = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`
+  useEffect(() => {
+    if (tenant && selectedProfessional) {
+      fetchAvailableDays(
+        tenant.id,
+        selectedProfessional.id,
+        monthKey,
+        selectedBranch?.id ?? null,
+      )
+    }
+  }, [tenant, selectedProfessional, monthKey, selectedBranch, fetchAvailableDays])
+
+  // Build a Set of unavailable dates for fast lookup
+  const unavailableDates = useMemo(() => {
+    if (!availableDays || availableDays.month !== monthKey) return new Set<string>()
+    return new Set(
+      availableDays.days
+        .filter(d => !d.available)
+        .map(d => d.date),
+    )
+  }, [availableDays, monthKey])
 
   function prevMonth() {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
@@ -58,7 +85,11 @@ export function StepDate({ booking }: Props) {
 
   function isCellDisabled(day: number): boolean {
     const d = new Date(viewYear, viewMonth, day)
-    return d < today || d > maxDate
+    if (d < today || d > maxDate) return true
+    // Gray out days where the professional doesn't work
+    const dateStr = toDateString(d)
+    if (unavailableDates.has(dateStr)) return true
+    return false
   }
 
   function isCellSelected(day: number): boolean {
@@ -137,7 +168,7 @@ export function StepDate({ booking }: Props) {
                   'aspect-square rounded-lg text-sm font-medium transition-colors',
                   disabled  && 'cursor-not-allowed text-gray-200',
                   !disabled && !selected && 'text-gray-700 hover:bg-brand-50 hover:text-brand-700',
-                  todayCell && !selected && 'font-bold text-brand-600 underline underline-offset-2',
+                  todayCell && !selected && !disabled && 'font-bold text-brand-600 underline underline-offset-2',
                   selected  && 'bg-brand-600 text-white',
                 )}
               >

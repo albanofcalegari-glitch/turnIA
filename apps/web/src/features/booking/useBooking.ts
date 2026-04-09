@@ -9,6 +9,7 @@ import {
   Professional,
   AvailableSlot,
   SlotsResponse,
+  AvailableDaysResponse,
   CreatedAppointment,
   BookingState,
   BookingStep,
@@ -34,6 +35,9 @@ export function useBooking(tenantSlug: string) {
   const [slotsResponse, setSlotsResponse] = useState<SlotsResponse | null>(null)
   const [slotsLoading,  setSlotsLoading]  = useState(false)
   const [slotsError,    setSlotsError]    = useState<string | null>(null)
+
+  // ── Available days (fetched when professional is selected) ──────────────
+  const [availableDays, setAvailableDays] = useState<AvailableDaysResponse | null>(null)
 
   // ── Submission ────────────────────────────────────────────────────────────
   const [submitting,          setSubmitting]          = useState(false)
@@ -152,6 +156,22 @@ export function useBooking(tenantSlug: string) {
     }
   }, [])
 
+  // ── Fetch available days ────────────────────────────────────────────────
+  const fetchAvailableDays = useCallback(async (
+    tenantId:  string,
+    proId:     string,
+    month:     string,
+    branchId:  string | null,
+  ) => {
+    try {
+      const res = await apiClient.getAvailableDays(tenantId, proId, month, branchId)
+      setAvailableDays(res)
+    } catch {
+      // Non-critical — calendar still works, days just won't be grayed out
+      setAvailableDays(null)
+    }
+  }, [])
+
   // ─────────────────────────────────────────────────────────────────────────
   // Step navigation
   // ─────────────────────────────────────────────────────────────────────────
@@ -225,6 +245,13 @@ export function useBooking(tenantSlug: string) {
   // ── Step 2: Select professional ───────────────────────────────────────────
   function selectProfessional(p: Professional) {
     update({ selectedProfessional: p, step: 'date' })
+    // Pre-fetch available days for the current month so the calendar can
+    // gray out non-working days immediately.
+    if (tenant) {
+      const now = new Date()
+      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      fetchAvailableDays(tenant.id, p.id, month, state.selectedBranch?.id ?? null)
+    }
   }
 
   // ── Step 3: Select date ───────────────────────────────────────────────────
@@ -410,6 +437,7 @@ export function useBooking(tenantSlug: string) {
     services,
     eligibleProfessionals,
     slotsResponse,
+    availableDays,
     createdAppointment,
     createdAppointments,
     timezone,
@@ -436,6 +464,7 @@ export function useBooking(tenantSlug: string) {
     selectDate,
     selectSlot,
     refreshSlots,
+    fetchAvailableDays,
     updateGuestInfo,
     submit,
     goBack,

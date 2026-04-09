@@ -12,8 +12,11 @@ import {
   TimeInterval,
   ServiceSnapshot,
   AvailableSlot,
+  UnavailableSlot,
   SlotsResponse,
   UnavailableReason,
+  DayAvailability,
+  AvailableDaysResponse,
 } from './slots.types'
 import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto'
 import { UpdateWorkScheduleDto } from './dto/update-work-schedule.dto'
@@ -404,6 +407,7 @@ export class SchedulesService {
 
     // ── 7. Generate slots ──────────────────────────────────────────────────
     const slots: AvailableSlot[] = []
+    const unavailableSlots: UnavailableSlot[] = []
     let cursor = workStartMins
 
     while (cursor + totalDurationMins <= workEndMins) {
@@ -415,12 +419,16 @@ export class SchedulesService {
         busyIntervals,
       )
 
+      const slotData = {
+        startAt:         this.localToUtc(date, this.minutesToTime(slotStart), timezone).toISOString(),
+        endAt:           this.localToUtc(date, this.minutesToTime(slotEnd),   timezone).toISOString(),
+        durationMinutes: totalDurationMins,
+      }
+
       if (isFree) {
-        slots.push({
-          startAt:         this.localToUtc(date, this.minutesToTime(slotStart), timezone).toISOString(),
-          endAt:           this.localToUtc(date, this.minutesToTime(slotEnd),   timezone).toISOString(),
-          durationMinutes: totalDurationMins,
-        })
+        slots.push(slotData)
+      } else {
+        unavailableSlots.push(slotData)
       }
 
       cursor += slotIntervalMins
@@ -438,8 +446,108 @@ export class SchedulesService {
       slotIntervalMinutes:  slotIntervalMins,
       services,
       slots,
+      unavailableSlots,
       unavailableReason,
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Available days (lightweight month-level availability check)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Returns which days in a given month the professional is available to work.
+   *
+   * This is a lightweight check that considers:
+   *   - WorkSchedule: does the professional have hours for this day-of-week at this branch?
+   *   - ScheduleExceptions: is the day fully blocked (vacation, holiday, manual block)?
+   *   - CUSTOM_HOURS exceptions: override a non-working day to be available.
+   *
+   * It does NOT check individual slot availability (appointments). That would
+   * require running the full slot engine for each day, which is too expensive
+   * for a calendar overview. Days marked available may still have all slots
+   * taken — the user will see that when they click and get the slot grid.
+   */
+  async getAvailableDays(
+    tenantId:       string,
+    professionalId: string,
+    month:          string,   // YYYY-MM
+    requestedBranchId?: string,
+  ): Promise<AvailableDaysResponse> {
+    const branchId = await this.branches.resolveBranchId(tenantId, requestedBranchId)
+
+    const professional = await this.prisma.professional.findFirst({
+      where: { id: professionalId, tenantId, isActive: true },
+      include: { tenant: true },
+    })
+    if (!professional) throw new NotFoundException('Profesional no encontrado')
+
+    await this.branches.requireProfessionalInBranch(branchId, professionalId)
+
+    const timezone = professional.tenant.timezone
+
+    // Load all active work schedules for this branch (one per day-of-week)
+    const schedules = await this.prisma.workSchedule.findMany({
+      where: { professionalId, branchId, isActive: true },
+    })
+    const workingDays = new Set(schedules.map(s => s.dayOfWeek))
+
+    // Load all exceptions for the month
+    const [year, mon] = month.split('-').map(Number)
+    const monthStart = new Date(`${month}-01T00:00:00.000Z`)
+    const monthEnd   = new Date(year, mon, 0, 23, 59, 59, 999) // last day of month
+    const exceptions = await this.prisma.scheduleException.findMany({
+      where: {
+        professionalId,
+        date: { gte: monthStart, lte: monthEnd },
+      },
+    })
+
+    // Index exceptions by date string (YYYY-MM-DD)
+    const exceptionsByDate = new Map<string, typeof exceptions>()
+    for (const ex of exceptions) {
+      const key = ex.date.toISOString().slice(0, 10)
+      const list = exceptionsByDate.get(key) ?? []
+      list.push(ex)
+      exceptionsByDate.set(key, list)
+    }
+
+    // Walk every day of the month
+    const daysInMonth = new Date(year, mon, 0).getDate()
+    const days: DayAvailability[] = []
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${month}-${String(d).padStart(2, '0')}`
+      const dayOfWeek = this.getDayOfWeek(dateStr, timezone)
+      const dayExceptions = exceptionsByDate.get(dateStr) ?? []
+
+      // Check for full-day blocking exceptions
+      const fullBlock = dayExceptions.find(ex =>
+        FULL_DAY_BLOCK_TYPES.includes(ex.type) ||
+        (ex.type === ExceptionType.BLOCK && !ex.startTime && !ex.endTime),
+      )
+
+      if (fullBlock) {
+        const reason = fullBlock.type === ExceptionType.VACATION ? 'VACATION'
+          : fullBlock.type === ExceptionType.HOLIDAY ? 'HOLIDAY'
+          : 'MANUAL_BLOCK'
+        days.push({ date: dateStr, available: false, reason })
+        continue
+      }
+
+      // Check for CUSTOM_HOURS (overrides non-working day)
+      const hasCustomHours = dayExceptions.some(
+        ex => ex.type === ExceptionType.CUSTOM_HOURS && ex.startTime && ex.endTime,
+      )
+
+      if (hasCustomHours || workingDays.has(dayOfWeek)) {
+        days.push({ date: dateStr, available: true })
+      } else {
+        days.push({ date: dateStr, available: false, reason: 'NO_SCHEDULE' })
+      }
+    }
+
+    return { month, professionalId, branchId, days }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -720,6 +828,7 @@ export class SchedulesService {
       slotIntervalMinutes:  slotIntervalMins,
       services,
       slots:                [],
+      unavailableSlots:     [],
       unavailableReason:    reason,
     }
   }

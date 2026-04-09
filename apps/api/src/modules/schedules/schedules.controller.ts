@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common'
 import { SchedulesService } from './schedules.service'
 import { GetSlotsDto } from './dto/get-slots.dto'
+import { GetAvailableDaysDto } from './dto/get-available-days.dto'
 import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto'
 import { UpdateWorkScheduleDto } from './dto/update-work-schedule.dto'
 import { CreateScheduleExceptionDto } from './dto/create-schedule-exception.dto'
@@ -45,6 +46,27 @@ export class SchedulesController {
   // ─────────────────────────────────────────────────────────────────────────
   // Slots — public
   // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * GET /schedules/:professionalId/available-days?month=YYYY-MM&branchId=...
+   *
+   * Public — no JWT required. Supports the guest booking flow.
+   * Returns which days in the given month the professional works,
+   * considering work schedules and full-day exceptions.
+   */
+  @Get(':professionalId/available-days')
+  getAvailableDays(
+    @TenantId()              tenantId:       string,
+    @Param('professionalId') professionalId: string,
+    @Query()                 query:          GetAvailableDaysDto,
+  ) {
+    return this.schedulesService.getAvailableDays(
+      tenantId,
+      professionalId,
+      query.month,
+      query.branchId,
+    )
+  }
 
   /**
    * GET /schedules/:professionalId/slots?date=YYYY-MM-DD&serviceIds=id1,id2&branchId=...
