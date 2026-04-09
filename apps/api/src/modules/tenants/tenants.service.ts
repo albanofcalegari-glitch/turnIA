@@ -81,6 +81,19 @@ export class TenantsService {
     return tenant
   }
 
+  /**
+   * Patch a subset of the tenant's `schedule_rules`. Only fields the dashboard
+   * UI exposes are accepted by the controller's DTO. The schedule_rules row
+   * is created on tenant registration so we can use a simple update().
+   */
+  async updateScheduleRules(tenantId: string, data: { slotDurationMinutes?: number }) {
+    const updated = await this.prisma.scheduleRule.update({
+      where: { tenantId },
+      data,
+    })
+    return updated
+  }
+
   // ── SuperAdmin methods ──────────────────────────────────────────────────
 
   async findAll() {

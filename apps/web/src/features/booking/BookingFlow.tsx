@@ -185,8 +185,9 @@ export function BookingFlow({ tenantSlug }: Props) {
           </div>
         )}
 
-        {/* Multi-service indicator */}
-        {booking.isMultiService && booking.currentService && step !== 'services' && step !== 'details' && step !== 'branch' && (
+        {/* Multi-turno iteration indicator (only when there's no unified pro
+            for all selected services and we're walking service-by-service) */}
+        {booking.requiresMultiTurno && booking.currentService && step !== 'services' && step !== 'details' && step !== 'branch' && (
           <div className="mb-4 rounded-lg border border-brand-100 bg-brand-50 px-4 py-2.5 text-sm text-brand-700">
             Reservando: <span className="font-semibold">{booking.currentService.name}</span>
             {' '}({booking.currentServiceIndex + 1} de {booking.selectedServices.length})

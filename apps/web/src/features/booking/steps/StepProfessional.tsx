@@ -74,20 +74,87 @@ function ProfessionalCard({
 }
 
 export function StepProfessional({ booking }: Props) {
-  const { eligibleProfessionals, selectedProfessional, selectProfessional, selectedServices } = booking
+  const {
+    eligibleProfessionals,
+    selectedProfessional,
+    selectProfessional,
+    selectedServices,
+    requiresMultiTurno,
+    currentService,
+    currentServiceIndex,
+  } = booking
 
+  // Multi-turno fallback: there's no single pro who can do all the selected
+  // services, so we ask the user to pick a pro for the current service in
+  // the iteration. The very first time we land here we show an explicit
+  // warning so they understand they're going to end up with N appointments.
+  if (requiresMultiTurno && currentService) {
+    if (eligibleProfessionals.length === 0) {
+      return (
+        <div className="rounded-2xl border bg-white p-10 text-center">
+          <p className="text-gray-500 font-medium">Sin profesionales disponibles</p>
+          <p className="mt-1 text-sm text-gray-400">
+            Ningún profesional ofrece &ldquo;{currentService.name}&rdquo;. Volvé al paso anterior y probá con otra combinación.
+          </p>
+        </div>
+      )
+    }
+
+    if (eligibleProfessionals.length === 1 && !selectedProfessional) {
+      selectProfessional(eligibleProfessionals[0])
+      return null
+    }
+
+    return (
+      <div>
+        {currentServiceIndex === 0 && (
+          <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-semibold text-amber-900">
+              No hay un solo profesional que haga los {selectedServices.length} servicios
+            </p>
+            <p className="mt-1 text-sm text-amber-800">
+              Vas a reservar un turno por cada servicio. Podés elegir un profesional diferente para cada uno.
+            </p>
+          </div>
+        )}
+
+        <div className="mb-6">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+            Servicio {currentServiceIndex + 1} de {selectedServices.length}
+          </p>
+          <h2 className="mt-1 text-xl font-bold text-gray-900">
+            ¿Con quién hacés &ldquo;{currentService.name}&rdquo;?
+          </h2>
+        </div>
+
+        <div className="space-y-3">
+          {eligibleProfessionals.map(p => (
+            <ProfessionalCard
+              key={p.id}
+              professional={p}
+              selected={selectedProfessional?.id === p.id}
+              onSelect={() => selectProfessional(p)}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // Unified flow (single service OR multi-service with unified pros).
   if (eligibleProfessionals.length === 0) {
     return (
       <div className="rounded-2xl border bg-white p-10 text-center">
         <p className="text-gray-500 font-medium">Sin profesionales disponibles</p>
         <p className="mt-1 text-sm text-gray-400">
-          Ningún profesional ofrece todos los servicios seleccionados. Intentá con una combinación diferente.
+          {selectedServices.length === 1
+            ? 'Ningún profesional ofrece este servicio en este momento.'
+            : 'Ningún profesional ofrece todos los servicios seleccionados. Probá con otra combinación.'}
         </p>
       </div>
     )
   }
 
-  // Auto-select if there's only one option
   if (eligibleProfessionals.length === 1 && !selectedProfessional) {
     selectProfessional(eligibleProfessionals[0])
     return null

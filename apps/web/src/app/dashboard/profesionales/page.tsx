@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, type FormEvent } from 'react'
-import { Users, Plus, X, Link2, Unlink } from 'lucide-react'
+import { Users, Plus, X, Link2, Unlink, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError } from '@/lib/api'
@@ -65,7 +65,7 @@ export default function ProfesionalesPage() {
       apiClient.getServices(tenantId),
     ])
       .then(([pros, svcs]) => {
-        setProfessionals(pros as ProfessionalItem[])
+        setProfessionals(pros as unknown as ProfessionalItem[])
         setAllServices(svcs.map(s => ({ id: s.id, name: s.name })))
       })
       .catch(() => setError('No se pudieron cargar los profesionales.'))
@@ -106,6 +106,26 @@ export default function ProfesionalesPage() {
       )
     } catch {
       setError('Error al desvincular servicio.')
+    }
+  }
+
+  // ── Delete professional (soft delete on the backend) ────────────────────
+
+  async function handleDeleteProfessional(pro: ProfessionalItem) {
+    const ok = window.confirm(
+      `¿Eliminar a "${pro.displayName}"?\n\nNo se podrá reservar más con este profesional. Los turnos pasados se conservan en el historial.`,
+    )
+    if (!ok) return
+
+    try {
+      await apiClient.deleteProfessional(tenantId, pro.id)
+      setProfessionals(prev => prev.filter(p => p.id !== pro.id))
+    } catch (err) {
+      // The backend returns 409 with a clear message when there are future
+      // pending/confirmed appointments — surface it verbatim so the user knows
+      // what to do.
+      const msg = err instanceof ApiError ? err.message : 'No se pudo eliminar el profesional.'
+      setError(msg)
     }
   }
 
@@ -171,6 +191,7 @@ export default function ProfesionalesPage() {
               allServices={allServices}
               onLinkService={(svcId) => handleLinkService(pro.id, svcId)}
               onUnlinkService={(svcId) => handleUnlinkService(pro.id, svcId)}
+              onDelete={() => handleDeleteProfessional(pro)}
             />
           ))}
         </div>
@@ -188,11 +209,13 @@ function ProfessionalCard({
   allServices,
   onLinkService,
   onUnlinkService,
+  onDelete,
 }: {
   professional:    ProfessionalItem
   allServices:     ServiceOption[]
   onLinkService:   (serviceId: string) => void
   onUnlinkService: (serviceId: string) => void
+  onDelete:        () => void
 }) {
   const linkedIds = new Set(professional.services.map(s => s.serviceId))
   const unlinkedServices = allServices.filter(s => !linkedIds.has(s.id))
@@ -224,6 +247,15 @@ function ProfessionalCard({
             Sin reservas online
           </span>
         )}
+        <button
+          type="button"
+          onClick={onDelete}
+          title="Eliminar profesional"
+          aria-label={`Eliminar a ${professional.displayName}`}
+          className="ml-2 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
 
       {/* Linked services */}

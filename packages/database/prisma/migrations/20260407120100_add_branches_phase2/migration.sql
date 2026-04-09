@@ -61,8 +61,10 @@ CREATE INDEX "resources_branchId_idx"
 -- 4. WorkSchedule unique key: drop the tenant-scoped one and recreate
 --    branch-scoped. The same professional may now have a Monday 09-13 row
 --    on Sucursal A and a Monday 14-18 row on Sucursal B without colliding.
-ALTER TABLE "work_schedules"
-  DROP CONSTRAINT "work_schedules_tenantId_professionalId_dayOfWeek_key";
+-- NOTE: the init migration created this as a UNIQUE INDEX (via CREATE UNIQUE
+-- INDEX), not as a UNIQUE CONSTRAINT. In Postgres those are different beasts,
+-- and DROP CONSTRAINT only works on the latter — so we DROP INDEX instead.
+DROP INDEX IF EXISTS "work_schedules_tenantId_professionalId_dayOfWeek_key";
 
 CREATE UNIQUE INDEX "work_schedules_branchId_professionalId_dayOfWeek_key"
   ON "work_schedules"("branchId", "professionalId", "dayOfWeek");

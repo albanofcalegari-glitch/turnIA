@@ -53,7 +53,7 @@ export default function ServiciosPage() {
     if (!tenantId) return
     setLoading(true)
     apiClient.getServices(tenantId)
-      .then(data => setServices(data as ServiceItem[]))
+      .then(data => setServices(data as unknown as ServiceItem[]))
       .catch(() => setError('No se pudieron cargar los servicios.'))
       .finally(() => setLoading(false))
   }, [tenantId])
@@ -207,7 +207,7 @@ function CreateServiceModal({
         price:           parseFloat(price),
         color:           color || undefined,
       })
-      onCreated(svc as ServiceItem)
+      onCreated(svc as unknown as ServiceItem)
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)

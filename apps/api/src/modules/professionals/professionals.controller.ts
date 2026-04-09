@@ -106,4 +106,21 @@ export class ProfessionalsController {
   ) {
     return this.professionalsService.removeService(tenantId, professionalId, serviceId)
   }
+
+  /**
+   * DELETE /api/v1/professionals/:id
+   *
+   * Soft-deletes a professional (sets `isActive=false`). Blocked with 409
+   * when the professional has PENDING/CONFIRMED future appointments — the
+   * caller must cancel or reassign those first.
+   */
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(TenantRole.ADMIN)
+  remove(
+    @TenantId()  tenantId: string,
+    @Param('id') id:       string,
+  ) {
+    return this.professionalsService.softDelete(tenantId, id)
+  }
 }

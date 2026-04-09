@@ -1,10 +1,10 @@
 import { Controller, Post, Get, Patch, Param, Body, UseGuards, ForbiddenException } from '@nestjs/common'
 import { TenantsService } from './tenants.service'
 import { CreateTenantDto } from './dto/create-tenant.dto'
-import { UpdateTenantDto } from './dto/update-tenant.dto'
+import { UpdateTenantDto, UpdateScheduleRulesDto } from './dto/update-tenant.dto'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
-import { JwtPayload } from '@turnia/shared'
+import { JwtPayload, TenantRole } from '@turnia/shared'
 
 @Controller('tenants')
 export class TenantsController {
@@ -25,6 +25,26 @@ export class TenantsController {
   getMyTenant(@CurrentUser() user: JwtPayload) {
     if (!user.tenantId) return null
     return this.tenantsService.findById(user.tenantId)
+  }
+
+  /**
+   * Tenant admins can patch their own schedule rules. Currently the dashboard
+   * only exposes `slotDurationMinutes`. Scoped via JWT — there is no path
+   * param tenantId on purpose so callers can't reach into another tenant.
+   */
+  @Patch('me/schedule-rules')
+  @UseGuards(JwtAuthGuard)
+  async updateMyScheduleRules(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateScheduleRulesDto,
+  ) {
+    if (!user.tenantId) throw new ForbiddenException()
+    if (user.role !== TenantRole.ADMIN) {
+      throw new ForbiddenException('Solo administradores pueden cambiar la configuración')
+    }
+    return this.tenantsService.updateScheduleRules(user.tenantId, {
+      slotDurationMinutes: dto.slotDurationMinutes,
+    })
   }
 
   // ── SuperAdmin endpoints ────────────────────────────────────────────────

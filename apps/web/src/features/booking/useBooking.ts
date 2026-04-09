@@ -45,9 +45,28 @@ export function useBooking(tenantSlug: string) {
   const update = (patch: Partial<BookingState>) =>
     setState(s => ({ ...s, ...patch }))
 
-  // ── Derived: are we in multi-service mode? ────────────────────────────────
+  // ── Derived: multi-service flow ───────────────────────────────────────────
+  // `isMultiService` is just "user picked >1 service" — a UI hint.
+  //
+  // The real branch in the state machine is `requiresMultiTurno`: it's true
+  // only when there's NO single professional that offers every selected
+  // service. In that case the flow falls back to per-service iteration (one
+  // turno per servicio, possibly with different pros). When at least one pro
+  // can do all of them, we use the same single-block flow as a single
+  // service — one pro picks one combined slot and the appointment carries
+  // all items together. This was the behaviour the previous code was
+  // mistakenly skipping (it always used per-service iteration whenever
+  // length > 1).
   const isMultiService = state.selectedServices.length > 1
-  const currentService = isMultiService
+  const unifiedProfessionals = state.selectedServices.length > 0
+    ? professionals.filter(p =>
+        state.selectedServices.every(svc =>
+          p.services.some(ps => ps.serviceId === svc.id),
+        ),
+      )
+    : []
+  const requiresMultiTurno = isMultiService && unifiedProfessionals.length === 0
+  const currentService = requiresMultiTurno
     ? state.selectedServices[state.currentServiceIndex] ?? null
     : null
 
@@ -148,7 +167,7 @@ export function useBooking(tenantSlug: string) {
   function goBack() {
     const idx = STEP_ORDER.indexOf(state.step)
 
-    if (isMultiService && state.step === 'professional' && state.currentServiceIndex > 0) {
+    if (requiresMultiTurno && state.step === 'professional' && state.currentServiceIndex > 0) {
       // Go back to previous service's slot selection
       const prevIndex = state.currentServiceIndex - 1
       const prevBooking = state.serviceBookings[prevIndex]
@@ -212,8 +231,10 @@ export function useBooking(tenantSlug: string) {
   function selectDate(date: string) {
     if (!tenant || !state.selectedProfessional) return
 
-    // In multi-service mode, fetch slots for the current service only
-    const svcList = isMultiService && currentService
+    // Multi-turno fallback: fetch slots for the current service only.
+    // Otherwise (single service OR multi-service with a unified pro): fetch
+    // slots for all selected services as one combined block.
+    const svcList = requiresMultiTurno && currentService
       ? [currentService]
       : state.selectedServices
 
@@ -229,7 +250,7 @@ export function useBooking(tenantSlug: string) {
 
   // ── Step 4: Select slot ───────────────────────────────────────────────────
   function selectSlot(slot: AvailableSlot) {
-    if (isMultiService && currentService && state.selectedProfessional) {
+    if (requiresMultiTurno && currentService && state.selectedProfessional) {
       // Save this service's booking and advance to next service or details
       const booking: ServiceBooking = {
         service:      currentService,
@@ -262,14 +283,14 @@ export function useBooking(tenantSlug: string) {
         })
       }
     } else {
-      // Single service — original flow
+      // Single block flow: single service OR multi-service with a unified pro.
       update({ selectedSlot: slot, step: 'details', conflictError: false })
     }
   }
 
   function refreshSlots() {
     if (!tenant || !state.selectedProfessional || !state.selectedDate) return
-    const svcList = isMultiService && currentService
+    const svcList = requiresMultiTurno && currentService
       ? [currentService]
       : state.selectedServices
     fetchSlots(
@@ -301,8 +322,9 @@ export function useBooking(tenantSlug: string) {
       // backend resolves to the default branch on its own).
       const branchId = state.selectedBranch?.id
 
-      if (isMultiService) {
-        // Create one appointment per service booking
+      if (requiresMultiTurno) {
+        // Multi-turno fallback: one appointment per serviceBooking, possibly
+        // with different professionals.
         for (const b of state.serviceBookings) {
           const appt = await apiClient.createAppointment(tenant.id, {
             professionalId: b.professional.id,
@@ -317,7 +339,8 @@ export function useBooking(tenantSlug: string) {
           appointments.push(appt)
         }
       } else {
-        // Single service — original flow
+        // Single block: one appointment with one or more items. Same code
+        // path for single service and multi-service-with-unified-pro.
         if (!state.selectedProfessional || !state.selectedSlot) return
         const appt = await apiClient.createAppointment(tenant.id, {
           professionalId: state.selectedProfessional.id,
@@ -360,19 +383,20 @@ export function useBooking(tenantSlug: string) {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Professionals who offer the current service being booked.
-   * In multi-service mode: filtered by current service only.
-   * In single-service mode: must offer ALL selected services.
+   * Professionals shown in the StepProfessional list.
+   *
+   * - Single service: pros that offer that service.
+   * - Multi-service WITH unified pro: the intersection (`unifiedProfessionals`).
+   *   The user picks one and books a single combined block.
+   * - Multi-service WITHOUT unified pro (`requiresMultiTurno`): the per-service
+   *   list — pros that offer the *current* service in the iteration. The user
+   *   may pick a different pro for each service.
    */
-  const eligibleProfessionals = isMultiService && currentService
+  const eligibleProfessionals = requiresMultiTurno && currentService
     ? professionals.filter(p =>
         p.services.some(ps => ps.serviceId === currentService.id),
       )
-    : professionals.filter(p =>
-        state.selectedServices.every(svc =>
-          p.services.some(ps => ps.serviceId === svc.id),
-        ),
-      )
+    : unifiedProfessionals
 
   const timezone = slotsResponse?.timezone ?? tenant?.timezone ?? 'America/Argentina/Buenos_Aires'
 
@@ -394,6 +418,7 @@ export function useBooking(tenantSlug: string) {
     // State
     ...state,
     isMultiService,
+    requiresMultiTurno,
     currentService,
 
     // Loading / error

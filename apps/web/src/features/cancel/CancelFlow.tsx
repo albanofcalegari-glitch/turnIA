@@ -201,6 +201,26 @@ export function CancelFlow({ tenantSlug }: Props) {
                 })}
               </div>
             )}
+
+            {cancelled.size > 0 && (
+              <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-5 text-center">
+                <p className="text-2xl">✅</p>
+                <p className="mt-2 font-semibold text-gray-900">
+                  {cancelled.size === 1
+                    ? 'Tu turno fue cancelado correctamente'
+                    : `${cancelled.size} turnos fueron cancelados correctamente`}
+                </p>
+                <p className="mt-1 text-sm text-gray-600">
+                  Si querés podés volver a reservar cuando quieras.
+                </p>
+                <Link
+                  href={`/${tenantSlug}`}
+                  className="mt-4 inline-flex items-center justify-center rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+                >
+                  Volver al inicio
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </main>

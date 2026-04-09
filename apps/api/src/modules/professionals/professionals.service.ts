@@ -42,17 +42,40 @@ export class ProfessionalsService {
     }
 
     try {
-      return await this.prisma.professional.create({
-        data: {
-          tenantId,
-          userId,
-          displayName:          dto.displayName,
-          color:                dto.color,
-          acceptsOnlineBooking: dto.acceptsOnlineBooking ?? true,
-        },
-        include: {
-          user: { select: { id: true, firstName: true, lastName: true, email: true } },
-        },
+      // Auto-link new professional to every active branch of the tenant.
+      // Without this, Schedules and appointment creation fail with
+      // "El profesional no atiende en esta sucursal" because
+      // requireProfessionalInBranch needs the join row. Admin can unlink
+      // later via the dashboard (pending UI — see sucursales/page.tsx).
+      return await this.prisma.$transaction(async (tx) => {
+        const professional = await tx.professional.create({
+          data: {
+            tenantId,
+            userId,
+            displayName:          dto.displayName,
+            color:                dto.color,
+            acceptsOnlineBooking: dto.acceptsOnlineBooking ?? true,
+          },
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        })
+
+        const activeBranches = await tx.branch.findMany({
+          where:  { tenantId, isActive: true },
+          select: { id: true },
+        })
+        if (activeBranches.length > 0) {
+          await tx.professionalBranch.createMany({
+            data: activeBranches.map(b => ({
+              professionalId: professional.id,
+              branchId:       b.id,
+            })),
+            skipDuplicates: true,
+          })
+        }
+
+        return professional
       })
     } catch (err) {
       if (
@@ -153,5 +176,53 @@ export class ProfessionalsService {
     })
     if (!prof) throw new NotFoundException('Profesional no encontrado')
     return prof
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Soft delete
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Soft-delete a professional. We never hard-delete because Appointment
+   * rows reference the professional and history must be preserved. The
+   * dashboard listing and the public booking flow both filter by
+   * `isActive: true`, so flipping this flag effectively removes the
+   * professional from the product.
+   *
+   * Blocked when there's at least one future PENDING/CONFIRMED appointment:
+   * removing the pro silently while clients have upcoming turnos would be a
+   * footgun. The caller is told the count and can cancel/reschedule first.
+   */
+  async softDelete(tenantId: string, id: string) {
+    const prof = await this.prisma.professional.findFirst({
+      where:  { id, tenantId },
+      select: { id: true, isActive: true },
+    })
+    if (!prof) throw new NotFoundException('Profesional no encontrado')
+    if (!prof.isActive) {
+      // Idempotent — nothing to do, just return success.
+      return { id, deleted: true, alreadyInactive: true }
+    }
+
+    const now = new Date()
+    const futureCount = await this.prisma.appointment.count({
+      where: {
+        tenantId,
+        professionalId: id,
+        startAt: { gte: now },
+        status:  { in: ['PENDING', 'CONFIRMED'] },
+      },
+    })
+    if (futureCount > 0) {
+      throw new ConflictException(
+        `El profesional tiene ${futureCount} turno${futureCount === 1 ? '' : 's'} futuro${futureCount === 1 ? '' : 's'}. Cancelalo${futureCount === 1 ? '' : 's'} antes de eliminar el profesional.`,
+      )
+    }
+
+    await this.prisma.professional.update({
+      where: { id },
+      data:  { isActive: false },
+    })
+    return { id, deleted: true }
   }
 }

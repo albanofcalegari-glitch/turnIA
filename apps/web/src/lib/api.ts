@@ -148,6 +148,17 @@ class ApiClient {
   getTenantBySlug = (slug: string) =>
     this.request<Tenant>(`/tenants/${slug}/public`)
 
+  /**
+   * Patches the current tenant's schedule rules. Today only `slotDurationMinutes`
+   * is exposed by the backend DTO. Authenticated — JWT scopes the update to
+   * the caller's tenant.
+   */
+  updateMyScheduleRules = (data: { slotDurationMinutes?: number }) =>
+    this.request<{ slotDurationMinutes: number }>('/tenants/me/schedule-rules', {
+      method: 'PATCH',
+      body:   JSON.stringify(data),
+    })
+
   // ── Branches ──────────────────────────────────────────────────────────────
 
   /**
@@ -349,6 +360,17 @@ class ApiClient {
       method:  'DELETE',
       headers: { 'X-Tenant-ID': tenantId },
     })
+
+  /**
+   * Soft-deletes a professional. Backend returns 409 if there are PENDING/
+   * CONFIRMED future appointments — surface that exact message to the user
+   * so they know how to unblock it.
+   */
+  deleteProfessional = (tenantId: string, professionalId: string) =>
+    this.request<{ id: string; deleted: boolean; alreadyInactive?: boolean }>(
+      `/professionals/${professionalId}`,
+      { method: 'DELETE', headers: { 'X-Tenant-ID': tenantId } },
+    )
 
   // ── Auth profile ──────────────────────────────────────────────────────────
 

@@ -49,13 +49,17 @@ export function StepDetails({ booking }: Props) {
     submitting,
     submitError,
     timezone,
-    isMultiService,
+    requiresMultiTurno,
     serviceBookings,
   } = booking
 
   const isValid = guestInfo.name.trim().length > 0 && guestInfo.email.trim().length > 0
 
-  const totalPrice = isMultiService
+  // In multi-turno mode the user has booked N independent appointments via
+  // serviceBookings; the summary lists each one. In every other case (single
+  // service OR multi-service-with-unified-pro) we sum the price of the
+  // selected services and render a single combined summary.
+  const totalPrice = requiresMultiTurno
     ? serviceBookings.reduce(
         (acc, b) => acc + (typeof b.service.price === 'string' ? parseFloat(b.service.price) : b.service.price),
         0,
@@ -70,14 +74,14 @@ export function StepDetails({ booking }: Props) {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-900">Confirmá tu reserva</h2>
         <p className="mt-1 text-sm text-gray-500">
-          {isMultiService
+          {requiresMultiTurno
             ? `Vas a reservar ${serviceBookings.length} turnos. Completá tus datos para confirmar.`
             : 'Completá tus datos para confirmar el turno.'}
         </p>
       </div>
 
       {/* Booking summary */}
-      {isMultiService ? (
+      {requiresMultiTurno ? (
         /* Multi-service: show each booking separately */
         <div className="mb-6 space-y-3">
           {serviceBookings.map((b, idx) => (
@@ -230,7 +234,7 @@ export function StepDetails({ booking }: Props) {
             <Spinner size="sm" className="text-white" />
             Confirmando…
           </>
-        ) : isMultiService ? (
+        ) : requiresMultiTurno ? (
           `Confirmar ${serviceBookings.length} turnos`
         ) : (
           'Confirmar turno'

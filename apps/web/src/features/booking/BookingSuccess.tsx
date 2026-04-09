@@ -34,7 +34,7 @@ export function BookingSuccess({ appointments, timezone, onReset }: Props) {
         {isMulti ? `¡${appointments.length} turnos confirmados!` : '¡Turno confirmado!'}
       </h2>
       <p className="mt-2 text-gray-500">
-        Te esperamos. Revisá tu email para los detalles completos.
+        Te esperamos.
       </p>
 
       {/* Summary cards */}
