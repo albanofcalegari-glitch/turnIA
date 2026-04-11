@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common'
 import { PrismaService } from '../../prisma/prisma.service'
-import { AppointmentStatus, ExceptionType } from '@prisma/client'
+import { AppointmentStatus, ExceptionType, WorkOrderStatus } from '@prisma/client'
 import { TenantRole, JwtPayload } from '@turnia/shared'
 import {
   TimeInterval,
@@ -28,6 +28,13 @@ import { BranchesService } from '../branches/branches.service'
 const BLOCKING_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.PENDING,
   AppointmentStatus.CONFIRMED,
+]
+
+/** Active work order statuses that block calendar time (Phase 1) */
+const BLOCKING_WO_STATUSES: WorkOrderStatus[] = [
+  WorkOrderStatus.PENDING,
+  WorkOrderStatus.CONFIRMED,
+  WorkOrderStatus.IN_PROGRESS,
 ]
 
 /** Exception types that block the entire day */
@@ -390,11 +397,32 @@ export class SchedulesService {
       select: { startAt: true, endAt: true },
     })
 
+    // Phase 1 (work-orders): also block time from active work order assignments.
+    // Branch-agnostic for the same reason as appointments above.
+    const workAssignments = await this.prisma.staffAssignment.findMany({
+      where: {
+        professionalId,
+        workSlot: {
+          startAt: { lt: dayEndUtc },
+          endAt:   { gt: dayStartUtc },
+          workOrder: {
+            status: { in: BLOCKING_WO_STATUSES },
+          },
+        },
+      },
+      select: { workSlot: { select: { startAt: true, endAt: true } } },
+    })
+
     const busyIntervals: TimeInterval[] = [
       // Existing appointments converted to local minute intervals
       ...appointments.map(appt => ({
         startMinutes: this.utcToLocalMinutes(appt.startAt, timezone),
         endMinutes:   this.utcToLocalMinutes(appt.endAt,   timezone),
+      })),
+      // Work order slot assignments (Phase 1)
+      ...workAssignments.map(sa => ({
+        startMinutes: this.utcToLocalMinutes(sa.workSlot.startAt, timezone),
+        endMinutes:   this.utcToLocalMinutes(sa.workSlot.endAt,   timezone),
       })),
       // Partial-day BLOCK exceptions with explicit time ranges
       ...exceptions

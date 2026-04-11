@@ -73,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <>
       {/* Logo */}
       <div className="border-b p-4">
-        <span className="text-lg font-bold text-brand-600">TurnIA</span>
+        <span className="text-lg font-bold text-brand-600">turnIT</span>
         {user.tenantName && (
           <p className="mt-0.5 truncate text-xs text-gray-400">{user.tenantName}</p>
         )}
@@ -132,7 +132,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-gray-50">
       {/* Mobile header */}
       <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b bg-white px-4 md:hidden">
-        <span className="text-lg font-bold text-brand-600">TurnIA</span>
+        <span className="text-lg font-bold text-brand-600">turnIT</span>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"

@@ -9,6 +9,7 @@ import { ServicesModule } from './modules/services/services.module'
 import { ProfessionalsModule } from './modules/professionals/professionals.module'
 import { SchedulesModule } from './modules/schedules/schedules.module'
 import { AppointmentsModule } from './modules/appointments/appointments.module'
+import { WorkOrdersModule } from './modules/work-orders/work-orders.module'
 import { HealthModule } from './modules/health/health.module'
 import { TenantMiddleware } from './common/middleware/tenant.middleware'
 
@@ -24,6 +25,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware'
     ProfessionalsModule,
     SchedulesModule,
     AppointmentsModule,
+    WorkOrdersModule,
     HealthModule,
   ],
 })

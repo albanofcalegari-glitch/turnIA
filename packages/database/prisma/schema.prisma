@@ -28,6 +28,9 @@ model Tenant {
   /// Single-branch tenants keep this false and never see branch UI; the
   /// default branch still exists in the DB to satisfy NOT NULL FKs.
   hasMultipleBranches  Boolean   @default(false)
+  /// Phase 1 (work-orders): default length of a workday in hours.
+  /// Used when a service's durationUnit=WORKDAYS and its own workdayHours is null.
+  defaultWorkdayHours  Decimal   @default(8.0) @db.Decimal(4, 1)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -43,6 +46,7 @@ model Tenant {
   clients            Client[]
   workSchedules      WorkSchedule[]
   scheduleExceptions ScheduleException[]
+  workOrders         WorkOrder[]
 
   @@map("tenants")
 }
@@ -76,6 +80,7 @@ model Branch {
   workSchedules       WorkSchedule[]
   appointments        Appointment[]
   resources           Resource[]
+  workOrders          WorkOrder[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, isActive])
@@ -200,6 +205,19 @@ model Service {
   isPublic         Boolean  @default(true)
   requiresResource Boolean  @default(false)
   maxParallelBookings Int   @default(1)
+  // ── Phase 1 (work-orders): operational profile ─────────────────────────
+  /// Duration unit for scheduling. MINUTES keeps legacy behaviour.
+  durationUnit        DurationUnit @default(MINUTES)
+  /// Numeric duration expressed in `durationUnit`. 0 = use legacy durationMinutes.
+  durationValue       Decimal      @default(0) @db.Decimal(6, 1)
+  /// Hours per workday for this service. null = use tenant.defaultWorkdayHours.
+  workdayHours        Decimal?     @db.Decimal(4, 1)
+  /// Minimum professionals required simultaneously for this service.
+  minProfessionals    Int          @default(1)
+  /// Maximum professionals allowed simultaneously.
+  maxProfessionals    Int          @default(1)
+  /// Whether this service can span multiple working days.
+  allowsMultiDay      Boolean      @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -209,6 +227,7 @@ model Service {
   appointmentItems AppointmentItem[]
   serviceResources ServiceResource[]
   branches         ServiceBranch[]
+  workOrders       WorkOrder[]
 
   @@map("services")
 }
@@ -230,13 +249,14 @@ model Professional {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  services     ProfessionalService[]
-  schedules    WorkSchedule[]
-  exceptions   ScheduleException[]
-  appointments Appointment[]
-  branches     ProfessionalBranch[]
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  services         ProfessionalService[]
+  schedules        WorkSchedule[]
+  exceptions       ScheduleException[]
+  appointments     Appointment[]
+  branches         ProfessionalBranch[]
+  staffAssignments StaffAssignment[]
 
   @@map("professionals")
 }
@@ -470,6 +490,7 @@ model Client {
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   appointments Appointment[]
+  workOrders   WorkOrder[]
 
   // PostgreSQL trata NULL como distinto de NULL en constraints UNIQUE,
   // por lo tanto múltiples guests (userId=NULL) son permitidos en el mismo tenant.
@@ -544,4 +565,121 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([entity, entityId])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS — Work Orders (Phase 1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum DurationUnit {
+  MINUTES
+  HOURS
+  WORKDAYS
+}
+
+enum WorkOrderStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkSlotStatus {
+  SCHEDULED
+  COMPLETED
+  SKIPPED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WORK ORDER (orden de trabajo — servicios multi-profesional / multi-día)
+//
+// Phase 1: admin-only creation, manual staff assignment, no guest booking.
+// Coexists with Appointment: simple services use Appointment, complex
+// services (minProfessionals > 1 or allowsMultiDay) use WorkOrder.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model WorkOrder {
+  id                String           @id @default(cuid())
+  tenantId          String
+  branchId          String
+  serviceId         String
+  clientId          String?
+
+  status            WorkOrderStatus  @default(PENDING)
+  scheduledStartAt  DateTime         // planned start (UTC)
+  scheduledEndAt    DateTime         // estimated end (UTC)
+  totalPrice        Decimal          @default(0) @db.Decimal(10, 2)
+  estimatedMinutes  Int              // total effective duration in minutes
+  notes             String?
+
+  confirmedAt       DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  service   Service  @relation(fields: [serviceId], references: [id])
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  workSlots WorkSlot[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, scheduledStartAt])
+  @@index([tenantId, branchId, scheduledStartAt])
+  @@map("work_orders")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WORK SLOT (tramo de trabajo dentro de una WorkOrder)
+//
+// Each slot represents one day (or partial day) of work. A 2-workday service
+// generates 2 WorkSlots. The admin assigns professionals to each slot.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model WorkSlot {
+  id              String           @id @default(cuid())
+  workOrderId     String
+  date            DateTime         @db.Date       // calendar date (local)
+  startTime       String           // "09:00" — local time
+  endTime         String           // "17:00" — local time
+  startAt         DateTime         // absolute UTC start
+  endAt           DateTime         // absolute UTC end
+  status          WorkSlotStatus   @default(SCHEDULED)
+  notes           String?
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  workOrder   WorkOrder         @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  assignments StaffAssignment[]
+
+  @@index([workOrderId])
+  @@index([startAt, endAt])
+  @@map("work_slots")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAFF ASSIGNMENT (profesional asignado a un WorkSlot)
+//
+// Phase 1: simple — an assignment exists or it doesn't. No role, no status,
+// no removal tracking. The admin assigns/unassigns freely as long as the
+// slot maintains minProfessionals. Phase 2 adds LEAD/COLLABORATOR roles.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model StaffAssignment {
+  id               String       @id @default(cuid())
+  workSlotId       String
+  professionalId   String
+
+  createdAt        DateTime     @default(now())
+
+  workSlot     WorkSlot     @relation(fields: [workSlotId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId], references: [id])
+
+  @@unique([workSlotId, professionalId])
+  @@index([professionalId])
+  @@map("staff_assignments")
 }

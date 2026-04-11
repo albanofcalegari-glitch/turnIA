@@ -23,7 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield size={18} className="text-brand-600" />
-            <span className="text-lg font-bold text-brand-600">TurnIA</span>
+            <span className="text-lg font-bold text-brand-600">turnIT</span>
             <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
               SuperAdmin
             </span>
