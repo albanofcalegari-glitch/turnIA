@@ -1,9 +1,11 @@
 'use client'
 
+import { ClipboardList } from 'lucide-react'
 import { cn, formatTime, formatMonthYear } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { StatusBadge } from './StatusBadge'
 import { AppointmentCard } from './AppointmentCard'
+import { WorkOrderBlock } from './WorkOrderBlock'
 import { type Appointment } from './agenda.types'
 import type { useAgenda } from './useAgenda'
 
@@ -29,6 +31,7 @@ export function WeekView({ agenda, timezone }: Props) {
   const {
     selectedDate, setSelectedDate,
     weekAppointments,
+    weekWorkOrders,
     loading, error,
     actionLoading, executeAction,
     goToPrevWeek, goToNextWeek,
@@ -91,6 +94,7 @@ export function WeekView({ agenda, timezone }: Props) {
         <div className="grid grid-cols-7 gap-2">
           {dates.map((date, idx) => {
             const appts = weekAppointments[date] ?? []
+            const wos   = weekWorkOrders[date] ?? []
             const isToday = date === today
             const isSelected = date === selectedDate
 
@@ -119,11 +123,21 @@ export function WeekView({ agenda, timezone }: Props) {
                   )}>
                     {new Date(date + 'T12:00:00').getDate()}
                   </p>
-                  {appts.length > 0 && (
-                    <span className="mt-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">
-                      {appts.length}
-                    </span>
-                  )}
+                  <div className="mt-0.5 flex items-center justify-center gap-1">
+                    {appts.length > 0 && (
+                      <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">
+                        {appts.length}
+                      </span>
+                    )}
+                    {wos.length > 0 && (
+                      <span
+                        className="inline-flex h-4 items-center gap-0.5 rounded-full bg-gray-700 px-1 text-[10px] font-bold text-white"
+                        title={`${wos.length} orden(es) de trabajo`}
+                      >
+                        <ClipboardList size={9} /> {wos.length}
+                      </span>
+                    )}
+                  </div>
                 </button>
 
                 {/* Compact appointment list */}
@@ -158,22 +172,41 @@ export function WeekView({ agenda, timezone }: Props) {
       )}
 
       {/* Detail panel for selected day */}
-      {!loading && weekAppointments[selectedDate]?.length > 0 && (
+      {!loading && (weekAppointments[selectedDate]?.length > 0 || weekWorkOrders[selectedDate]?.length > 0) && (
         <div className="mt-6">
           <h3 className="mb-3 text-sm font-semibold text-gray-700 capitalize">
-            Turnos del {new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </h3>
-          <div className="space-y-3">
-            {weekAppointments[selectedDate].map(appt => (
-              <AppointmentCard
-                key={appt.id}
-                appointment={appt}
-                timezone={timezone}
-                isLoading={!!actionLoading[appt.id]}
-                onAction={(action, payload) => executeAction(appt.id, action, payload)}
-              />
-            ))}
-          </div>
+          {weekAppointments[selectedDate]?.length > 0 && (
+            <div className="space-y-3">
+              {weekAppointments[selectedDate].map(appt => (
+                <AppointmentCard
+                  key={appt.id}
+                  appointment={appt}
+                  timezone={timezone}
+                  isLoading={!!actionLoading[appt.id]}
+                  onAction={(action, payload) => executeAction(appt.id, action, payload)}
+                />
+              ))}
+            </div>
+          )}
+          {weekWorkOrders[selectedDate]?.length > 0 && (
+            <div className={cn(weekAppointments[selectedDate]?.length > 0 && 'mt-4')}>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Órdenes de trabajo
+              </p>
+              <div className="space-y-3">
+                {weekWorkOrders[selectedDate].map(({ order, slot }) => (
+                  <WorkOrderBlock
+                    key={slot.id}
+                    order={order}
+                    slot={slot}
+                    timezone={timezone}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

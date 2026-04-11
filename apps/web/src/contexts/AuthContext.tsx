@@ -29,6 +29,7 @@ function profileToUserSession(profile: UserProfile): UserSession {
     tenantIsActive:            primary?.tenant.isActive            ?? null,
     tenantMembershipExpiresAt: primary?.tenant.membershipExpiresAt ?? null,
     tenantHasMultipleBranches: primary?.tenant.hasMultipleBranches ?? false,
+    tenantHasComplexServices:  primary?.tenant.hasComplexServices  ?? false,
     role:                      primary?.role                       ?? null,
   }
 }
@@ -38,11 +39,17 @@ function profileToUserSession(profile: UserProfile): UserSession {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface AuthContextValue {
-  session:  AuthSession | null
-  user:     UserSession | null
-  loading:  boolean
-  login:    (email: string, password: string) => Promise<void>
-  logout:   () => void
+  session:        AuthSession | null
+  user:           UserSession | null
+  loading:        boolean
+  login:          (email: string, password: string) => Promise<void>
+  logout:         () => void
+  /**
+   * Refetches the profile from the backend and updates the cached session.
+   * Useful after mutations that change tenant-level flags (e.g. creating
+   * the first complex service to reveal the "Órdenes" nav entry).
+   */
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -117,8 +124,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login')
   }, [router])
 
+  const refreshProfile = useCallback(async () => {
+    // No-op when logged out — silently ignore so callers don't need to guard.
+    const current = session
+    if (!current) return
+    try {
+      const profile = await apiClient.getProfile()
+      const refreshed: AuthSession = {
+        accessToken: current.accessToken,
+        user:        profileToUserSession(profile),
+      }
+      setSession(refreshed)
+      setSessionState(refreshed)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearSession()
+        apiClient.clearToken()
+        setSessionState(null)
+      }
+      // Other errors: keep cached state.
+    }
+  }, [session])
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, login, logout }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, login, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )

@@ -107,7 +107,9 @@ export default function DashboardPage() {
   const tenantId  = user?.tenantId  ?? ''
   const timezone  = user?.tenantTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 
-  const agenda = useAgenda(tenantId)
+  const agenda = useAgenda(tenantId, {
+    workOrdersEnabled: user?.tenantHasComplexServices ?? false,
+  })
   const { view, setView, proFilter, setProFilter, stats } = agenda
 
   const [professionals, setProfessionals] = useState<Professional[]>([])

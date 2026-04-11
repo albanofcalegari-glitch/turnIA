@@ -21,6 +21,12 @@ export interface UserSession {
   tenantMembershipExpiresAt: string | null
   /** Stage 1 (branches): drives whether the dashboard exposes the Sucursales nav item. */
   tenantHasMultipleBranches: boolean
+  /**
+   * Phase 1 (work-orders): drives whether the dashboard exposes the
+   * "Órdenes" nav item and WorkOrder affordances in the agenda.
+   * True when at least one service has minProfessionals > 1 or allowsMultiDay.
+   */
+  tenantHasComplexServices: boolean
   role:           string | null
 }
 

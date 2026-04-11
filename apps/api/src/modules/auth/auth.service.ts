@@ -71,6 +71,27 @@ export class AuthService {
     })
     if (!user) throw new NotFoundException('Usuario no encontrado')
 
+    // Phase 1 (work-orders): flag tenants that have at least one "complex"
+    // service (multi-pro or multi-day). Used by the dashboard to conditionally
+    // render the WorkOrders nav entry. Single query with distinct tenantIds,
+    // avoids N+1 when a user belongs to multiple tenants.
+    const tenantIds = user.tenants.map(t => t.tenantId)
+    const complexRows = tenantIds.length > 0
+      ? await this.prisma.service.findMany({
+          where: {
+            tenantId: { in: tenantIds },
+            isActive: true,
+            OR: [
+              { minProfessionals: { gt: 1 } },
+              { allowsMultiDay:    true       },
+            ],
+          },
+          select:   { tenantId: true },
+          distinct: ['tenantId'],
+        })
+      : []
+    const complexSet = new Set(complexRows.map(r => r.tenantId))
+
     return {
       id:          user.id,
       email:       user.email,
@@ -80,7 +101,10 @@ export class AuthService {
       tenants: user.tenants.map(t => ({
         tenantId: t.tenantId,
         role:     t.role,
-        tenant:   t.tenant,
+        tenant: {
+          ...t.tenant,
+          hasComplexServices: complexSet.has(t.tenantId),
+        },
       })),
     }
   }

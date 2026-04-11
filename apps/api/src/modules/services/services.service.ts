@@ -12,9 +12,16 @@ export class ServicesService {
     })
   }
 
-  async findAll(tenantId: string) {
+  async findAll(tenantId: string, options: { excludeComplex?: boolean } = {}) {
+    // When `excludeComplex` is set (guest booking catalog), hide services that
+    // can only be fulfilled via a WorkOrder (multi-professional or multi-day).
+    // Those services are admin-created on behalf of clients and don't have a
+    // self-service booking flow in Phase 1.
+    const complexFilter = options.excludeComplex
+      ? { minProfessionals: { lte: 1 }, allowsMultiDay: false }
+      : {}
     return this.prisma.service.findMany({
-      where:   { tenantId, isActive: true },
+      where:   { tenantId, isActive: true, ...complexFilter },
       include: { category: true },
       orderBy: { name: 'asc' },
     })

@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, type FormEvent } from 'react'
-import { Scissors, Plus, Trash2, X } from 'lucide-react'
+import { Scissors, Plus, Trash2, X, Users, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { apiClient, ApiError } from '@/lib/api'
+import { apiClient, ApiError, type DurationUnit } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 
@@ -22,6 +22,13 @@ interface ServiceItem {
   color:           string | null
   isPublic:        boolean
   isActive:        boolean
+  // Phase 1 (work-orders): operational profile
+  durationUnit?:     DurationUnit
+  durationValue?:    number
+  workdayHours?:     number | string | null
+  minProfessionals?: number
+  maxProfessionals?: number
+  allowsMultiDay?:   boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,7 +46,7 @@ const inputCls = cn(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ServiciosPage() {
-  const { user } = useAuth()
+  const { user, refreshProfile } = useAuth()
   const tenantId = user?.tenantId ?? ''
 
   const [services, setServices] = useState<ServiceItem[]>([])
@@ -106,6 +113,13 @@ export default function ServiciosPage() {
           onCreated={(svc) => {
             setServices(prev => [...prev, svc])
             setShowForm(false)
+            // If the new service is "complex" (multi-pro or multi-day), the
+            // tenant just became eligible for the Órdenes nav entry — refresh
+            // the auth profile so the sidebar updates without relogin.
+            const isComplex =
+              (typeof svc.minProfessionals === 'number' && svc.minProfessionals > 1) ||
+              svc.allowsMultiDay === true
+            if (isComplex) refreshProfile()
           }}
           onClose={() => setShowForm(false)}
         />
@@ -192,6 +206,15 @@ function CreateServiceModal({
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState<string | null>(null)
 
+  // ── Phase 1 (work-orders): "Duración avanzada" section ──────────────────
+  const [advanced,         setAdvanced]         = useState(false)
+  const [durationUnit,     setDurationUnit]     = useState<DurationUnit>('HOURS')
+  const [durationValue,    setDurationValue]    = useState('8')
+  const [workdayHours,     setWorkdayHours]     = useState('')
+  const [minProfessionals, setMinProfessionals] = useState('1')
+  const [maxProfessionals, setMaxProfessionals] = useState('1')
+  const [allowsMultiDay,   setAllowsMultiDay]   = useState(false)
+
   const isValid = name.trim() && parseInt(duration) >= 5 && parseFloat(price) >= 0
 
   async function handleSubmit(e: FormEvent) {
@@ -200,13 +223,24 @@ function CreateServiceModal({
     setSaving(true)
     setError(null)
     try {
-      const svc = await apiClient.createService(tenantId, {
+      // Build payload. Only include Phase 1 fields when "advanced" is on,
+      // keeping the default payload identical to the pre-Phase-1 behaviour.
+      const payload: Record<string, unknown> = {
         name:            name.trim(),
         description:     description.trim() || undefined,
         durationMinutes: parseInt(duration),
         price:           parseFloat(price),
         color:           color || undefined,
-      })
+      }
+      if (advanced) {
+        payload.durationUnit     = durationUnit
+        payload.durationValue    = parseFloat(durationValue || '0')
+        if (workdayHours) payload.workdayHours = parseFloat(workdayHours)
+        payload.minProfessionals = parseInt(minProfessionals || '1')
+        payload.maxProfessionals = parseInt(maxProfessionals || '1')
+        payload.allowsMultiDay   = allowsMultiDay
+      }
+      const svc = await apiClient.createService(tenantId, payload)
       onCreated(svc as unknown as ServiceItem)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -221,7 +255,7 @@ function CreateServiceModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">Nuevo servicio</h2>
           <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -257,6 +291,115 @@ function CreateServiceModal({
               <input type="color" value={color || '#22c55e'} onChange={e => setColor(e.target.value)} className="h-9 w-9 cursor-pointer rounded-lg border p-0.5" />
               <span className="text-xs text-gray-400">{color || 'Sin color'}</span>
             </div>
+          </div>
+
+          {/* ── Duración avanzada (Phase 1) ────────────────────────────── */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50/60">
+            <button
+              type="button"
+              onClick={() => setAdvanced(v => !v)}
+              className="flex w-full items-center justify-between px-4 py-3 text-left"
+            >
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-800">
+                <CalendarClock size={14} className="text-gray-500" />
+                Duración avanzada
+              </div>
+              <span className={cn(
+                'flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors',
+                advanced ? 'justify-end bg-brand-600' : 'justify-start bg-gray-300',
+              )}>
+                <span className="mx-0.5 h-4 w-4 rounded-full bg-white" />
+              </span>
+            </button>
+
+            {advanced && (
+              <div className="space-y-3 border-t border-gray-200 p-4">
+                <p className="text-xs text-gray-500">
+                  Para servicios multi-profesional o multi-día (ej: detailing, taller).
+                  Los servicios simples (peluquería) dejan esto apagado.
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-700">Unidad</label>
+                    <select
+                      value={durationUnit}
+                      onChange={e => setDurationUnit(e.target.value as DurationUnit)}
+                      className={inputCls}
+                    >
+                      <option value="MINUTES">Minutos</option>
+                      <option value="HOURS">Horas</option>
+                      <option value="WORKDAYS">Jornadas</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                      Cantidad
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      value={durationValue}
+                      onChange={e => setDurationValue(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                    Horas por jornada (opcional)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    step="0.5"
+                    placeholder="Por defecto: 8"
+                    value={workdayHours}
+                    onChange={e => setWorkdayHours(e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-700">
+                      <Users size={12} /> Mín. profesionales
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={minProfessionals}
+                      onChange={e => setMinProfessionals(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1 text-xs font-medium text-gray-700">
+                      <Users size={12} /> Máx. profesionales
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={maxProfessionals}
+                      onChange={e => setMaxProfessionals(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={allowsMultiDay}
+                    onChange={e => setAllowsMultiDay(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  Puede extenderse en varios días
+                </label>
+              </div>
+            )}
           </div>
 
           {error && (

@@ -20,8 +20,93 @@ export interface UserProfile {
       isActive:            boolean
       membershipExpiresAt: string | null
       hasMultipleBranches: boolean
+      /** Phase 1 (work-orders): at least one service is multi-pro or multi-day. */
+      hasComplexServices:  boolean
     }
   }>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Work Orders (Phase 1) — typed response shapes
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type DurationUnit     = 'MINUTES' | 'HOURS' | 'WORKDAYS'
+export type WorkOrderStatus  = 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+export type WorkSlotStatus   = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+
+export interface WorkOrderAssignment {
+  id:             string
+  workSlotId:     string
+  professionalId: string
+  assignedAt:     string
+  professional: {
+    id:          string
+    displayName: string
+    color:       string | null
+    avatarUrl?:  string | null
+  }
+}
+
+export interface WorkOrderSlot {
+  id:         string
+  workOrderId: string
+  date:       string        // ISO — day anchor at midnight UTC
+  startTime:  string        // "HH:MM"
+  endTime:    string        // "HH:MM"
+  startAt:    string        // ISO UTC
+  endAt:      string        // ISO UTC
+  status:     WorkSlotStatus
+  assignments: WorkOrderAssignment[]
+}
+
+export interface WorkOrderService {
+  id:    string
+  name:  string
+  color: string | null
+  // Only populated on the detail response:
+  minProfessionals?: number
+  maxProfessionals?: number
+  durationMinutes?:  number
+  price?:            number | string
+  currency?:         string
+}
+
+export interface WorkOrderClient {
+  id:        string
+  firstName: string
+  lastName:  string
+  email?:    string | null
+  phone?:    string | null
+}
+
+export interface WorkOrder {
+  id:               string
+  tenantId:         string
+  branchId:         string
+  serviceId:        string
+  clientId:         string | null
+  status:           WorkOrderStatus
+  scheduledStartAt: string   // ISO UTC
+  scheduledEndAt:   string   // ISO UTC
+  totalPrice:       number | string
+  estimatedMinutes: number
+  notes:            string | null
+  confirmedAt:      string | null
+  completedAt:      string | null
+  cancelledAt:      string | null
+  createdAt:        string
+  updatedAt:        string
+  service:          WorkOrderService
+  client:           WorkOrderClient | null
+  branch:           { id: string; name: string }
+  workSlots:        WorkOrderSlot[]
+}
+
+/** Lightweight professional row returned by available-professionals endpoint. */
+export interface SlotAvailablePro {
+  id:          string
+  displayName: string
+  color:       string | null
 }
 
 /** Admin view of a branch — includes inactive ones and isActive flag. */
@@ -203,11 +288,17 @@ class ApiClient {
   /**
    * Returns all active public services for the tenant.
    * Sends X-Tenant-ID header (tenantId resolved by getTenantBySlug first).
+   *
+   * `excludeComplex`: when true, services that can only be fulfilled via a
+   * WorkOrder (minProfessionals > 1 or allowsMultiDay) are hidden. Used by
+   * the guest booking catalog — admin contexts omit this to see every service.
    */
-  getServices = (tenantId: string) =>
-    this.request<Service[]>('/services', {
+  getServices = (tenantId: string, options: { excludeComplex?: boolean } = {}) => {
+    const query = options.excludeComplex ? '?excludeComplex=true' : ''
+    return this.request<Service[]>(`/services${query}`, {
       headers: { 'X-Tenant-ID': tenantId },
     })
+  }
 
   // ── Professionals (public — no auth required) ─────────────────────────────
 
@@ -416,6 +507,85 @@ class ApiClient {
       method:  'PATCH',
       headers: { 'X-Tenant-ID': tenantId },
     })
+
+  // ── Work Orders (Phase 1 — admin-only) ───────────────────────────────────
+
+  /**
+   * List work orders for the tenant. All filters are optional.
+   * `from` / `to` are YYYY-MM-DD strings and filter by `scheduledStartAt`.
+   */
+  getWorkOrders = (
+    tenantId: string,
+    filters?: { status?: WorkOrderStatus; branchId?: string; from?: string; to?: string },
+  ) => {
+    const params = new URLSearchParams()
+    if (filters?.status)   params.set('status',   filters.status)
+    if (filters?.branchId) params.set('branchId', filters.branchId)
+    if (filters?.from)     params.set('from',     filters.from)
+    if (filters?.to)       params.set('to',       filters.to)
+    const q = params.toString()
+    return this.request<WorkOrder[]>(`/work-orders${q ? '?' + q : ''}`, {
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+  }
+
+  getWorkOrder = (tenantId: string, id: string) =>
+    this.request<WorkOrder>(`/work-orders/${id}`, {
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  createWorkOrder = (tenantId: string, data: {
+    serviceId:   string
+    branchId?:   string
+    clientId?:   string
+    startDate:   string   // ISO — typically `${yyyy-mm-dd}T00:00:00.000Z`
+    totalPrice?: number
+    notes?:      string
+  }) =>
+    this.request<WorkOrder>('/work-orders', {
+      method:  'POST',
+      body:    JSON.stringify(data),
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  updateWorkOrderStatus = (tenantId: string, id: string, status: WorkOrderStatus) =>
+    this.request<WorkOrder>(`/work-orders/${id}/status`, {
+      method:  'PATCH',
+      body:    JSON.stringify({ status }),
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  getSlotAvailableProfessionals = (tenantId: string, workOrderId: string, slotId: string) =>
+    this.request<SlotAvailablePro[]>(
+      `/work-orders/${workOrderId}/slots/${slotId}/available-professionals`,
+      { headers: { 'X-Tenant-ID': tenantId } },
+    )
+
+  assignProfessionalToSlot = (
+    tenantId: string,
+    workOrderId: string,
+    slotId: string,
+    professionalId: string,
+  ) =>
+    this.request<WorkOrderAssignment>(`/work-orders/${workOrderId}/slots/${slotId}/assign`, {
+      method:  'POST',
+      body:    JSON.stringify({ professionalId }),
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  unassignProfessionalFromSlot = (
+    tenantId: string,
+    workOrderId: string,
+    slotId: string,
+    professionalId: string,
+  ) =>
+    this.request<{ success: boolean }>(
+      `/work-orders/${workOrderId}/slots/${slotId}/assign/${professionalId}`,
+      {
+        method:  'DELETE',
+        headers: { 'X-Tenant-ID': tenantId },
+      },
+    )
 
   // ── SuperAdmin ──────────────────────────────────────────────────────────
 

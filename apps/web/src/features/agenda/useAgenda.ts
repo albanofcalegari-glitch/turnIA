@@ -1,13 +1,23 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { apiClient } from '@/lib/api'
+import { apiClient, type WorkOrder, type WorkOrderSlot } from '@/lib/api'
 import { toDateString } from '@/lib/utils'
 import type {
   Appointment,
   AppointmentAction,
   AgendaView,
 } from './agenda.types'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types for WorkOrder presence in the agenda
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A work-order anchored to a specific slot on a specific day. */
+export interface AgendaWorkOrderEntry {
+  order: WorkOrder
+  slot:  WorkOrderSlot
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -36,12 +46,15 @@ function weekDates(monday: Date): string[] {
 // Hook
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useAgenda(tenantId: string) {
+export function useAgenda(tenantId: string, options?: { workOrdersEnabled?: boolean }) {
+  const workOrdersEnabled = options?.workOrdersEnabled ?? false
+
   const [view,         setView]         = useState<AgendaView>('day')
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()))
   const [proFilter,    setProFilter]    = useState<string>('')     // '' = all
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [workOrders,   setWorkOrders]   = useState<WorkOrder[]>([])
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState<string | null>(null)
 
@@ -55,28 +68,40 @@ export function useAgenda(tenantId: string) {
     setLoading(true)
     setError(null)
     try {
-      if (view === 'week') {
-        const monday = weekStart(new Date(selectedDate + 'T12:00:00'))
-        const dates  = weekDates(monday)
-        const result = await apiClient.getAppointments(tenantId, {
-          from: dates[0],
-          to:   dates[6],
-          ...(proFilter ? { professionalId: proFilter } : {}),
-        })
-        setAppointments(result)
-      } else {
-        const result = await apiClient.getAppointments(tenantId, {
-          date: selectedDate,
-          ...(proFilter ? { professionalId: proFilter } : {}),
-        })
-        setAppointments(result)
-      }
+      // Appointments (existing behaviour)
+      const apptsPromise = view === 'week'
+        ? (() => {
+            const monday = weekStart(new Date(selectedDate + 'T12:00:00'))
+            const dates  = weekDates(monday)
+            return apiClient.getAppointments(tenantId, {
+              from: dates[0],
+              to:   dates[6],
+              ...(proFilter ? { professionalId: proFilter } : {}),
+            })
+          })()
+        : apiClient.getAppointments(tenantId, {
+            date: selectedDate,
+            ...(proFilter ? { professionalId: proFilter } : {}),
+          })
+
+      // Work orders (Phase 1). We fetch ALL orders (no date filter) because
+      // a WorkOrder can span days that started before the visible range, and
+      // the list is expected to stay small in the MVP. Client-side filters
+      // down to the visible day/week. Only fetched when the tenant has
+      // complex services so peluquerías pay zero extra cost.
+      const woPromise = workOrdersEnabled
+        ? apiClient.getWorkOrders(tenantId).catch(() => [] as WorkOrder[])
+        : Promise.resolve([] as WorkOrder[])
+
+      const [appts, wos] = await Promise.all([apptsPromise, woPromise])
+      setAppointments(appts)
+      setWorkOrders(wos)
     } catch {
       setError('No se pudieron cargar los turnos. Intentá de nuevo.')
     } finally {
       setLoading(false)
     }
-  }, [tenantId, selectedDate, proFilter, view])
+  }, [tenantId, selectedDate, proFilter, view, workOrdersEnabled])
 
   useEffect(() => {
     fetchAppointments()
@@ -139,6 +164,36 @@ export function useAgenda(tenantId: string) {
     })
   }
 
+  // ── Work orders derived state ───────────────────────────────────────────
+
+  /**
+   * Work-order slots anchored to the selected day. A single order can
+   * contribute multiple slots across days; we pick the slot matching
+   * `selectedDate` (by startAt timezone-agnostic date compare).
+   */
+  const dayWorkOrders: AgendaWorkOrderEntry[] = workOrders
+    .flatMap(order =>
+      order.workSlots
+        .filter(slot => toDateString(new Date(slot.startAt)) === selectedDate)
+        .map(slot => ({ order, slot })),
+    )
+    .sort((a, b) => a.slot.startAt.localeCompare(b.slot.startAt))
+
+  /** Work-order slots grouped by date for the week view. */
+  const weekWorkOrders: Record<string, AgendaWorkOrderEntry[]> = {}
+  if (view === 'week') {
+    const monday = weekStart(new Date(selectedDate + 'T12:00:00'))
+    weekDates(monday).forEach(date => {
+      weekWorkOrders[date] = workOrders
+        .flatMap(order =>
+          order.workSlots
+            .filter(slot => toDateString(new Date(slot.startAt)) === date)
+            .map(slot => ({ order, slot })),
+        )
+        .sort((a, b) => a.slot.startAt.localeCompare(b.slot.startAt))
+    })
+  }
+
   /** Stats for the selected day. */
   const stats = {
     total:     dayAppointments.length,
@@ -173,6 +228,8 @@ export function useAgenda(tenantId: string) {
     // Data
     dayAppointments,
     weekAppointments,
+    dayWorkOrders,
+    weekWorkOrders,
     stats,
 
     // Loading / error

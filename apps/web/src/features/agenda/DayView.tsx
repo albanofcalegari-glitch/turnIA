@@ -3,6 +3,7 @@
 import { formatDateLong } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { AppointmentCard } from './AppointmentCard'
+import { WorkOrderBlock } from './WorkOrderBlock'
 import type { useAgenda } from './useAgenda'
 
 type AgendaHook = ReturnType<typeof useAgenda>
@@ -16,6 +17,7 @@ export function DayView({ agenda, timezone }: Props) {
   const {
     selectedDate, setSelectedDate,
     dayAppointments,
+    dayWorkOrders,
     loading, error,
     actionLoading, executeAction,
     refresh,
@@ -83,7 +85,7 @@ export function DayView({ agenda, timezone }: Props) {
       )}
 
       {/* Empty */}
-      {!loading && !error && dayAppointments.length === 0 && (
+      {!loading && !error && dayAppointments.length === 0 && dayWorkOrders.length === 0 && (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <p className="text-3xl">📅</p>
           <p className="mt-3 font-medium text-gray-700">Sin turnos para este día</p>
@@ -105,6 +107,27 @@ export function DayView({ agenda, timezone }: Props) {
               onAction={(action, payload) => executeAction(appt.id, action, payload)}
             />
           ))}
+        </div>
+      )}
+
+      {/* Work orders section — only rendered when the tenant has complex
+          services and there are orders overlapping this day. Read-only;
+          each block links to the order detail page. */}
+      {!loading && dayWorkOrders.length > 0 && (
+        <div className={dayAppointments.length > 0 ? 'mt-6' : ''}>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Órdenes de trabajo ({dayWorkOrders.length})
+          </h3>
+          <div className="space-y-3">
+            {dayWorkOrders.map(({ order, slot }) => (
+              <WorkOrderBlock
+                key={slot.id}
+                order={order}
+                slot={slot}
+                timezone={timezone}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

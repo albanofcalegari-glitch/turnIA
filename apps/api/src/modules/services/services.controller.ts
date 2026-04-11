@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common'
 import { ServicesService } from './services.service'
 import { CreateServiceDto } from './dto/create-service.dto'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
@@ -16,8 +16,13 @@ export class ServicesController {
   // ── Public read endpoints (no JWT — required for guest booking flow) ──────
 
   @Get()
-  findAll(@TenantId() tenantId: string) {
-    return this.servicesService.findAll(tenantId)
+  findAll(
+    @TenantId() tenantId: string,
+    @Query('excludeComplex') excludeComplex?: string,
+  ) {
+    return this.servicesService.findAll(tenantId, {
+      excludeComplex: excludeComplex === 'true',
+    })
   }
 
   @Get(':id')

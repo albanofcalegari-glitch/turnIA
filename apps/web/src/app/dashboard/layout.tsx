@@ -3,16 +3,21 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2 } from 'lucide-react'
+import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+
+interface NavFlags {
+  tenantHasMultipleBranches: boolean
+  tenantHasComplexServices:  boolean
+}
 
 interface NavItem {
   href: string
   label: string
   icon: typeof Calendar
   /** When set, the item is only rendered if the predicate returns true. */
-  show?: (user: { tenantHasMultipleBranches: boolean }) => boolean
+  show?: (user: NavFlags) => boolean
 }
 
 const NAV: NavItem[] = [
@@ -20,6 +25,14 @@ const NAV: NavItem[] = [
   { href: '/dashboard/servicios',     label: 'Servicios',      icon: Scissors  },
   { href: '/dashboard/profesionales', label: 'Profesionales',  icon: Users     },
   { href: '/dashboard/horarios',      label: 'Horarios',       icon: Clock     },
+  // Phase 1 (work-orders): only shown when the tenant has at least one
+  // "complex" service (multi-pro or multi-day). Peluquerías never see this.
+  {
+    href:  '/dashboard/ordenes',
+    label: 'Órdenes',
+    icon:  ClipboardList,
+    show:  (u) => u.tenantHasComplexServices,
+  },
   // Stage 1 (branches): only shown when the tenant declared multiple sucursales
   // at registration. Single-branch tenants never see this entry, keeping the
   // dashboard identical to the pre-Phase-3 experience.
@@ -81,7 +94,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 p-3">
-        {NAV.filter(item => !item.show || item.show({ tenantHasMultipleBranches: user.tenantHasMultipleBranches })).map(item => {
+        {NAV.filter(item => !item.show || item.show({
+          tenantHasMultipleBranches: user.tenantHasMultipleBranches,
+          tenantHasComplexServices:  user.tenantHasComplexServices,
+        })).map(item => {
           const isActive = item.href === '/dashboard'
             ? pathname === '/dashboard'
             : pathname.startsWith(item.href)

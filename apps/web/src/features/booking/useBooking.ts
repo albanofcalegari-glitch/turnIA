@@ -88,7 +88,7 @@ export function useBooking(tenantSlug: string) {
         if (!t.isActive) return
 
         const [svcs, pros, brs] = await Promise.all([
-          apiClient.getServices(t.id),
+          apiClient.getServices(t.id, { excludeComplex: true }),
           apiClient.getProfessionals(t.id),
           apiClient.getBranches(t.id),
         ])
