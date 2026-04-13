@@ -31,9 +31,8 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction }: 
     guestName, guestEmail, notes,
   } = appointment
 
-  const clientName = client
-    ? `${client.firstName} ${client.lastName}`
-    : (guestName ?? 'Invitado')
+  const clientName = guestName
+    || (client ? `${client.firstName} ${client.lastName}` : 'Invitado')
 
   const serviceNames = items
     .sort((a, b) => a.order - b.order)

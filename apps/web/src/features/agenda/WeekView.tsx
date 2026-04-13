@@ -137,9 +137,8 @@ export function WeekView({ agenda, timezone }: Props) {
                         {formatTime(appt.startAt, timezone)}
                       </p>
                       <p className="truncate text-[10px] text-gray-500">
-                        {appt.client
-                          ? `${appt.client.firstName} ${appt.client.lastName}`
-                          : (appt.guestName ?? 'Invitado')}
+                        {appt.guestName
+                          || (appt.client ? `${appt.client.firstName} ${appt.client.lastName}` : 'Invitado')}
                       </p>
                       <StatusBadge status={appt.status} size="xs" />
                     </div>
