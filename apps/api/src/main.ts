@@ -41,7 +41,7 @@ async function bootstrap() {
   // production without env-var aliasing tricks.
   const port = process.env.PORT ?? process.env.API_PORT ?? 4000
   await app.listen(port)
-  console.log(`TurnIA API running on http://localhost:${port}/api/v1`)
+  console.log(`turnIT API running on http://localhost:${port}/api/v1`)
 }
 
 bootstrap()

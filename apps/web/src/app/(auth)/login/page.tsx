@@ -39,7 +39,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <span className="text-3xl font-bold text-brand-600">TurnIA</span>
+          <span className="text-3xl font-bold text-brand-600">turnIT</span>
           <p className="mt-1 text-sm text-gray-500">Panel de administración</p>
         </div>
 

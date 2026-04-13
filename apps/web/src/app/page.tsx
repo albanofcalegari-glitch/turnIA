@@ -4,7 +4,7 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-white">
       <nav className="border-b px-4 py-4 flex items-center justify-between max-w-7xl mx-auto sm:px-6">
-        <span className="text-xl font-bold text-brand-600">TurnIA</span>
+        <span className="text-xl font-bold text-brand-600">turnIT</span>
         <div className="flex items-center gap-2 sm:gap-4">
           <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900">Iniciar sesión</Link>
           <Link href="/register" className="text-sm bg-brand-600 text-white px-3 py-2 rounded-md hover:bg-brand-700 sm:px-4">
