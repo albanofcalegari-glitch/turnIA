@@ -28,7 +28,7 @@ export class AuthService {
       },
     })
 
-    return this.signToken(user)
+    return await this.signToken(user)
   }
 
   async login(dto: LoginDto) {
@@ -40,7 +40,7 @@ export class AuthService {
 
     if (!user.isActive) throw new UnauthorizedException('Cuenta deshabilitada')
 
-    return this.signToken(user)
+    return await this.signToken(user)
   }
 
   async getProfile(userId: string) {
@@ -85,17 +85,28 @@ export class AuthService {
     }
   }
 
-  private signToken(user: { id: string; email: string; isSuperAdmin: boolean }) {
+  private async signToken(user: { id: string; email: string; isSuperAdmin: boolean }) {
+    // Look up the user's first tenant membership so the JWT carries tenantId
+    // and role — required by guards like RolesGuard and endpoints that check
+    // user.tenantId (e.g. schedule-rules).
+    const membership = await this.prisma.tenantUser.findFirst({
+      where: { userId: user.id },
+    })
+
     const payload: JwtPayload = {
       sub:          user.id,
       email:        user.email,
       isSuperAdmin: user.isSuperAdmin,
+      ...(membership && {
+        tenantId: membership.tenantId,
+        role:     membership.role as JwtPayload['role'],
+      }),
     }
     return {
       accessToken: this.jwt.sign(payload),
       user: {
-        id:          user.id,
-        email:       user.email,
+        id:           user.id,
+        email:        user.email,
         isSuperAdmin: user.isSuperAdmin,
       },
     }
