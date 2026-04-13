@@ -156,12 +156,27 @@ export class AppointmentsService {
 
     // ── 6. Build client context (outside the transaction) ─────────────────
     //
-    // For authenticated users we load the User record here — before entering
-    // the SERIALIZABLE transaction — to keep the critical section as short
-    // as possible. User data (name, email) is stable enough that reading it
-    // outside the transaction is safe.
+    // If the booking carries explicit guest info (guestName + guestEmail),
+    // always treat it as a guest booking — even if there is a valid JWT.
+    // This covers the common scenario where the tenant admin/professional
+    // is logged in on the same browser and tests (or demonstrates) the
+    // public booking flow: without this check the CRM record would be
+    // created with the admin's name instead of the guest's.
+    //
+    // For authenticated users who book without supplying guest fields, we
+    // load the User record here — before entering the SERIALIZABLE
+    // transaction — to keep the critical section as short as possible.
+    // User data (name, email) is stable enough that reading it outside
+    // the transaction is safe.
     let clientCtx: ClientContext
-    if (userId) {
+    if (dto.guestName && dto.guestEmail) {
+      clientCtx = {
+        kind:  'guest',
+        name:  dto.guestName,
+        email: dto.guestEmail,
+        phone: dto.guestPhone,
+      }
+    } else if (userId) {
       const user = await this.prisma.user.findUnique({
         where:  { id: userId },
         select: { firstName: true, lastName: true, email: true },
