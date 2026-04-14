@@ -408,11 +408,19 @@ export class SchedulesService {
     // ── 7. Generate slots ──────────────────────────────────────────────────
     const slots: AvailableSlot[] = []
     const unavailableSlots: UnavailableSlot[] = []
+    const now = new Date()
     let cursor = workStartMins
 
     while (cursor + totalDurationMins <= workEndMins) {
       const slotStart = cursor
       const slotEnd   = cursor + totalDurationMins
+
+      const slotStartAt = this.localToUtc(date, this.minutesToTime(slotStart), timezone)
+
+      if (slotStartAt <= now) {
+        cursor += slotIntervalMins
+        continue
+      }
 
       const isFree = !this.overlapsAny(
         { startMinutes: slotStart, endMinutes: slotEnd },
@@ -420,8 +428,8 @@ export class SchedulesService {
       )
 
       const slotData = {
-        startAt:         this.localToUtc(date, this.minutesToTime(slotStart), timezone).toISOString(),
-        endAt:           this.localToUtc(date, this.minutesToTime(slotEnd),   timezone).toISOString(),
+        startAt:         slotStartAt.toISOString(),
+        endAt:           this.localToUtc(date, this.minutesToTime(slotEnd), timezone).toISOString(),
         durationMinutes: totalDurationMins,
       }
 

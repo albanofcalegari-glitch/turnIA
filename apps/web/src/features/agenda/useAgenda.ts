@@ -93,6 +93,14 @@ export function useAgenda(tenantId: string) {
     action:        AppointmentAction,
     payload?:      { reason?: string },
   ) => {
+    const confirmMessages: Partial<Record<AppointmentAction, string>> = {
+      confirm:  '¿Confirmar este turno?',
+      complete: '¿Marcar este turno como completado?',
+      no_show:  '¿Marcar este turno como "no asistió"?',
+    }
+    const confirmMessage = confirmMessages[action]
+    if (confirmMessage && !window.confirm(confirmMessage)) return
+
     setActionLoading(prev => ({ ...prev, [appointmentId]: true }))
     try {
       let updated: Appointment
