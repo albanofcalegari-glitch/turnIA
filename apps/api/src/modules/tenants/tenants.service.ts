@@ -16,6 +16,10 @@ export class TenantsService {
 
     const passwordHash = await bcrypt.hash(dto.adminPassword, 12)
 
+    // 45-day free trial. After that the tenant must subscribe via Mercado Pago
+    // or the scheduled deactivation job + read-only guard will take over.
+    const trialEndsAt = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000)
+
     return this.prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
@@ -23,6 +27,8 @@ export class TenantsService {
           slug:     dto.slug,
           type:     dto.type,
           timezone: dto.timezone ?? 'America/Argentina/Buenos_Aires',
+          plan:                'trial',
+          membershipExpiresAt: trialEndsAt,
           // Stage 1 (branches): the owner declares this at registration. The
           // flag drives whether the dashboard exposes the branch UI; the
           // default branch row below exists either way so branchId FKs on
