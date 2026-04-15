@@ -12,3 +12,5 @@ dist/
 coverage/
 *.log
 *.tsbuildinfo
+apps/api/uploads/
+uploads/

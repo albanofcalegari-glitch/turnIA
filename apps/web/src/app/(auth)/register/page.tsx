@@ -156,7 +156,7 @@ export default function RegisterPage() {
                 required
                 value={businessName}
                 onChange={e => handleBusinessNameChange(e.target.value)}
-                placeholder="Mi peluquería"
+                placeholder="Mi negocio"
                 className={inputCls}
               />
             </div>
@@ -167,14 +167,14 @@ export default function RegisterPage() {
                 Identificador (URL)
               </label>
               <div className="flex items-center gap-1.5">
-                <span className="text-sm text-gray-400">turnia.com/</span>
+                <span className="text-sm text-gray-400">turnit.com/</span>
                 <input
                   type="text"
                   required
                   minLength={3}
                   value={slug}
                   onChange={e => handleSlugChange(e.target.value)}
-                  placeholder="mi-peluqueria"
+                  placeholder="mi-negocio"
                   className={inputCls}
                 />
               </div>

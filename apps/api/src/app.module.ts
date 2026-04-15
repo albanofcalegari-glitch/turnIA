@@ -12,6 +12,7 @@ import { ServicesModule } from './modules/services/services.module'
 import { ProfessionalsModule } from './modules/professionals/professionals.module'
 import { SchedulesModule } from './modules/schedules/schedules.module'
 import { AppointmentsModule } from './modules/appointments/appointments.module'
+import { AttachmentsModule } from './modules/attachments/attachments.module'
 import { HealthModule } from './modules/health/health.module'
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module'
 import { MailModule } from './modules/mail/mail.module'
@@ -45,6 +46,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware'
     ProfessionalsModule,
     SchedulesModule,
     AppointmentsModule,
+    AttachmentsModule,
     HealthModule,
     SubscriptionsModule,
     ReportsModule,

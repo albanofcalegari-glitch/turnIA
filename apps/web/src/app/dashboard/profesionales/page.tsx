@@ -1,12 +1,23 @@
 'use client'
 
-import { useState, useEffect, type FormEvent } from 'react'
-import { Users, Plus, X, Link2, Unlink, Trash2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { Users, Plus, X, Link2, Trash2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
-import { Button } from '@/components/ui/Button'
+import { useConfirm } from '@/components/ui/Dialog'
+import { ActionsMenu } from '@/components/ui/ActionsMenu'
+import { Pagination } from '@/components/ui/Pagination'
+import { cn } from '@/lib/utils'
+
+const PAGE_SIZE = 10
+
+const inputCls = cn(
+  'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900',
+  'placeholder:text-gray-400',
+  'focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20',
+)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -31,16 +42,6 @@ interface ServiceOption {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Input classes
-// ─────────────────────────────────────────────────────────────────────────────
-
-const inputCls = cn(
-  'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900',
-  'placeholder:text-gray-400',
-  'focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20',
-)
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,9 @@ export default function ProfesionalesPage() {
   const [allServices,   setAllServices]   = useState<ServiceOption[]>([])
   const [loading,       setLoading]       = useState(true)
   const [error,         setError]         = useState<string | null>(null)
-  const [showForm,      setShowForm]      = useState(false)
+  const [query,         setQuery]         = useState('')
+  const [page,          setPage]          = useState(1)
+  const { confirm, element: confirmDialog } = useConfirm()
 
 
   // ── Fetch data ──────────────────────────────────────────────────────────
@@ -112,9 +115,17 @@ export default function ProfesionalesPage() {
   // ── Delete professional (soft delete on the backend) ────────────────────
 
   async function handleDeleteProfessional(pro: ProfessionalItem) {
-    const ok = window.confirm(
-      `¿Eliminar a "${pro.displayName}"?\n\nNo se podrá reservar más con este profesional. Los turnos pasados se conservan en el historial.`,
-    )
+    const ok = await confirm({
+      title:       'Eliminar profesional',
+      message: (
+        <>
+          ¿Eliminar a <strong>{pro.displayName}</strong>? No se podrá reservar más con
+          este profesional. Los turnos pasados se conservan en el historial.
+        </>
+      ),
+      confirmText: 'Eliminar',
+      variant:     'danger',
+    })
     if (!ok) return
 
     try {
@@ -131,12 +142,16 @@ export default function ProfesionalesPage() {
 
   return (
     <div>
+      {confirmDialog}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Profesionales</h1>
-        <Button onClick={() => setShowForm(true)} className="self-start sm:self-auto">
+        <Link
+          href="/dashboard/profesionales/nuevo"
+          className="inline-flex items-center gap-2 self-start rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 sm:self-auto"
+        >
           <Plus size={16} />
           Agregar profesional
-        </Button>
+        </Link>
       </div>
 
       {/* Error */}
@@ -145,18 +160,6 @@ export default function ProfesionalesPage() {
           {error}
           <button onClick={() => setError(null)} className="ml-2 underline">Cerrar</button>
         </div>
-      )}
-
-      {/* Modal */}
-      {showForm && (
-        <CreateProfessionalModal
-          tenantId={tenantId}
-          onCreated={(pro) => {
-            setProfessionals(prev => [...prev, pro])
-            setShowForm(false)
-          }}
-          onClose={() => setShowForm(false)}
-        />
       )}
 
       {/* Loading */}
@@ -174,28 +177,65 @@ export default function ProfesionalesPage() {
           <p className="mt-1 text-sm text-gray-400">
             Agregá un profesional para que los clientes puedan reservar turnos.
           </p>
-          <Button variant="outline" className="mt-4" onClick={() => setShowForm(true)}>
+          <Link
+            href="/dashboard/profesionales/nuevo"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
             <Plus size={16} />
             Agregar profesional
-          </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Search */}
+      {!loading && professionals.length > 0 && (
+        <div className="mb-4">
+          <input
+            type="search"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setPage(1) }}
+            placeholder="Buscar profesionales por nombre…"
+            className={cn(inputCls, 'max-w-sm')}
+          />
         </div>
       )}
 
       {/* List */}
-      {!loading && professionals.length > 0 && (
-        <div className="space-y-4">
-          {professionals.map(pro => (
-            <ProfessionalCard
-              key={pro.id}
-              professional={pro}
-              allServices={allServices}
-              onLinkService={(svcId) => handleLinkService(pro.id, svcId)}
-              onUnlinkService={(svcId) => handleUnlinkService(pro.id, svcId)}
-              onDelete={() => handleDeleteProfessional(pro)}
-            />
-          ))}
-        </div>
-      )}
+      {!loading && professionals.length > 0 && (() => {
+        const filtered = query.trim()
+          ? professionals.filter(p => p.displayName.toLowerCase().includes(query.trim().toLowerCase()))
+          : professionals
+
+        if (filtered.length === 0) {
+          return (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white py-10 text-center text-sm text-gray-500">
+              No se encontraron profesionales con ese nombre.
+            </div>
+          )
+        }
+
+        const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+        const safePage  = Math.min(page, pageCount)
+        const paged     = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+        return (
+          <>
+            <div className="space-y-4">
+              {paged.map(pro => (
+                <ProfessionalCard
+                  key={pro.id}
+                  professional={pro}
+                  allServices={allServices}
+                  onLinkService={(svcId) => handleLinkService(pro.id, svcId)}
+                  onUnlinkService={(svcId) => handleUnlinkService(pro.id, svcId)}
+                  onDelete={() => handleDeleteProfessional(pro)}
+                />
+              ))}
+            </div>
+            <Pagination page={safePage} pageCount={pageCount} onChange={setPage} />
+          </>
+        )
+      })()}
     </div>
   )
 }
@@ -247,15 +287,18 @@ function ProfessionalCard({
             Sin reservas online
           </span>
         )}
-        <button
-          type="button"
-          onClick={onDelete}
-          title="Eliminar profesional"
-          aria-label={`Eliminar a ${professional.displayName}`}
-          className="ml-2 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-        >
-          <Trash2 size={16} />
-        </button>
+        <ActionsMenu
+          className="ml-2"
+          label={`Acciones para ${professional.displayName}`}
+          items={[
+            {
+              label:   'Eliminar',
+              icon:    <Trash2 size={14} />,
+              onClick: onDelete,
+              danger:  true,
+            },
+          ]}
+        />
       </div>
 
       {/* Linked services */}
@@ -311,94 +354,3 @@ function ProfessionalCard({
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Create modal
-// ─────────────────────────────────────────────────────────────────────────────
-
-function CreateProfessionalModal({
-  tenantId,
-  onCreated,
-  onClose,
-}: {
-  tenantId:  string
-  onCreated: (pro: ProfessionalItem) => void
-  onClose:   () => void
-}) {
-  const [displayName, setDisplayName] = useState('')
-  const [color,       setColor]       = useState('')
-  const [saving,      setSaving]      = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!displayName.trim() || saving) return
-    setSaving(true)
-    setError(null)
-    try {
-      const pro = await apiClient.createProfessional(tenantId, {
-        displayName: displayName.trim(),
-        color:       color || undefined,
-      })
-      onCreated({ ...pro, services: [] } as unknown as ProfessionalItem)
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Error al crear el profesional. Intentá de nuevo.')
-      }
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">Agregar profesional</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-            <X size={18} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Nombre profesional <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
-              placeholder="Ej: Ana García"
-              className={inputCls}
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Este nombre se muestra en la página de reservas.
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Color (opcional)</label>
-            <div className="flex items-center gap-2">
-              <input type="color" value={color || '#6b7280'} onChange={e => setColor(e.target.value)} className="h-9 w-9 cursor-pointer rounded-lg border p-0.5" />
-              <span className="text-xs text-gray-400">Color para la agenda</span>
-            </div>
-          </div>
-
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" className="flex-1" disabled={!displayName.trim() || saving}>
-              {saving ? <><Spinner size="sm" className="text-white" /> Guardando…</> : 'Crear profesional'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}

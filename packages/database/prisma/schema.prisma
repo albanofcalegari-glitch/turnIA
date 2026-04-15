@@ -435,12 +435,13 @@ model Appointment {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  tenant               Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch               Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  client               Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  professional         Professional         @relation(fields: [professionalId], references: [id])
+  tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch               Branch                  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  client               Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  professional         Professional            @relation(fields: [professionalId], references: [id])
   items                AppointmentItem[]
-  appointmentResources AppointmentResource[] // agregado en Stage 1
+  appointmentResources AppointmentResource[]   // agregado en Stage 1
+  attachments          AppointmentAttachment[]
 
   @@index([tenantId, startAt])
   @@index([tenantId, status, startAt]) // agregado en Stage 1 — dashboard queries
@@ -477,6 +478,34 @@ model AppointmentItem {
 
   @@index([appointmentId])
   @@map("appointment_items")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APPOINTMENT ATTACHMENT (imágenes u otros archivos cargados contra un turno:
+// comprobantes de pago, fotos "antes/después", referencias, etc.)
+//
+// Stage 1 (minimal): se guarda el archivo en disco — la app expone el path
+// relativo vía `url`. Una futura migración puede mover a S3 / CDN.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AppointmentAttachment {
+  id            String   @id @default(cuid())
+  appointmentId String
+  /// URL relativa pública (ej: /uploads/appointments/{apptId}/{fileId}.jpg)
+  url           String
+  /// Nombre original del archivo tal como lo subió el usuario.
+  filename      String
+  mimeType      String
+  sizeBytes     Int
+  /// userId de quien subió (nullable: en el futuro podríamos permitir guest
+  /// uploads desde la página pública, por eso no es NOT NULL).
+  uploadedById  String?
+  createdAt     DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId])
+  @@map("appointment_attachments")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

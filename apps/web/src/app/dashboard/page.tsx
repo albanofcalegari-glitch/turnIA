@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CalendarDays, CalendarRange, Users, Link2, Copy, Check, ExternalLink } from 'lucide-react'
+import { CalendarDays, CalendarRange, CalendarDays as CalendarMonthIcon, Users, Link2, Copy, Check, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
 import { useAgenda } from '@/features/agenda/useAgenda'
 import { DayView } from '@/features/agenda/DayView'
 import { WeekView } from '@/features/agenda/WeekView'
+import { MonthView } from '@/features/agenda/MonthView'
 import type { Professional } from '@/features/booking/booking.types'
+import { useConfirm } from '@/components/ui/Dialog'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stat card
@@ -107,7 +109,8 @@ export default function DashboardPage() {
   const tenantId  = user?.tenantId  ?? ''
   const timezone  = user?.tenantTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 
-  const agenda = useAgenda(tenantId)
+  const { confirm, element: confirmDialog } = useConfirm()
+  const agenda = useAgenda(tenantId, confirm)
   const { view, setView, proFilter, setProFilter, stats } = agenda
 
   const [professionals, setProfessionals] = useState<Professional[]>([])
@@ -122,6 +125,7 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {confirmDialog}
       {/* Public booking URL — only for tenant users (not super-admins without tenant) */}
       {user?.tenantSlug && <PublicUrlCard slug={user.tenantSlug} />}
 
@@ -147,7 +151,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Day / Week toggle */}
+          {/* Day / Week / Month toggle */}
           <div className="flex rounded-lg border bg-white p-0.5">
             <button
               onClick={() => setView('day')}
@@ -173,6 +177,18 @@ export default function DashboardPage() {
               <CalendarRange size={13} />
               Semana
             </button>
+            <button
+              onClick={() => setView('month')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                view === 'month'
+                  ? 'bg-brand-600 text-white'
+                  : 'text-gray-600 hover:text-gray-900',
+              )}
+            >
+              <CalendarMonthIcon size={13} />
+              Mes
+            </button>
           </div>
         </div>
       </div>
@@ -188,8 +204,10 @@ export default function DashboardPage() {
       {/* Agenda view */}
       <div className="rounded-xl border bg-white p-3 sm:p-5 overflow-x-auto">
         {view === 'day'
-          ? <DayView  agenda={agenda} timezone={timezone} />
-          : <WeekView agenda={agenda} timezone={timezone} />
+          ? <DayView   agenda={agenda} timezone={timezone} />
+          : view === 'week'
+          ? <WeekView  agenda={agenda} timezone={timezone} />
+          : <MonthView agenda={agenda} timezone={timezone} />
         }
       </div>
     </div>

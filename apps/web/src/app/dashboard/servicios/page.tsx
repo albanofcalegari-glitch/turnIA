@@ -7,6 +7,13 @@ import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { ColorSwatch } from '@/components/ui/ColorSwatch'
+import { useConfirm } from '@/components/ui/Dialog'
+import { ActionsMenu } from '@/components/ui/ActionsMenu'
+import { ViewToggle, type ViewMode } from '@/components/ui/ViewToggle'
+import { Pagination } from '@/components/ui/Pagination'
+
+const PAGE_SIZE = 10
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -46,6 +53,10 @@ export default function ServiciosPage() {
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [query,    setQuery]    = useState('')
+  const [page,     setPage]     = useState(1)
+  const { confirm, element: confirmDialog } = useConfirm()
 
   // ── Fetch services ──────────────────────────────────────────────────────
 
@@ -61,7 +72,13 @@ export default function ServiciosPage() {
   // ── Delete ──────────────────────────────────────────────────────────────
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`¿Eliminar el servicio "${name}"?`)) return
+    const ok = await confirm({
+      title:       'Eliminar servicio',
+      message:     <>¿Seguro que querés eliminar <strong>{name}</strong>? Esta acción no se puede deshacer.</>,
+      confirmText: 'Eliminar',
+      variant:     'danger',
+    })
+    if (!ok) return
     try {
       await apiClient.deleteService(tenantId, id)
       setServices(prev => prev.filter(s => s.id !== id))
@@ -83,13 +100,30 @@ export default function ServiciosPage() {
 
   return (
     <div>
+      {confirmDialog}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Servicios</h1>
-        <Button onClick={() => setShowForm(true)} className="self-start sm:self-auto">
-          <Plus size={16} />
-          Nuevo servicio
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ViewToggle value={viewMode} onChange={setViewMode} />
+          <Button onClick={() => setShowForm(true)}>
+            <Plus size={16} />
+            Nuevo servicio
+          </Button>
+        </div>
       </div>
+
+      {/* Search bar (filter by name) */}
+      {services.length > 0 && (
+        <div className="mb-4">
+          <input
+            type="search"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setPage(1) }}
+            placeholder="Buscar servicios por nombre…"
+            className={cn(inputCls, 'max-w-sm')}
+          />
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -133,40 +167,120 @@ export default function ServiciosPage() {
         </div>
       )}
 
-      {/* List */}
-      {!loading && services.length > 0 && (
-        <div className="space-y-3">
-          {services.map(svc => (
-            <div key={svc.id} className="flex flex-col gap-2 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3 min-w-0">
-                {svc.color && (
-                  <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: svc.color }} />
-                )}
-                <div className="min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">{svc.name}</p>
+      {/* List / grid */}
+      {!loading && services.length > 0 && (() => {
+        const filtered = query.trim()
+          ? services.filter(s => s.name.toLowerCase().includes(query.trim().toLowerCase()))
+          : services
+
+        if (filtered.length === 0) {
+          return (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white py-10 text-center text-sm text-gray-500">
+              No se encontraron servicios con ese nombre.
+            </div>
+          )
+        }
+
+        const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+        const safePage  = Math.min(page, pageCount)
+        const paged     = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+        const pager = (
+          <Pagination page={safePage} pageCount={pageCount} onChange={setPage} />
+        )
+
+        if (viewMode === 'grid') {
+          return (
+            <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {paged.map(svc => (
+                <div
+                  key={svc.id}
+                  className="flex flex-col gap-3 rounded-xl border bg-white p-4"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {svc.color && (
+                        <span
+                          className="h-3 w-3 flex-shrink-0 rounded-full"
+                          style={{ backgroundColor: svc.color }}
+                        />
+                      )}
+                      <p className="font-semibold text-gray-900 truncate">{svc.name}</p>
+                    </div>
+                    <ActionsMenu
+                      items={[
+                        {
+                          label:   'Eliminar',
+                          icon:    <Trash2 size={14} />,
+                          onClick: () => handleDelete(svc.id, svc.name),
+                          danger:  true,
+                        },
+                      ]}
+                    />
+                  </div>
                   {svc.description && (
-                    <p className="text-sm text-gray-500 truncate">{svc.description}</p>
+                    <p className="text-sm text-gray-500 line-clamp-2">{svc.description}</p>
+                  )}
+                  <div className="mt-auto flex items-center justify-between border-t pt-3 text-xs">
+                    <span className="text-gray-500">{svc.durationMinutes} min</span>
+                    <span className="font-semibold text-gray-900">
+                      {formatPrice(svc.price, svc.currency)}
+                    </span>
+                  </div>
+                  {!svc.isPublic && (
+                    <span className="self-start rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                      Oculto
+                    </span>
                   )}
                 </div>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0 sm:ml-4">
-                <span className="text-sm text-gray-500">{svc.durationMinutes} min</span>
-                <span className="text-sm font-semibold text-gray-900">{formatPrice(svc.price, svc.currency)}</span>
-                {!svc.isPublic && (
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">Oculto</span>
-                )}
-                <button
-                  onClick={() => handleDelete(svc.id, svc.name)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                  title="Eliminar servicio"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+            {pager}
+            </>
+          )
+        }
+
+        return (
+          <>
+          <div className="space-y-3">
+            {paged.map(svc => (
+              <div key={svc.id} className="flex flex-col gap-2 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  {svc.color && (
+                    <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: svc.color }} />
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{svc.name}</p>
+                    {svc.description && (
+                      <p className="text-sm text-gray-500 truncate">{svc.description}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0 sm:ml-4">
+                  <span className="text-sm text-gray-500">{svc.durationMinutes} min</span>
+                  <span className="text-sm font-semibold text-gray-900">{formatPrice(svc.price, svc.currency)}</span>
+                  {!svc.isPublic && (
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">Oculto</span>
+                  )}
+                  <ActionsMenu
+                    items={[
+                      {
+                        label:   'Eliminar',
+                        icon:    <Trash2 size={14} />,
+                        onClick: () => handleDelete(svc.id, svc.name),
+                        danger:  true,
+                      },
+                    ]}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          {pager}
+          </>
+        )
+      })()}
     </div>
   )
 }
@@ -252,11 +366,8 @@ function CreateServiceModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Color (opcional)</label>
-            <div className="flex items-center gap-2">
-              <input type="color" value={color || '#22c55e'} onChange={e => setColor(e.target.value)} className="h-9 w-9 cursor-pointer rounded-lg border p-0.5" />
-              <span className="text-xs text-gray-400">{color || 'Sin color'}</span>
-            </div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Color para la agenda</label>
+            <ColorSwatch value={color} onChange={setColor} />
           </div>
 
           {error && (

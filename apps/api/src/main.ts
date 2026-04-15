@@ -1,5 +1,7 @@
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
+import { NestExpressApplication } from '@nestjs/platform-express'
+import { join } from 'path'
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter'
 
@@ -12,7 +14,14 @@ async function bootstrap() {
     throw new Error('JWT_SECRET environment variable is required in production')
   }
 
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create<NestExpressApplication>(AppModule)
+
+  // Static hosting for user-uploaded files. Kept under /uploads so it doesn't
+  // clash with the API prefix below. Directory can be overridden via env for
+  // deployments that mount an external volume.
+  const uploadsDir = process.env.UPLOADS_DIR
+    || join(process.cwd(), 'uploads')
+  app.useStaticAssets(uploadsDir, { prefix: '/uploads/' })
 
   app.setGlobalPrefix('api/v1')
 

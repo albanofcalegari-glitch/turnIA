@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { CreditCard, CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react'
 import { apiClient, type MySubscription } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { useConfirm } from '@/components/ui/Dialog'
 
 const PLAN_AMOUNT = 60
 const PLAN_LABEL  = 'Estándar'
@@ -14,6 +15,7 @@ export default function SuscripcionPage() {
   const [loading, setLoading]   = useState(true)
   const [submitting, setSubmit] = useState(false)
   const [error, setError]       = useState<string | null>(null)
+  const { confirm, element: confirmDialog } = useConfirm()
 
   useEffect(() => {
     apiClient.getMySubscription()
@@ -41,7 +43,14 @@ export default function SuscripcionPage() {
   }
 
   async function handleCancel() {
-    if (!confirm('¿Cancelar la suscripción? No te vamos a cobrar más, pero el servicio sigue activo hasta el próximo vencimiento.')) return
+    const ok = await confirm({
+      title:       'Cancelar suscripción',
+      message:     'No te vamos a cobrar más, pero el servicio sigue activo hasta el próximo vencimiento.',
+      confirmText: 'Cancelar suscripción',
+      cancelText:  'Volver',
+      variant:     'danger',
+    })
+    if (!ok) return
     setSubmit(true); setError(null)
     try {
       const updated = await apiClient.cancelSubscription() as any
@@ -59,6 +68,7 @@ export default function SuscripcionPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
+      {confirmDialog}
       <header>
         <h1 className="text-2xl font-bold text-gray-900">Suscripción</h1>
         <p className="mt-1 text-sm text-gray-500">Gestión de tu plan y pagos</p>

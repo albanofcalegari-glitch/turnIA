@@ -450,6 +450,50 @@ class ApiClient {
       headers: { 'X-Tenant-ID': tenantId },
     })
 
+  reopenAppointment = (tenantId: string, id: string) =>
+    this.request<Appointment>(`/appointments/${id}/reopen`, {
+      method:  'PATCH',
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  // ── Appointment attachments ────────────────────────────────────────────
+
+  listAttachments = (tenantId: string, appointmentId: string) =>
+    this.request<Attachment[]>(`/appointments/${appointmentId}/attachments`, {
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  /**
+   * Uploads a file as an appointment attachment. Uses FormData so the
+   * browser sets the multipart Content-Type + boundary header itself —
+   * don't hand-set Content-Type here, it will break the multipart parse.
+   */
+  uploadAttachment = async (tenantId: string, appointmentId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`${API_URL}/appointments/${appointmentId}/attachments`, {
+      method:  'POST',
+      body:    form,
+      headers: {
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+        'X-Tenant-ID': tenantId,
+      },
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as Record<string, unknown>
+      const raw  = body.message
+      const msg  = typeof raw === 'string' ? raw : Array.isArray(raw) ? String(raw[0]) : 'Error al subir el archivo'
+      throw new ApiError(res.status, msg)
+    }
+    return res.json() as Promise<Attachment>
+  }
+
+  deleteAttachment = (tenantId: string, appointmentId: string, attachmentId: string) =>
+    this.request<{ ok: true }>(`/appointments/${appointmentId}/attachments/${attachmentId}`, {
+      method:  'DELETE',
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
   // ── SuperAdmin ──────────────────────────────────────────────────────────
 
   getAllTenants = () =>
@@ -544,6 +588,17 @@ export interface PaymentMetrics {
   collectedThisMonth:   number
   paymentsThisMonth:    number
   failedLast30d:        number
+}
+
+export interface Attachment {
+  id:            string
+  appointmentId: string
+  url:           string
+  filename:      string
+  mimeType:      string
+  sizeBytes:     number
+  uploadedById:  string | null
+  createdAt:     string
 }
 
 export interface AdminTenant {
