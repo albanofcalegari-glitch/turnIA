@@ -8,15 +8,19 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 
 const PLAN_LABELS: Record<string, string> = {
-  free: 'Free',
-  starter: 'Starter',
-  pro: 'Pro',
+  trial:    'Trial',
+  standard: 'Estándar',
+  free:     'Free',
+  starter:  'Starter',
+  pro:      'Pro',
 }
 
 const PLAN_COLORS: Record<string, string> = {
-  free: 'bg-gray-100 text-gray-600',
-  starter: 'bg-blue-100 text-blue-700',
-  pro: 'bg-brand-100 text-brand-700',
+  trial:    'bg-amber-100 text-amber-700',
+  standard: 'bg-green-100 text-green-700',
+  free:     'bg-gray-100 text-gray-600',
+  starter:  'bg-blue-100 text-blue-700',
+  pro:      'bg-brand-100 text-brand-700',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -241,6 +245,8 @@ function TenantRow({ tenant, isEditing, onToggleEdit, onToggleActive, onSaveMemb
               onChange={e => setPlan(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
+              <option value="trial">Trial</option>
+              <option value="standard">Estándar</option>
               <option value="free">Free</option>
               <option value="starter">Starter</option>
               <option value="pro">Pro</option>

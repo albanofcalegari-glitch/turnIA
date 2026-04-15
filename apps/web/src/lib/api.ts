@@ -119,7 +119,12 @@ class ApiClient {
 
     // 204 No Content
     if (res.status === 204) return undefined as T
-    return res.json() as Promise<T>
+    // Nest serializes a handler that returns null as an empty body with no
+    // content-type — .json() then fails with "Unexpected end of JSON input".
+    // Treat empty 2xx responses as null.
+    const text = await res.text()
+    if (!text) return null as T
+    return JSON.parse(text) as T
   }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -432,6 +437,85 @@ class ApiClient {
     this.request<{ deactivated: number }>('/tenants/admin/deactivate-expired', {
       method: 'POST',
     })
+
+  // ── Subscriptions (Mercado Pago) ────────────────────────────────────────
+
+  /**
+   * Start the subscription flow. Returns an `initPoint` URL the caller
+   * should redirect to so the admin can authorise the card on MP. The
+   * tenant's membership is only extended once MP confirms the first
+   * payment via webhook.
+   */
+  subscribe = () =>
+    this.request<{ initPoint: string; subscriptionId: string; reused: boolean }>('/subscriptions/me', {
+      method: 'POST',
+    })
+
+  getMySubscription = () =>
+    this.request<MySubscription | null>('/subscriptions/me')
+
+  cancelSubscription = () =>
+    this.request<MySubscription>('/subscriptions/me/cancel', { method: 'POST' })
+
+  adminGetPayments = (filters: { tenantId?: string; status?: string; from?: string; to?: string } = {}) => {
+    const params = new URLSearchParams()
+    if (filters.tenantId) params.set('tenantId', filters.tenantId)
+    if (filters.status)   params.set('status',   filters.status)
+    if (filters.from)     params.set('from',     filters.from)
+    if (filters.to)       params.set('to',       filters.to)
+    const q = params.toString()
+    return this.request<AdminPayment[]>(`/subscriptions/admin/payments${q ? '?' + q : ''}`)
+  }
+
+  adminGetPaymentMetrics = () =>
+    this.request<PaymentMetrics>('/subscriptions/admin/metrics')
+}
+
+export interface MySubscription {
+  id:              string
+  status:          string
+  amount:          string | number
+  currency:        string
+  frequency:       number
+  frequencyType:   string
+  payerEmail:      string
+  initPoint:       string | null
+  nextPaymentDate: string | null
+  cancelledAt:     string | null
+  createdAt:       string
+  payments: Array<{
+    id:            string
+    mpPaymentId:   string
+    status:        string
+    amount:        string | number
+    currency:      string
+    paymentMethod: string | null
+    paidAt:        string | null
+    createdAt:     string
+  }>
+}
+
+export interface AdminPayment {
+  id:            string
+  tenantId:      string
+  mpPaymentId:   string
+  status:        string
+  statusDetail:  string | null
+  amount:        string | number
+  currency:      string
+  paymentMethod: string | null
+  paymentType:   string | null
+  paidAt:        string | null
+  createdAt:     string
+  tenant: { id: string; name: string; slug: string }
+}
+
+export interface PaymentMetrics {
+  mrr:                  number
+  activeSubscriptions:  number
+  collectedThisMonth:   number
+  paymentsThisMonth:    number
+  failedLast30d:        number
 }
 
 export interface AdminTenant {

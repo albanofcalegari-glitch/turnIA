@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2 } from 'lucide-react'
+import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -30,6 +30,7 @@ const NAV: NavItem[] = [
     show:  (u) => u.tenantHasMultipleBranches,
   },
   { href: '/dashboard/configuracion', label: 'Configuración',  icon: Settings  },
+  { href: '/dashboard/suscripcion',   label: 'Suscripción',    icon: CreditCard },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -160,7 +161,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto p-4 pt-18 sm:p-6 md:pt-6">{children}</main>
+      <main className="flex-1 overflow-auto p-4 pt-18 sm:p-6 md:pt-6">
+        <MembershipBanner expiresAt={user.tenantMembershipExpiresAt} />
+        {children}
+      </main>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Banner mostrado cuando quedan ≤ 7 días de prueba, o el trial ya venció y
+// el tenant está en el periodo de gracia de 7 días (solo-lectura). Se oculta
+// cuando la membresía está saludable (> 7 días) o no tiene vencimiento (las
+// cuentas internas con expiresAt=null).
+// ─────────────────────────────────────────────────────────────────────────────
+function MembershipBanner({ expiresAt }: { expiresAt: string | null }) {
+  if (!expiresAt) return null
+  const now     = new Date()
+  const expiry  = new Date(expiresAt)
+  const msLeft  = expiry.getTime() - now.getTime()
+  const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24))
+
+  // > 7 días → no molestamos.
+  if (daysLeft > 7) return null
+
+  // Vencido pero dentro de gracia (hasta 7 días post-expiry).
+  if (daysLeft <= 0 && daysLeft > -7) {
+    return (
+      <div className="mb-4 flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <strong>Suscripción vencida.</strong> Estás en modo <strong>solo lectura</strong> por {7 + daysLeft} {7 + daysLeft === 1 ? 'día' : 'días'} más. Luego tu cuenta se suspende.
+        </div>
+        <Link href="/dashboard/suscripcion" className="inline-block shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
+          Pagar ahora
+        </Link>
+      </div>
+    )
+  }
+
+  // Trial por vencer (≤ 7 días, todavía activo).
+  return (
+    <div className="mb-4 flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        Te {daysLeft === 1 ? 'queda' : 'quedan'} <strong>{daysLeft} {daysLeft === 1 ? 'día' : 'días'}</strong> de prueba. Suscribite para no perder el acceso.
+      </div>
+      <Link href="/dashboard/suscripcion" className="inline-block shrink-0 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700">
+        Suscribirme
+      </Link>
     </div>
   )
 }

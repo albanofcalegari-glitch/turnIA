@@ -4,8 +4,13 @@ import { LoginDto } from './dto/login.dto'
 import { RegisterDto } from './dto/register.dto'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
+import { SkipMembershipCheck } from '../../common/decorators/skip-membership-check.decorator'
 import { JwtPayload } from '@turnia/shared'
 
+// Auth endpoints must never be blocked by membership state. /auth/me in
+// particular is how the frontend discovers that a tenant is suspended — if
+// we 403'd it the UI could never show the "membership deactivated" screen.
+@SkipMembershipCheck()
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}

@@ -22,8 +22,8 @@ model Tenant {
   address   String?
   settings  Json     @default("{}")
   isActive             Boolean   @default(true)
-  plan                 String    @default("free") // free | starter | pro
-  membershipExpiresAt  DateTime? // null = sin vencimiento (plan free o lifetime)
+  plan                 String    @default("trial") // trial | standard | free (legacy)
+  membershipExpiresAt  DateTime? // null = sin vencimiento (cuentas internas). Durante trial: now + 45d. Luego se extiende +30d por cada pago MP aprobado.
   /// Stage 1 (branches): drives whether the UI exposes branch selection.
   /// Single-branch tenants keep this false and never see branch UI; the
   /// default branch still exists in the DB to satisfy NOT NULL FKs.
@@ -43,8 +43,73 @@ model Tenant {
   clients            Client[]
   workSchedules      WorkSchedule[]
   scheduleExceptions ScheduleException[]
+  subscription       Subscription?
+  payments           Payment[]
 
   @@map("tenants")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBSCRIPTION (Mercado Pago preapproval) — one row per tenant.
+//
+// Mirrors the MP preapproval resource. We store `mpPreapprovalId` so we can
+// reconcile webhook events (MP sends the preapproval id, not our tenantId).
+// `status` tracks the MP lifecycle: pending (awaiting first payment) →
+// authorized (active, paying) → paused / cancelled (terminal).
+// ─────────────────────────────────────────────────────────────────────────────
+model Subscription {
+  id                String   @id @default(cuid())
+  tenantId          String   @unique
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mpPreapprovalId   String   @unique
+  mpPlanId          String?  // preapproval_plan_id if created from a plan
+  status            String   // pending | authorized | paused | cancelled
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String   @default("ARS")
+  frequency         Int      @default(1)      // 1
+  frequencyType     String   @default("months") // months | days
+  payerEmail        String
+  initPoint         String?  // URL MP returned to start the checkout
+  nextPaymentDate   DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  payments Payment[]
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYMENT — immutable log of every MP payment event for audit + admin metrics.
+//
+// We persist the raw webhook payload (rawPayload) on purpose: MP changes
+// response shapes without notice, and we don't want to lose data if a column
+// we care about moves. The indexed columns are the ones the superadmin view
+// filters/aggregates on.
+// ─────────────────────────────────────────────────────────────────────────────
+model Payment {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  mpPaymentId     String   @unique
+  status          String   // approved | rejected | refunded | pending | cancelled
+  statusDetail    String?
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   @default("ARS")
+  paymentMethod   String?  // visa | master | amex | account_money | etc
+  paymentType     String?  // credit_card | debit_card | account_money
+  paidAt          DateTime?
+  rawPayload      Json
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([status])
+  @@index([paidAt])
+  @@map("payments")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
