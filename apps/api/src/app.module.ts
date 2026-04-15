@@ -14,6 +14,8 @@ import { SchedulesModule } from './modules/schedules/schedules.module'
 import { AppointmentsModule } from './modules/appointments/appointments.module'
 import { HealthModule } from './modules/health/health.module'
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module'
+import { MailModule } from './modules/mail/mail.module'
+import { ReportsModule } from './modules/reports/reports.module'
 import { TenantMiddleware } from './common/middleware/tenant.middleware'
 
 @Module({
@@ -34,6 +36,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware'
       }),
     }),
     PrismaModule,
+    MailModule,
     AuthModule,
     TenantsModule,
     BranchesModule,
@@ -44,6 +47,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware'
     AppointmentsModule,
     HealthModule,
     SubscriptionsModule,
+    ReportsModule,
   ],
   providers: [
     // Global guard: enforces membership status on every authenticated request.

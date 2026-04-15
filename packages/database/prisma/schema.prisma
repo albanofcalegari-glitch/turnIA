@@ -193,6 +193,15 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Email verification — opcional, no bloquea operación. Si emailVerifiedAt
+  // está null, la UI muestra un banner pidiendo confirmar.
+  emailVerifiedAt          DateTime?
+  emailVerificationToken   String?   @unique
+
+  // Password reset — token de un solo uso con expiración corta.
+  passwordResetToken       String?   @unique
+  passwordResetExpiresAt   DateTime?
+
   tenants              TenantUser[]
   professional         Professional?
   clients              Client[]              // un usuario puede ser cliente en múltiples tenants

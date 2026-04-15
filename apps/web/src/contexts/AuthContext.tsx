@@ -22,6 +22,7 @@ function profileToUserSession(profile: UserProfile): UserSession {
     firstName:                 profile.firstName,
     lastName:                  profile.lastName,
     isSuperAdmin:              profile.isSuperAdmin,
+    emailVerifiedAt:           profile.emailVerifiedAt             ?? null,
     tenantId:                  primary?.tenantId                   ?? null,
     tenantSlug:                primary?.tenant.slug                ?? null,
     tenantName:                primary?.tenant.name                ?? null,

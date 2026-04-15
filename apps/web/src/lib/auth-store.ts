@@ -11,6 +11,7 @@ export interface UserSession {
   firstName:   string
   lastName:    string
   isSuperAdmin: boolean
+  emailVerifiedAt: string | null
   /** Primary tenant this user belongs to (first in list). */
   tenantId:       string | null
   tenantSlug:     string | null

@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, CreditCard } from 'lucide-react'
+import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, CreditCard, BarChart3, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { apiClient } from '@/lib/api'
 
 interface NavItem {
   href: string
@@ -29,6 +30,7 @@ const NAV: NavItem[] = [
     icon:  Building2,
     show:  (u) => u.tenantHasMultipleBranches,
   },
+  { href: '/dashboard/reportes',      label: 'Reportes',       icon: BarChart3 },
   { href: '/dashboard/configuracion', label: 'Configuración',  icon: Settings  },
   { href: '/dashboard/suscripcion',   label: 'Suscripción',    icon: CreditCard },
 ]
@@ -163,6 +165,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content */}
       <main className="flex-1 overflow-auto p-4 pt-18 sm:p-6 md:pt-6">
         <MembershipBanner expiresAt={user.tenantMembershipExpiresAt} />
+        <EmailVerificationBanner verifiedAt={user.emailVerifiedAt} email={user.email} />
         {children}
       </main>
     </div>
@@ -208,6 +211,77 @@ function MembershipBanner({ expiresAt }: { expiresAt: string | null }) {
       <Link href="/dashboard/suscripcion" className="inline-block shrink-0 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700">
         Suscribirme
       </Link>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Email no verificado — banner amigable, opcional (no bloquea).
+// ─────────────────────────────────────────────────────────────────────────────
+function EmailVerificationBanner({
+  verifiedAt,
+  email,
+}: {
+  verifiedAt: string | null
+  email:      string
+}) {
+  const [dismissed, setDismissed] = useState(false)
+  const [sending,   setSending]   = useState(false)
+  const [sent,      setSent]      = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (sessionStorage.getItem('turnit_email_banner_dismissed')) setDismissed(true)
+  }, [])
+
+  if (verifiedAt || dismissed) return null
+
+  async function handleResend() {
+    if (sending) return
+    setSending(true)
+    try {
+      await apiClient.resendVerification()
+      setSent(true)
+    } catch {
+      // silent — el usuario puede reintentar
+    } finally {
+      setSending(false)
+    }
+  }
+
+  function handleDismiss() {
+    sessionStorage.setItem('turnit_email_banner_dismissed', '1')
+    setDismissed(true)
+  }
+
+  return (
+    <div className="mb-4 flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-2">
+        <Mail size={16} className="shrink-0" />
+        <span>
+          {sent
+            ? <>Te reenviamos el link a <strong>{email}</strong>. Revisá también spam.</>
+            : <>Verificá tu email para mayor seguridad. Te enviamos un link a <strong>{email}</strong>.</>
+          }
+        </span>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        {!sent && (
+          <button
+            onClick={handleResend}
+            disabled={sending}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {sending ? 'Enviando…' : 'Reenviar link'}
+          </button>
+        )}
+        <button
+          onClick={handleDismiss}
+          className="rounded-md border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+        >
+          Más tarde
+        </button>
+      </div>
     </div>
   )
 }

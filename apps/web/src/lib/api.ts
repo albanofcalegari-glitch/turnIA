@@ -3,11 +3,12 @@ import type { Appointment } from '@/features/agenda/agenda.types'
 
 // Profile response from GET /auth/me
 export interface UserProfile {
-  id:           string
-  email:        string
-  firstName:    string
-  lastName:     string
-  isSuperAdmin: boolean
+  id:              string
+  email:           string
+  firstName:       string
+  lastName:        string
+  isSuperAdmin:    boolean
+  emailVerifiedAt: string | null
   tenants: Array<{
     tenantId: string
     role:     string
@@ -140,6 +141,33 @@ class ApiClient {
       method: 'POST',
       body:   JSON.stringify(data),
     })
+
+  forgotPassword = (email: string) =>
+    this.request<{ ok: true }>('/auth/forgot-password', {
+      method: 'POST',
+      body:   JSON.stringify({ email }),
+    })
+
+  resetPassword = (token: string, password: string) =>
+    this.request<{ ok: true }>('/auth/reset-password', {
+      method: 'POST',
+      body:   JSON.stringify({ token, password }),
+    })
+
+  verifyEmail = (token: string) =>
+    this.request<{ ok: true }>('/auth/verify-email', {
+      method: 'POST',
+      body:   JSON.stringify({ token }),
+    })
+
+  resendVerification = () =>
+    this.request<{ ok: true }>('/auth/resend-verification', { method: 'POST' })
+
+  getMonthlyReports = (tenantId: string, months = 6) =>
+    this.request<Array<{ month: string; appointments: number; services: number; uniqueClients: number }>>(
+      `/reports/monthly?months=${months}`,
+      { headers: { 'X-Tenant-ID': tenantId } },
+    )
 
   // ── Tenants ───────────────────────────────────────────────────────────────
 
