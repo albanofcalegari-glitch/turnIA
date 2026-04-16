@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError, type AdminBranch } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Input classes (mirrors /dashboard/servicios so the look stays consistent)
@@ -24,6 +25,7 @@ const inputCls = cn(
 
 export default function SucursalesPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const tenantId = user?.tenantId ?? ''
 
   const [branches, setBranches] = useState<AdminBranch[]>([])
@@ -49,7 +51,13 @@ export default function SucursalesPage() {
       setError('No podés desactivar la sucursal principal.')
       return
     }
-    if (!confirm(`¿Desactivar la sucursal "${b.name}"?\n\nLos turnos existentes seguirán visibles, pero ya no se podrán crear nuevos en esta sucursal.`)) return
+    const ok = await confirm({
+      title:       'Desactivar sucursal',
+      message:     `¿Desactivar la sucursal "${b.name}"?\n\nLos turnos existentes seguirán visibles, pero ya no se podrán crear nuevos en esta sucursal.`,
+      confirmText: 'Desactivar',
+      variant:     'danger',
+    })
+    if (!ok) return
     try {
       const updated = await apiClient.deleteBranch(tenantId, b.id)
       setBranches(prev => prev.map(x => x.id === b.id ? updated : x))

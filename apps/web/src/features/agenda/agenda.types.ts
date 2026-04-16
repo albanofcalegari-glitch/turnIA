@@ -22,11 +22,18 @@ export interface AppointmentProfessional {
   color:       string | null
 }
 
+export interface LoyaltyCardSummary {
+  id:               string
+  stampsCount:      number
+  rewardsAvailable: number
+}
+
 export interface AppointmentClient {
-  id:        string
-  firstName: string
-  lastName:  string
-  email:     string
+  id:          string
+  firstName:   string
+  lastName:    string
+  email:       string
+  loyaltyCard: LoyaltyCardSummary | null
 }
 
 export interface Appointment {
@@ -71,4 +78,4 @@ export const ALLOWED_ACTIONS: Record<AppointmentStatus, AppointmentAction[]> = {
 
 export type AppointmentAction = 'confirm' | 'cancel' | 'complete' | 'no_show'
 
-export type AgendaView = 'day' | 'week'
+export type AgendaView = 'day' | 'week' | 'month'

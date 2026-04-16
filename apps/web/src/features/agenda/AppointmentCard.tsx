@@ -1,8 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { Gift } from 'lucide-react'
 import { cn, formatTime } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { apiClient } from '@/lib/api'
 import { StatusBadge } from './StatusBadge'
 import { ALLOWED_ACTIONS, type Appointment, type AppointmentAction } from './agenda.types'
 
@@ -20,11 +23,14 @@ interface Props {
   timezone:     string
   isLoading:    boolean
   onAction:     (action: AppointmentAction, payload?: { reason?: string }) => void
+  onLoyaltyRedeemed?: () => void
 }
 
-export function AppointmentCard({ appointment, timezone, isLoading, onAction }: Props) {
-  const [showCancel, setShowCancel] = useState(false)
-  const [reason,     setReason]     = useState('')
+export function AppointmentCard({ appointment, timezone, isLoading, onAction, onLoyaltyRedeemed }: Props) {
+  const confirm = useConfirm()
+  const [showCancel,   setShowCancel]   = useState(false)
+  const [reason,       setReason]       = useState('')
+  const [redeeming,    setRedeeming]    = useState(false)
 
   const {
     status, startAt, endAt, totalMinutes, items, professional, client,
@@ -39,8 +45,27 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction }: 
     .map(i => i.serviceName)
     .join(' + ')
 
+  const loyaltyCard = client?.loyaltyCard ?? null
+  const hasReward   = (loyaltyCard?.rewardsAvailable ?? 0) > 0
+
   const allowedActions = ALLOWED_ACTIONS[status] ?? []
   const isTerminal = allowedActions.length === 0
+
+  async function handleRedeem() {
+    if (!loyaltyCard) return
+    const ok = await confirm({
+      title:       'Canjear reward',
+      message:     `¿Canjear 1 reward para ${clientName}? Le quedan ${loyaltyCard.rewardsAvailable} disponible(s).`,
+      confirmText: 'Canjear',
+    })
+    if (!ok) return
+    setRedeeming(true)
+    try {
+      await apiClient.redeemLoyaltyReward(loyaltyCard.id, appointment.id)
+      onLoyaltyRedeemed?.()
+    } catch { /* silently fail — backend validates */ }
+    finally { setRedeeming(false) }
+  }
 
   function handleCancel() {
     onAction('cancel', { reason: reason.trim() || undefined })
@@ -100,6 +125,23 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction }: 
         <p className="mt-2 rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-600 italic">
           "{notes}"
         </p>
+      )}
+
+      {/* Loyalty reward chip */}
+      {hasReward && !isTerminal && (
+        <div className="mt-3 flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-700">
+            <Gift size={13} />
+            {loyaltyCard!.rewardsAvailable} reward{loyaltyCard!.rewardsAvailable > 1 ? 's' : ''} disponible{loyaltyCard!.rewardsAvailable > 1 ? 's' : ''}
+          </span>
+          <button
+            disabled={redeeming || isLoading}
+            onClick={handleRedeem}
+            className="rounded-full bg-amber-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+          >
+            {redeeming ? 'Canjeando…' : 'Canjear'}
+          </button>
+        </div>
       )}
 
       {/* Action buttons */}

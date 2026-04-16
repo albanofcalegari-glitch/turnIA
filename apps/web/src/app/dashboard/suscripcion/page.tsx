@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react'
 import { CreditCard, CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react'
 import { apiClient, type MySubscription } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 const PLAN_AMOUNT = 60
 const PLAN_LABEL  = 'Estándar'
 
 export default function SuscripcionPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const [sub, setSub]           = useState<MySubscription | null>(null)
   const [loading, setLoading]   = useState(true)
   const [submitting, setSubmit] = useState(false)
@@ -41,7 +43,14 @@ export default function SuscripcionPage() {
   }
 
   async function handleCancel() {
-    if (!confirm('¿Cancelar la suscripción? No te vamos a cobrar más, pero el servicio sigue activo hasta el próximo vencimiento.')) return
+    const ok = await confirm({
+      title:       'Cancelar suscripción',
+      message:     '¿Cancelar la suscripción? No te vamos a cobrar más, pero el servicio sigue activo hasta el próximo vencimiento.',
+      confirmText: 'Cancelar suscripción',
+      cancelText:  'Volver',
+      variant:     'danger',
+    })
+    if (!ok) return
     setSubmit(true); setError(null)
     try {
       const updated = await apiClient.cancelSubscription() as any

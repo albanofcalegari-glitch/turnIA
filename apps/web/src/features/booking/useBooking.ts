@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { apiClient, ApiError } from '@/lib/api'
+import { apiClient, ApiError, type BookingLoyaltyProgram, type BookingLoyaltyCard } from '@/lib/api'
 import {
   Tenant,
   Branch,
@@ -30,6 +30,9 @@ export function useBooking(tenantSlug: string) {
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [initLoading,   setInitLoading]   = useState(true)
   const [initError,     setInitError]     = useState<string | null>(null)
+  const [loyaltyProgram, setLoyaltyProgram] = useState<BookingLoyaltyProgram | null>(null)
+  const [loyaltyCard, setLoyaltyCard] = useState<BookingLoyaltyCard | null>(null)
+  const [loyaltyCardLoading, setLoyaltyCardLoading] = useState(false)
 
   // ── Slots (fetched when professional + date + services are selected) ───────
   const [slotsResponse, setSlotsResponse] = useState<SlotsResponse | null>(null)
@@ -87,11 +90,13 @@ export function useBooking(tenantSlug: string) {
         // BookingFlow will show a "temporalmente no disponible" screen.
         if (!t.isActive) return
 
-        const [svcs, pros, brs] = await Promise.all([
+        const [svcs, pros, brs, lp] = await Promise.all([
           apiClient.getServices(t.id),
           apiClient.getProfessionals(t.id),
           apiClient.getBranches(t.id),
+          apiClient.getBookingLoyaltyProgram(t.id).catch(() => null),
         ])
+        setLoyaltyProgram(lp)
         setServices(svcs.filter(s => s.isPublic))
         setProfessionals(pros.filter(p => p.acceptsOnlineBooking))
         setBranches(brs)
@@ -384,6 +389,12 @@ export function useBooking(tenantSlug: string) {
 
       setCreatedAppointments(appointments)
       update({ step: 'success' })
+
+      if (loyaltyProgram && state.guestInfo.email) {
+        apiClient.getBookingLoyaltyCard(tenant.id, state.guestInfo.email)
+          .then(card => setLoyaltyCard(card))
+          .catch(() => {})
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         update({ conflictError: true, submitError: 'Uno de los horarios ya fue tomado. Por favor volvé a elegir.' })
@@ -397,6 +408,24 @@ export function useBooking(tenantSlug: string) {
       setSubmitting(false)
     }
   }
+
+  // ── Loyalty card lookup by email ──────────────────────────────────────────
+  const lookupLoyaltyCard = useCallback(async (email: string) => {
+    if (!tenant || !loyaltyProgram) return
+    setLoyaltyCardLoading(true)
+    try {
+      const card = await apiClient.getBookingLoyaltyCard(tenant.id, email)
+      setLoyaltyCard(card)
+    } catch {
+      setLoyaltyCard(null)
+    } finally {
+      setLoyaltyCardLoading(false)
+    }
+  }, [tenant, loyaltyProgram])
+
+  const clearLoyaltyCard = useCallback(() => {
+    setLoyaltyCard(null)
+  }, [])
 
   // ── Reset for a new booking from success ─────────────────────────────────
   function reset() {
@@ -433,6 +462,9 @@ export function useBooking(tenantSlug: string) {
   return {
     // Data
     tenant,
+    loyaltyProgram,
+    loyaltyCard,
+    loyaltyCardLoading,
     branches,
     services,
     eligibleProfessionals,
@@ -469,5 +501,7 @@ export function useBooking(tenantSlug: string) {
     submit,
     goBack,
     reset,
+    lookupLoyaltyCard,
+    clearLoyaltyCard,
   }
 }

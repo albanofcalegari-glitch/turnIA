@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { Award, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { LoyaltyCardView } from '@/features/loyalty/LoyaltyCardView'
 import { useBooking } from './useBooking'
 import { StepBranch } from './steps/StepBranch'
 import { StepServices } from './steps/StepServices'
@@ -78,7 +81,7 @@ export function BookingFlow({ tenantSlug }: Props) {
   const booking = useBooking(tenantSlug)
 
   const {
-    tenant, initLoading, initError,
+    tenant, loyaltyProgram, initLoading, initError,
     step, goBack,
   } = booking
 
@@ -145,6 +148,10 @@ export function BookingFlow({ tenantSlug }: Props) {
             appointments={booking.createdAppointments}
             timezone={booking.timezone}
             onReset={booking.reset}
+            guestName={booking.guestInfo.name}
+            loyaltyProgram={booking.loyaltyProgram}
+            loyaltyCard={booking.loyaltyCard}
+            tenantName={tenant.name}
           />
         </main>
       </div>
@@ -165,6 +172,11 @@ export function BookingFlow({ tenantSlug }: Props) {
         <div className="mb-8 flex justify-center">
           <StepIndicator current={step} showBranchStep={booking.showBranchStep} />
         </div>
+
+        {/* Loyalty card banner */}
+        {loyaltyProgram && (
+          <LoyaltyBanner booking={booking} tenant={tenant} />
+        )}
 
         {/* Back button */}
         {canGoBack && (
@@ -202,6 +214,111 @@ export function BookingFlow({ tenantSlug }: Props) {
         {step === 'slots'        && <StepSlots        booking={booking} />}
         {step === 'details'      && <StepDetails      booking={booking} />}
       </main>
+    </div>
+  )
+}
+
+// ── Loyalty banner with email lookup ───────────────────────────────────────
+
+function LoyaltyBanner({
+  booking,
+  tenant,
+}: {
+  booking: ReturnType<typeof useBooking>
+  tenant: { name: string }
+}) {
+  const { loyaltyProgram, loyaltyCard, loyaltyCardLoading, lookupLoyaltyCard } = booking
+  const [open, setOpen] = useState(true)
+  const [email, setEmail] = useState('')
+  const [searched, setSearched] = useState(false)
+
+  if (!loyaltyProgram) return null
+
+  const handleLookup = () => {
+    if (!email.trim() || !email.includes('@')) return
+    setSearched(true)
+    lookupLoyaltyCard(email.trim())
+  }
+
+  return (
+    <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/50 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-amber-800">
+          <Award size={16} />
+          {loyaltyProgram.cardTitle}
+          {loyaltyProgram.cardSubtitle && (
+            <span className="text-xs font-normal text-amber-600">— {loyaltyProgram.cardSubtitle}</span>
+          )}
+        </span>
+        {open ? <ChevronUp size={16} className="text-amber-600" /> : <ChevronDown size={16} className="text-amber-600" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-3">
+          {!loyaltyCard && (
+            <div>
+              <p className="text-xs text-amber-700 mb-2">
+                Ingresá tu email para ver tu tarjeta de fidelidad
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  placeholder="tu@email.com"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setSearched(false) }}
+                  onKeyDown={e => e.key === 'Enter' && handleLookup()}
+                  className="flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+                <button
+                  onClick={handleLookup}
+                  disabled={loyaltyCardLoading || !email.includes('@')}
+                  className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {loyaltyCardLoading ? <Spinner size="sm" className="text-white" /> : <Search size={14} />}
+                  Buscar
+                </button>
+              </div>
+              {searched && !loyaltyCardLoading && !loyaltyCard && (
+                <p className="mt-2 text-xs text-amber-600">
+                  No encontramos una tarjeta con ese email. Reservá tu primer turno y se creará automáticamente.
+                </p>
+              )}
+            </div>
+          )}
+
+          {loyaltyCard ? (
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-medium text-amber-800">
+                  {loyaltyCard.clientName}
+                </p>
+                <button
+                  onClick={() => { setEmail(''); setSearched(false); booking.clearLoyaltyCard() }}
+                  className="text-xs text-amber-600 hover:text-amber-800"
+                >
+                  Cambiar
+                </button>
+              </div>
+              <LoyaltyCardView
+                program={loyaltyProgram}
+                stampsCount={loyaltyCard.stampsCount}
+                rewardsAvailable={loyaltyCard.rewardsAvailable}
+                clientName={loyaltyCard.clientName}
+                tenantName={tenant.name}
+              />
+            </div>
+          ) : !searched ? (
+            <LoyaltyCardView
+              program={loyaltyProgram}
+              stampsCount={0}
+              tenantName={tenant.name}
+            />
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }

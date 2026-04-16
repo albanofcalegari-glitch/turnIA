@@ -45,6 +45,8 @@ model Tenant {
   scheduleExceptions ScheduleException[]
   subscription       Subscription?
   payments           Payment[]
+  loyaltyProgram     LoyaltyProgram?
+  loyaltyCards       LoyaltyCard[]
 
   @@map("tenants")
 }
@@ -432,6 +434,8 @@ model Appointment {
   professional         Professional         @relation(fields: [professionalId], references: [id])
   items                AppointmentItem[]
   appointmentResources AppointmentResource[] // agregado en Stage 1
+  loyaltyStamps        LoyaltyStamp[]
+  loyaltyRedemptions   LoyaltyRedemption[]
 
   @@index([tenantId, startAt])
   @@index([tenantId, status, startAt]) // agregado en Stage 1 — dashboard queries
@@ -535,6 +539,7 @@ model Client {
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   appointments Appointment[]
+  loyaltyCard  LoyaltyCard?
 
   // PostgreSQL trata NULL como distinto de NULL en constraints UNIQUE,
   // por lo tanto múltiples guests (userId=NULL) son permitidos en el mismo tenant.
@@ -609,4 +614,132 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([entity, entityId])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOYALTY PROGRAM (configuración del "club de fidelidad" por tenant)
+//
+// Una row por tenant. Cuando isActive=true, cada appointment COMPLETED para un
+// cliente registrado genera un stamp en su LoyaltyCard. Al alcanzar
+// stampsRequired, se habilita un reward que el negocio marca como canjeado
+// cuando el cliente lo usa.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LoyaltyProgram {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  isActive        Boolean  @default(true)
+  showOnBooking   Boolean  @default(false)
+  stampsRequired  Int      @default(5)      // N stamps → 1 reward
+  rewardType      LoyaltyRewardType @default(FREE_SERVICE)
+  rewardValue     Decimal? @db.Decimal(10, 2) // % para DISCOUNT_PERCENT, monto para DISCOUNT_AMOUNT, null para FREE_SERVICE
+  rewardLabel     String   // human-readable: "Corte gratis", "20% OFF", "$1000 de descuento"
+  // null = aplica a todos los servicios; array de serviceId = restringido
+  eligibleServiceIds Json?
+  // Branding de la tarjeta
+  cardTitle       String   @default("Club de Fidelidad")
+  cardSubtitle    String?  // p.ej. "Cada 5 cortes, uno gratis"
+  cardColor       String   @default("#0f172a") // hex principal
+  cardAccentColor String?  // hex secundario para patrón
+  cardBgImageUrl  String?  // opcional: imagen de fondo (ej: foto del local)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cards  LoyaltyCard[]
+
+  @@map("loyalty_programs")
+}
+
+enum LoyaltyRewardType {
+  FREE_SERVICE      // rewardValue ignorado
+  DISCOUNT_PERCENT  // rewardValue = 0..100
+  DISCOUNT_AMOUNT   // rewardValue = monto en currency del tenant
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOYALTY CARD (tarjeta de un cliente en el programa del tenant)
+//
+// Una por cliente. Campos denormalizados (stampsCount, rewardsAvailable) se
+// mantienen al día desde el servicio; la fuente de verdad auditable son las
+// filas en LoyaltyStamp / LoyaltyRedemption.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LoyaltyCard {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  programId          String
+  clientId           String   @unique
+  stampsCount        Int      @default(0) // stamps acumulados desde el último reward canjeado
+  totalStampsEarned  Int      @default(0) // lifetime — para stats
+  rewardsAvailable   Int      @default(0) // rewards ganados y no canjeados
+  rewardsRedeemed    Int      @default(0) // lifetime canjeados
+  lastStampAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  program     LoyaltyProgram      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  stamps      LoyaltyStamp[]
+  redemptions LoyaltyRedemption[]
+
+  @@index([tenantId, clientId])
+  @@map("loyalty_cards")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOYALTY STAMP (log auditable de cada sello emitido)
+//
+// Una row por stamp. Si un appointment COMPLETED se cancela o revierte,
+// insertamos una fila con delta=-1 y reason=REVERSAL en vez de borrar — así
+// preservamos el historial.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LoyaltyStamp {
+  id            String   @id @default(cuid())
+  cardId        String
+  appointmentId String?  // null si fue MANUAL
+  delta         Int      @default(1) // +1 normal, -1 en REVERSAL
+  reason        LoyaltyStampReason @default(COMPLETED)
+  note          String?
+  createdAt     DateTime @default(now())
+
+  card        LoyaltyCard  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@unique([cardId, appointmentId, reason]) // evita duplicar stamps para el mismo appointment
+  @@index([cardId, createdAt])
+  @@map("loyalty_stamps")
+}
+
+enum LoyaltyStampReason {
+  COMPLETED  // turno marcado como completado
+  MANUAL     // el negocio agregó un stamp manualmente
+  REVERSAL   // se revirtió un stamp previo (appointment cancelado)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOYALTY REDEMPTION (uso de un reward por parte del cliente)
+//
+// Una row cada vez que se canjea un reward. Guardamos snapshot del rewardType
+// y rewardValue para que un cambio futuro en la config del programa no
+// reinterprete rewards ya canjeados.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LoyaltyRedemption {
+  id              String   @id @default(cuid())
+  cardId          String
+  appointmentId   String?  // turno donde se aplicó el reward (si aplica)
+  rewardType      LoyaltyRewardType
+  rewardValue     Decimal? @db.Decimal(10, 2)
+  rewardLabel     String   // snapshot del label al momento del canje
+  redeemedAt      DateTime @default(now())
+  redeemedByUserId String? // staff que registró el canje
+
+  card        LoyaltyCard  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([cardId, redeemedAt])
+  @@map("loyalty_redemptions")
 }

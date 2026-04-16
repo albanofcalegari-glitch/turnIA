@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, CreditCard } from 'lucide-react'
+import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, CreditCard, Award } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
     icon:  Building2,
     show:  (u) => u.tenantHasMultipleBranches,
   },
+  { href: '/dashboard/fidelidad',     label: 'Fidelidad',      icon: Award     },
   { href: '/dashboard/configuracion', label: 'Configuración',  icon: Settings  },
   { href: '/dashboard/suscripcion',   label: 'Suscripción',    icon: CreditCard },
 ]

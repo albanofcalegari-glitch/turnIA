@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CalendarDays, CalendarRange, Users, Link2, Copy, Check, ExternalLink } from 'lucide-react'
+import { CalendarDays, CalendarRange, Calendar, Users, Link2, Copy, Check, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
 import { useAgenda } from '@/features/agenda/useAgenda'
 import { DayView } from '@/features/agenda/DayView'
 import { WeekView } from '@/features/agenda/WeekView'
+import { MonthView } from '@/features/agenda/MonthView'
 import type { Professional } from '@/features/booking/booking.types'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,7 +148,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Day / Week toggle */}
+          {/* Day / Week / Month toggle */}
           <div className="flex rounded-lg border bg-white p-0.5">
             <button
               onClick={() => setView('day')}
@@ -173,6 +174,18 @@ export default function DashboardPage() {
               <CalendarRange size={13} />
               Semana
             </button>
+            <button
+              onClick={() => setView('month')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                view === 'month'
+                  ? 'bg-brand-600 text-white'
+                  : 'text-gray-600 hover:text-gray-900',
+              )}
+            >
+              <Calendar size={13} />
+              Mes
+            </button>
           </div>
         </div>
       </div>
@@ -187,10 +200,9 @@ export default function DashboardPage() {
 
       {/* Agenda view */}
       <div className="rounded-xl border bg-white p-3 sm:p-5 overflow-x-auto">
-        {view === 'day'
-          ? <DayView  agenda={agenda} timezone={timezone} />
-          : <WeekView agenda={agenda} timezone={timezone} />
-        }
+        {view === 'day'   && <DayView   agenda={agenda} timezone={timezone} />}
+        {view === 'week'  && <WeekView  agenda={agenda} timezone={timezone} />}
+        {view === 'month' && <MonthView agenda={agenda} timezone={timezone} />}
       </div>
     </div>
   )

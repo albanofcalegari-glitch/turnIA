@@ -6,6 +6,7 @@ import { cn, formatDateLong, formatTime } from '@/lib/utils'
 import { apiClient, ApiError, type GuestAppointment } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 interface Props {
   tenantSlug: string
@@ -18,6 +19,7 @@ const inputCls = cn(
 )
 
 export function CancelFlow({ tenantSlug }: Props) {
+  const confirm = useConfirm()
   const [tenantId, setTenantId]         = useState<string | null>(null)
   const [tenantName, setTenantName]     = useState('')
   const [timezone, setTimezone]         = useState('America/Argentina/Buenos_Aires')
@@ -66,7 +68,14 @@ export function CancelFlow({ tenantSlug }: Props) {
   async function handleCancel(apptId: string) {
     if (!tenantId || cancelling) return
 
-    if (!confirm('¿Estás seguro de que querés cancelar este turno?')) return
+    const ok = await confirm({
+      title:       'Cancelar turno',
+      message:     '¿Estás seguro de que querés cancelar este turno?',
+      confirmText: 'Sí, cancelar',
+      cancelText:  'Volver',
+      variant:     'danger',
+    })
+    if (!ok) return
 
     setCancelling(apptId)
     setError(null)

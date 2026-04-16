@@ -14,6 +14,7 @@ import { SchedulesModule } from './modules/schedules/schedules.module'
 import { AppointmentsModule } from './modules/appointments/appointments.module'
 import { HealthModule } from './modules/health/health.module'
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module'
+import { LoyaltyModule } from './modules/loyalty/loyalty.module'
 import { TenantMiddleware } from './common/middleware/tenant.middleware'
 
 @Module({
@@ -44,6 +45,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware'
     AppointmentsModule,
     HealthModule,
     SubscriptionsModule,
+    LoyaltyModule,
   ],
   providers: [
     // Global guard: enforces membership status on every authenticated request.

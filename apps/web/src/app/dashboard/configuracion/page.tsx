@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, Clock, Calendar, Users, Shield } from 'lucide-react'
+import { Settings, Clock, Calendar, Users, Shield, Award } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { apiClient, ApiError } from '@/lib/api'
+import { apiClient, ApiError, type LoyaltyProgram } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,11 +76,20 @@ export default function ConfiguracionPage() {
   const [savingSlot,  setSavingSlot]  = useState(false)
   const [slotError,   setSlotError]   = useState<string | null>(null)
 
+  const [loyaltyProgram, setLoyaltyProgram] = useState<LoyaltyProgram | null>(null)
+  const [savingLoyalty,  setSavingLoyalty]   = useState(false)
+
   useEffect(() => {
     if (!tenantSlug) return
     setLoading(true)
-    apiClient.getTenantBySlug(tenantSlug)
-      .then(data => setConfig(data as unknown as TenantConfig))
+    Promise.all([
+      apiClient.getTenantBySlug(tenantSlug),
+      apiClient.getLoyaltyProgram().catch(() => null),
+    ])
+      .then(([data, lp]) => {
+        setConfig(data as unknown as TenantConfig)
+        setLoyaltyProgram(lp)
+      })
       .catch(() => setError('No se pudo cargar la configuración.'))
       .finally(() => setLoading(false))
   }, [tenantSlug])
@@ -105,6 +114,16 @@ export default function ConfiguracionPage() {
     } finally {
       setSavingSlot(false)
     }
+  }
+
+  async function toggleLoyalty(field: 'isActive' | 'showOnBooking') {
+    if (!loyaltyProgram || savingLoyalty) return
+    setSavingLoyalty(true)
+    try {
+      const updated = await apiClient.updateLoyaltyProgram({ [field]: !loyaltyProgram[field] })
+      setLoyaltyProgram(updated)
+    } catch { /* fail silently */ }
+    finally { setSavingLoyalty(false) }
   }
 
   if (loading) {
@@ -224,6 +243,52 @@ export default function ConfiguracionPage() {
             <div className="px-1">
               <InfoRow label="Reservas de invitados" value={rules.allowGuestBooking ? 'Permitidas' : 'Solo usuarios registrados'} />
               <InfoRow label="Confirmación automática" value={rules.autoConfirm ? 'Sí — turnos se confirman al reservar' : 'No — requiere confirmación manual'} />
+            </div>
+          </section>
+        )}
+
+        {/* Loyalty program */}
+        {loyaltyProgram && (
+          <section className="rounded-xl border bg-white p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Award size={16} className="text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-700">Club de Fidelidad</h2>
+            </div>
+            <div className="px-1">
+              <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                <div>
+                  <span className="text-sm text-gray-500">Programa activo</span>
+                  <p className="text-xs text-gray-400 mt-0.5">Los clientes acumulan sellos al completar turnos</p>
+                </div>
+                <button
+                  onClick={() => toggleLoyalty('isActive')}
+                  disabled={savingLoyalty}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 ${
+                    loyaltyProgram.isActive ? 'bg-brand-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                    loyaltyProgram.isActive ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between py-3">
+                <div>
+                  <span className="text-sm text-gray-500">Mostrar tarjeta en reserva</span>
+                  <p className="text-xs text-gray-400 mt-0.5">Se muestra la tarjeta de fidelidad en la página de reserva pública</p>
+                </div>
+                <button
+                  onClick={() => toggleLoyalty('showOnBooking')}
+                  disabled={savingLoyalty || !loyaltyProgram.isActive}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 ${
+                    loyaltyProgram.showOnBooking && loyaltyProgram.isActive ? 'bg-brand-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                    loyaltyProgram.showOnBooking && loyaltyProgram.isActive ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
             </div>
           </section>
         )}

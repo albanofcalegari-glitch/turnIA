@@ -9,6 +9,7 @@ import { Prisma, AppointmentStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { SchedulesService } from '../schedules/schedules.service'
 import { BranchesService } from '../branches/branches.service'
+import { LoyaltyService } from '../loyalty/loyalty.service'
 import { CreateAppointmentDto } from './dto/create-appointment.dto'
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto'
 
@@ -38,6 +39,7 @@ export class AppointmentsService {
     private readonly prisma: PrismaService,
     private readonly schedulesService: SchedulesService,
     private readonly branches: BranchesService,
+    private readonly loyalty: LoyaltyService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -129,14 +131,14 @@ export class AppointmentsService {
     // ── 3. Timing constraints ─────────────────────────────────────────────
     const nowMs          = Date.now()
     const minAdvanceMins = rules?.minAdvanceMinutes ?? 60
-    const windowDays     = rules?.bookingWindowDays ?? 30
+    const windowDays     = rules?.bookingWindowDays ?? 0
 
     if (startAt.getTime() < nowMs + minAdvanceMins * 60_000) {
       throw new BadRequestException(
         `La reserva debe hacerse con al menos ${minAdvanceMins} minutos de anticipación`,
       )
     }
-    if (startAt.getTime() > nowMs + windowDays * 24 * 60 * 60_000) {
+    if (windowDays > 0 && startAt.getTime() > nowMs + windowDays * 24 * 60 * 60_000) {
       throw new BadRequestException(
         `La reserva debe estar dentro de los próximos ${windowDays} días`,
       )
@@ -364,14 +366,14 @@ export class AppointmentsService {
     // ── 3. Timing constraints (same as create) ────────────────────────────
     const nowMs          = Date.now()
     const minAdvanceMins = rules?.minAdvanceMinutes ?? 60
-    const windowDays     = rules?.bookingWindowDays ?? 30
+    const windowDays     = rules?.bookingWindowDays ?? 0
 
     if (startAt.getTime() < nowMs + minAdvanceMins * 60_000) {
       throw new BadRequestException(
         `La reprogramación debe ser con al menos ${minAdvanceMins} minutos de anticipación`,
       )
     }
-    if (startAt.getTime() > nowMs + windowDays * 24 * 60 * 60_000) {
+    if (windowDays > 0 && startAt.getTime() > nowMs + windowDays * 24 * 60 * 60_000) {
       throw new BadRequestException(
         `La reprogramación debe estar dentro de los próximos ${windowDays} días`,
       )
@@ -615,7 +617,12 @@ export class AppointmentsService {
       include: {
         items:        { include: { service: true }, orderBy: { order: 'asc' } },
         professional: true,
-        client:       { select: { id: true, firstName: true, lastName: true, email: true } },
+        client: {
+          select: {
+            id: true, firstName: true, lastName: true, email: true,
+            loyaltyCard: { select: { id: true, stampsCount: true, rewardsAvailable: true } },
+          },
+        },
       },
       orderBy: { startAt: 'asc' },
     })
@@ -679,15 +686,28 @@ export class AppointmentsService {
   }
 
   async cancel(tenantId: string, id: string, cancelledBy: string, reason?: string) {
-    await this.findOne(tenantId, id)
-    return this.prisma.appointment.update({
-      where: { id },
-      data: {
-        status:             AppointmentStatus.CANCELLED,
-        cancelledAt:        new Date(),
-        cancelledBy,
-        cancellationReason: reason,
-      },
+    const existing = await this.findOne(tenantId, id)
+    // Si el turno ya estaba COMPLETED, tenemos que revertir el stamp de loyalty
+    // (si el programa está activo y tiene cliente). Lo hacemos en la misma tx
+    // del update para que quede atómico.
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
+        where: { id },
+        data: {
+          status:             AppointmentStatus.CANCELLED,
+          cancelledAt:        new Date(),
+          cancelledBy,
+          cancellationReason: reason,
+        },
+      })
+      if (existing.status === AppointmentStatus.COMPLETED && existing.clientId) {
+        await this.loyalty.reverseStampForAppointment(tx, {
+          tenantId,
+          appointmentId: id,
+          clientId:      existing.clientId,
+        })
+      }
+      return updated
     })
   }
 
@@ -700,10 +720,24 @@ export class AppointmentsService {
   }
 
   async complete(tenantId: string, id: string) {
-    await this.findOne(tenantId, id)
-    return this.prisma.appointment.update({
-      where: { id },
-      data:  { status: AppointmentStatus.COMPLETED, completedAt: new Date() },
+    const existing = await this.findOne(tenantId, id)
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
+        where:   { id },
+        data:    { status: AppointmentStatus.COMPLETED, completedAt: new Date() },
+        include: { items: { select: { serviceId: true } } },
+      })
+      // Emitir stamp sólo si hay cliente registrado. Para guests sin cuenta no
+      // tiene sentido (no hay manera de recuperar su tarjeta).
+      if (existing.clientId) {
+        await this.loyalty.issueStampForAppointment(tx, {
+          tenantId,
+          appointmentId: id,
+          clientId:      existing.clientId,
+          serviceIds:    updated.items.map(i => i.serviceId),
+        })
+      }
+      return updated
     })
   }
 

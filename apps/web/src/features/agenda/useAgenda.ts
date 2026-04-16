@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiClient } from '@/lib/api'
 import { toDateString } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type {
   Appointment,
   AppointmentAction,
@@ -37,6 +38,7 @@ function weekDates(monday: Date): string[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function useAgenda(tenantId: string) {
+  const confirm = useConfirm()
   const [view,         setView]         = useState<AgendaView>('day')
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()))
   const [proFilter,    setProFilter]    = useState<string>('')     // '' = all
@@ -55,7 +57,17 @@ export function useAgenda(tenantId: string) {
     setLoading(true)
     setError(null)
     try {
-      if (view === 'week') {
+      if (view === 'month') {
+        const d = new Date(selectedDate + 'T12:00:00')
+        const first = new Date(d.getFullYear(), d.getMonth(), 1)
+        const last  = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+        const result = await apiClient.getAppointments(tenantId, {
+          from: toDateString(first),
+          to:   toDateString(last),
+          ...(proFilter ? { professionalId: proFilter } : {}),
+        })
+        setAppointments(result)
+      } else if (view === 'week') {
         const monday = weekStart(new Date(selectedDate + 'T12:00:00'))
         const dates  = weekDates(monday)
         const result = await apiClient.getAppointments(tenantId, {
@@ -93,13 +105,13 @@ export function useAgenda(tenantId: string) {
     action:        AppointmentAction,
     payload?:      { reason?: string },
   ) => {
-    const confirmMessages: Partial<Record<AppointmentAction, string>> = {
-      confirm:  '¿Confirmar este turno?',
-      complete: '¿Marcar este turno como completado?',
-      no_show:  '¿Marcar este turno como "no asistió"?',
+    const confirmTitles: Partial<Record<AppointmentAction, { title: string; message: string; variant?: 'default' | 'danger' }>> = {
+      confirm:  { title: 'Confirmar turno',    message: '¿Confirmar este turno?' },
+      complete: { title: 'Completar turno',    message: '¿Marcar este turno como completado?' },
+      no_show:  { title: 'Marcar no asistió',  message: '¿Marcar este turno como "no asistió"?', variant: 'danger' },
     }
-    const confirmMessage = confirmMessages[action]
-    if (confirmMessage && !window.confirm(confirmMessage)) return
+    const prompt = confirmTitles[action]
+    if (prompt && !(await confirm(prompt))) return
 
     setActionLoading(prev => ({ ...prev, [appointmentId]: true }))
     try {
@@ -127,7 +139,7 @@ export function useAgenda(tenantId: string) {
     } finally {
       setActionLoading(prev => ({ ...prev, [appointmentId]: false }))
     }
-  }, [tenantId])
+  }, [tenantId, confirm])
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
@@ -145,6 +157,18 @@ export function useAgenda(tenantId: string) {
         .filter(a => toDateString(new Date(a.startAt)) === date)
         .sort((a, b) => a.startAt.localeCompare(b.startAt))
     })
+  }
+
+  /** Appointments grouped by date string for month view. */
+  const monthAppointments: Record<string, Appointment[]> = {}
+  if (view === 'month') {
+    for (const a of appointments) {
+      const date = toDateString(new Date(a.startAt))
+      ;(monthAppointments[date] ??= []).push(a)
+    }
+    for (const date of Object.keys(monthAppointments)) {
+      monthAppointments[date].sort((a, b) => a.startAt.localeCompare(b.startAt))
+    }
   }
 
   /** Stats for the selected day. */
@@ -169,6 +193,18 @@ export function useAgenda(tenantId: string) {
     setSelectedDate(toDateString(d))
   }
 
+  function goToPrevMonth() {
+    const d = new Date(selectedDate + 'T12:00:00')
+    d.setMonth(d.getMonth() - 1)
+    setSelectedDate(toDateString(d))
+  }
+
+  function goToNextMonth() {
+    const d = new Date(selectedDate + 'T12:00:00')
+    d.setMonth(d.getMonth() + 1)
+    setSelectedDate(toDateString(d))
+  }
+
   return {
     // State
     view,
@@ -181,6 +217,7 @@ export function useAgenda(tenantId: string) {
     // Data
     dayAppointments,
     weekAppointments,
+    monthAppointments,
     stats,
 
     // Loading / error
@@ -193,5 +230,7 @@ export function useAgenda(tenantId: string) {
     refresh: fetchAppointments,
     goToPrevWeek,
     goToNextWeek,
+    goToPrevMonth,
+    goToNextMonth,
   }
 }

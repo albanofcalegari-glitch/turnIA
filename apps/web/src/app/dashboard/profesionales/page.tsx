@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -46,6 +47,7 @@ const inputCls = cn(
 
 export default function ProfesionalesPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const tenantId = user?.tenantId ?? ''
 
   const [professionals, setProfessionals] = useState<ProfessionalItem[]>([])
@@ -112,9 +114,12 @@ export default function ProfesionalesPage() {
   // ── Delete professional (soft delete on the backend) ────────────────────
 
   async function handleDeleteProfessional(pro: ProfessionalItem) {
-    const ok = window.confirm(
-      `¿Eliminar a "${pro.displayName}"?\n\nNo se podrá reservar más con este profesional. Los turnos pasados se conservan en el historial.`,
-    )
+    const ok = await confirm({
+      title:       'Eliminar profesional',
+      message:     `¿Eliminar a "${pro.displayName}"?\n\nNo se podrá reservar más con este profesional. Los turnos pasados se conservan en el historial.`,
+      confirmText: 'Eliminar',
+      variant:     'danger',
+    })
     if (!ok) return
 
     try {

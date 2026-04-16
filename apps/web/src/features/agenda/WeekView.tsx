@@ -170,6 +170,7 @@ export function WeekView({ agenda, timezone }: Props) {
                 timezone={timezone}
                 isLoading={!!actionLoading[appt.id]}
                 onAction={(action, payload) => executeAction(appt.id, action, payload)}
+                onLoyaltyRedeemed={refresh}
               />
             ))}
           </div>

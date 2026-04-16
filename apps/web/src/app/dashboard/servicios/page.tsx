@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -40,6 +41,7 @@ const inputCls = cn(
 
 export default function ServiciosPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const tenantId = user?.tenantId ?? ''
 
   const [services, setServices] = useState<ServiceItem[]>([])
@@ -61,7 +63,13 @@ export default function ServiciosPage() {
   // ── Delete ──────────────────────────────────────────────────────────────
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`¿Eliminar el servicio "${name}"?`)) return
+    const ok = await confirm({
+      title:       'Eliminar servicio',
+      message:     `¿Eliminar el servicio "${name}"?`,
+      confirmText: 'Eliminar',
+      variant:     'danger',
+    })
+    if (!ok) return
     try {
       await apiClient.deleteService(tenantId, id)
       setServices(prev => prev.filter(s => s.id !== id))

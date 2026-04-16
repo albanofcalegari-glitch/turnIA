@@ -469,6 +469,132 @@ class ApiClient {
 
   adminGetPaymentMetrics = () =>
     this.request<PaymentMetrics>('/subscriptions/admin/metrics')
+
+  // ── Loyalty ─────────────────────────────────────────────────────────────
+
+  getLoyaltyProgram = () =>
+    this.request<LoyaltyProgram>('/loyalty/program')
+
+  updateLoyaltyProgram = (dto: Partial<LoyaltyProgramInput>) =>
+    this.request<LoyaltyProgram>('/loyalty/program', {
+      method: 'PUT',
+      body:   JSON.stringify(dto),
+    })
+
+  listLoyaltyCards = () =>
+    this.request<LoyaltyCardWithClient[]>('/loyalty/cards')
+
+  redeemLoyaltyReward = (cardId: string, appointmentId?: string) =>
+    this.request<{ redemption: LoyaltyRedemption; card: LoyaltyCard }>(
+      `/loyalty/cards/${cardId}/redeem`,
+      { method: 'POST', body: JSON.stringify({ appointmentId }) },
+    )
+
+  getMyLoyaltyCard = () =>
+    this.request<MyLoyaltyCardResponse>('/loyalty/me')
+
+  getBookingLoyaltyProgram = (tenantId: string) =>
+    this.request<BookingLoyaltyProgram | null>(`/loyalty/booking-program/${tenantId}`)
+
+  getBookingLoyaltyCard = (tenantId: string, email: string) =>
+    this.request<BookingLoyaltyCard | null>(
+      `/loyalty/booking-card/${tenantId}?email=${encodeURIComponent(email)}`,
+    )
+}
+
+// ── Loyalty types ───────────────────────────────────────────────────────────
+
+export type LoyaltyRewardType = 'FREE_SERVICE' | 'DISCOUNT_PERCENT' | 'DISCOUNT_AMOUNT'
+
+export interface LoyaltyProgram {
+  id:              string
+  tenantId:        string
+  isActive:        boolean
+  showOnBooking:   boolean
+  stampsRequired:  number
+  rewardType:      LoyaltyRewardType
+  rewardValue:     string | number | null
+  rewardLabel:     string
+  eligibleServiceIds: string[] | null
+  cardTitle:       string
+  cardSubtitle:    string | null
+  cardColor:       string
+  cardAccentColor: string | null
+  cardBgImageUrl:  string | null
+  createdAt:       string
+  updatedAt:       string
+}
+
+export interface BookingLoyaltyProgram {
+  cardTitle:       string
+  cardSubtitle:    string | null
+  cardColor:       string
+  cardAccentColor: string | null
+  cardBgImageUrl:  string | null
+  stampsRequired:  number
+  rewardType:      LoyaltyRewardType
+  rewardLabel:     string
+}
+
+export interface BookingLoyaltyCard {
+  stampsCount:      number
+  rewardsAvailable: number
+  clientName:       string
+}
+
+export interface LoyaltyProgramInput {
+  isActive:        boolean
+  showOnBooking?:  boolean
+  stampsRequired:  number
+  rewardType:      LoyaltyRewardType
+  rewardValue:     number | null
+  rewardLabel:     string
+  eligibleServiceIds: string[] | null
+  cardTitle:       string
+  cardSubtitle:    string | null
+  cardColor:       string
+  cardAccentColor: string | null
+  cardBgImageUrl:  string | null
+}
+
+export interface LoyaltyCard {
+  id:                string
+  tenantId:          string
+  programId:         string
+  clientId:          string
+  stampsCount:       number
+  totalStampsEarned: number
+  rewardsAvailable:  number
+  rewardsRedeemed:   number
+  lastStampAt:       string | null
+  createdAt:         string
+  updatedAt:         string
+}
+
+export interface LoyaltyCardWithClient extends LoyaltyCard {
+  client: {
+    id:        string
+    firstName: string
+    lastName:  string
+    email:     string | null
+    phone:     string | null
+  }
+}
+
+export interface LoyaltyRedemption {
+  id:            string
+  cardId:        string
+  appointmentId: string | null
+  rewardType:    LoyaltyRewardType
+  rewardValue:   string | number | null
+  rewardLabel:   string
+  redeemedAt:    string
+}
+
+export interface MyLoyaltyCardResponse {
+  program: LoyaltyProgram
+  card:    LoyaltyCard
+  client:  { id: string; firstName: string; lastName: string }
 }
 
 export interface MySubscription {
