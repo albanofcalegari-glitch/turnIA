@@ -70,12 +70,12 @@ export class SubscriptionsService {
       payerEmail: adminEmail,
       backUrl,
       tenantId,
-      amount:     60,
+      amount:     60_000,
       currency:   'ARS',
       reason:     `Suscripción TurnIT Estándar — ${tenant.name}`,
     })
 
-    const amount   = mpResponse.auto_recurring?.transaction_amount ?? 60
+    const amount   = mpResponse.auto_recurring?.transaction_amount ?? 60_000
     const currency = mpResponse.auto_recurring?.currency_id ?? 'ARS'
 
     const sub = await this.prisma.subscription.create({
@@ -279,7 +279,7 @@ export class SubscriptionsService {
       }),
     ])
 
-    const mrr = activeSubs * 60 // plan estándar; si agregamos tiers, leer del sub.amount
+    const mrr = activeSubs * 60_000
 
     return {
       mrr,

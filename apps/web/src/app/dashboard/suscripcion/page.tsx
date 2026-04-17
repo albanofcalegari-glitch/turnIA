@@ -6,7 +6,8 @@ import { apiClient, type MySubscription } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 
-const PLAN_AMOUNT = 60
+const PLAN_AMOUNT = 60_000
+const PLAN_DISPLAY = PLAN_AMOUNT.toLocaleString('es-AR')
 const PLAN_LABEL  = 'Estándar'
 
 export default function SuscripcionPage() {
@@ -89,7 +90,7 @@ export default function SuscripcionPage() {
             </h2>
             {sub && sub.status === 'authorized' ? (
               <p className="mt-1 text-sm text-gray-600">
-                ${PLAN_AMOUNT} ARS / mes · Cobro automático
+                ${PLAN_DISPLAY} ARS / mes · Cobro automático
               </p>
             ) : (
               <p className="mt-1 text-sm text-gray-600">
@@ -118,7 +119,7 @@ export default function SuscripcionPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CreditCard size={16} />
-              {submitting ? 'Redirigiendo a Mercado Pago...' : `Suscribirme por $${PLAN_AMOUNT}/mes`}
+              {submitting ? 'Redirigiendo a Mercado Pago...' : `Suscribirme por $${PLAN_DISPLAY}/mes`}
             </button>
           )}
           {isTrial && user?.role !== 'ADMIN' && (
