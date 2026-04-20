@@ -14,9 +14,12 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto'
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto'
 
 // Statuses that occupy calendar time and must be considered for overlap.
+// COMPLETED is included because an admin may mark a future appointment as
+// completed before its actual time — the slot must remain blocked.
 const BLOCKING: AppointmentStatus[] = [
   AppointmentStatus.PENDING,
   AppointmentStatus.CONFIRMED,
+  AppointmentStatus.COMPLETED,
 ]
 
 // Statuses that permanently close an appointment — rescheduling is not allowed.
