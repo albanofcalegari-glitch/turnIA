@@ -66,6 +66,7 @@ export class LoyaltyController {
       throw new ForbiddenException()
     }
     return this.loyalty.redeemReward(user.tenantId, cardId, {
+      rewardId:      dto.rewardId,
       appointmentId: dto.appointmentId,
       staffUserId:   user.sub,
     })

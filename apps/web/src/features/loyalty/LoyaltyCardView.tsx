@@ -1,6 +1,12 @@
 'use client'
 
-import { Check, Gift } from 'lucide-react'
+import { Check, Gift, Star } from 'lucide-react'
+
+interface RewardView {
+  position:       number
+  stampsRequired: number
+  rewardLabel:    string
+}
 
 interface LoyaltyProgramView {
   stampsRequired:  number
@@ -9,31 +15,18 @@ interface LoyaltyProgramView {
   cardSubtitle?:   string | null
   cardColor:       string
   cardAccentColor?: string | null
+  rewards?:        RewardView[]
 }
 
 interface Props {
   program: LoyaltyProgramView
-  /**
-   * stampsCount actual — puede venir de una card real o ser un número arbitrario
-   * cuando la usamos para preview en la pantalla de configuración.
-   */
   stampsCount: number
   rewardsAvailable?: number
-  /** QR target URL. Si no se pasa, no se renderiza el QR (preview). */
   qrUrl?: string
-  /** Nombre del cliente a mostrar en el header; si no se pasa queda oculto. */
   clientName?: string
-  /** Nombre del tenant (logo textual). */
   tenantName?: string
 }
 
-/**
- * Tarjeta de fidelidad — diseño inspirado en stamp cards tipo rep.eat:
- * header con nombre del club, grilla de sellos, franja de oferta y QR.
- * Es 100% responsive y puede renderizarse en mobile standalone o dentro de un
- * card container en desktop. Todo el styling sale de program.cardColor /
- * cardAccentColor para que cada tenant tenga su look.
- */
 export function LoyaltyCardView({
   program,
   stampsCount,
@@ -42,8 +35,14 @@ export function LoyaltyCardView({
   clientName,
   tenantName,
 }: Props) {
-  const required = program.stampsRequired
-  const stamps   = Array.from({ length: required }, (_, i) => i < stampsCount)
+  const rewards = (program.rewards ?? []).sort((a, b) => a.stampsRequired - b.stampsRequired)
+  const cycleTotal = rewards.length > 0
+    ? Math.max(...rewards.map(r => r.stampsRequired))
+    : program.stampsRequired
+  const milestonePositions = new Set(rewards.map(r => r.stampsRequired))
+  const milestoneLabelMap = new Map(rewards.map(r => [r.stampsRequired, r.rewardLabel]))
+
+  const stamps = Array.from({ length: cycleTotal }, (_, i) => i < stampsCount)
 
   const bg     = program.cardColor
   const accent = program.cardAccentColor ?? lighten(bg, 0.25)
@@ -61,48 +60,78 @@ export function LoyaltyCardView({
         <div className="text-sm font-semibold">{program.cardTitle}</div>
       </div>
 
-      {/* Stripes / accent band con sellos */}
+      {/* Stamp grid */}
       <div
         className="relative mt-4 px-5 py-6"
         style={{
           backgroundImage: `repeating-linear-gradient(45deg, ${accent} 0 16px, ${bg} 16px 32px)`,
         }}
       >
-        <div className="flex justify-center gap-2">
-          {stamps.map((filled, i) => (
-            <div
-              key={i}
-              className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/90 shadow-sm transition-all sm:h-11 sm:w-11"
-              style={{ backgroundColor: filled ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.15)' }}
-            >
-              {filled
-                ? <Check size={18} style={{ color: bg }} strokeWidth={3} />
-                : <span className="text-xs font-bold text-white/70">{i + 1}</span>
-              }
-            </div>
-          ))}
+        <div className="flex flex-wrap justify-center gap-2">
+          {stamps.map((filled, i) => {
+            const stampNum = i + 1
+            const isMilestone = milestonePositions.has(stampNum)
+
+            return (
+              <div key={i} className="relative">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-full border-2 shadow-sm transition-all sm:h-11 sm:w-11 ${
+                    isMilestone ? 'border-amber-300' : 'border-white/90'
+                  }`}
+                  style={{ backgroundColor: filled ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.15)' }}
+                  title={isMilestone ? milestoneLabelMap.get(stampNum) : undefined}
+                >
+                  {filled ? (
+                    isMilestone
+                      ? <Star size={18} style={{ color: '#f59e0b' }} strokeWidth={3} fill="#f59e0b" />
+                      : <Check size={18} style={{ color: bg }} strokeWidth={3} />
+                  ) : (
+                    isMilestone
+                      ? <Gift size={14} className="text-amber-300" />
+                      : <span className="text-xs font-bold text-white/70">{stampNum}</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
 
-      {/* Oferta / premios */}
-      <div className="flex items-center justify-between gap-3 px-5 py-4 text-xs">
-        <div>
-          <div className="font-bold uppercase tracking-wider opacity-70">Oferta</div>
-          <div className="mt-0.5 text-sm font-semibold leading-tight">
-            {program.cardSubtitle ?? program.rewardLabel}
+      {/* Rewards summary */}
+      <div className="px-5 py-4 text-xs">
+        {rewards.length > 1 ? (
+          <div className="space-y-1">
+            {rewards.map(r => (
+              <div key={r.position} className="flex items-center justify-between">
+                <span className="opacity-70">Sello {r.stampsRequired}:</span>
+                <span className="font-semibold">{r.rewardLabel}</span>
+              </div>
+            ))}
           </div>
-        </div>
-        <div className="text-right">
-          <div className="font-bold uppercase tracking-wider opacity-70">Sellos</div>
-          <div className="mt-0.5 text-sm font-semibold">
-            {stampsCount}/{required}
-            {rewardsAvailable > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold" style={{ color: bg }}>
-                <Gift size={10} /> {rewardsAvailable}
-              </span>
-            )}
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-bold uppercase tracking-wider opacity-70">Oferta</div>
+              <div className="mt-0.5 text-sm font-semibold leading-tight">
+                {program.cardSubtitle ?? program.rewardLabel}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="font-bold uppercase tracking-wider opacity-70">Sellos</div>
+              <div className="mt-0.5 text-sm font-semibold">
+                {stampsCount}/{cycleTotal}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {rewardsAvailable > 0 && (
+          <div className="mt-2 flex justify-center">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold" style={{ color: bg }}>
+              <Gift size={12} /> {rewardsAvailable} reward{rewardsAvailable === 1 ? '' : 's'} disponible{rewardsAvailable === 1 ? '' : 's'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* QR */}
@@ -116,9 +145,6 @@ export function LoyaltyCardView({
   )
 }
 
-// ── Mini QR usando google charts (sin dep adicional — se carga como <img>) ─
-// Para producción podríamos cambiarlo a qrcode.react, pero para v1 nos sirve
-// perfecto y evita instalar una dependencia sólo para el MVP.
 function QrCode({ value, size = 128 }: { value: string; size?: number }) {
   const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}`
   return (
@@ -132,7 +158,6 @@ function QrCode({ value, size = 128 }: { value: string; size?: number }) {
   )
 }
 
-/** Aclara un color hex mezclándolo con blanco. Usado para generar el accent por default. */
 function lighten(hex: string, factor: number) {
   const parsed = hex.replace('#', '')
   if (parsed.length !== 6) return hex

@@ -630,10 +630,12 @@ model LoyaltyProgram {
   tenantId        String   @unique
   isActive        Boolean  @default(true)
   showOnBooking   Boolean  @default(false)
-  stampsRequired  Int      @default(5)      // N stamps → 1 reward
+  rewardMode      LoyaltyRewardMode @default(CUMULATIVE)
+  // --- campos legacy (single-reward) — se migran a LoyaltyReward ---
+  stampsRequired  Int      @default(5)
   rewardType      LoyaltyRewardType @default(FREE_SERVICE)
-  rewardValue     Decimal? @db.Decimal(10, 2) // % para DISCOUNT_PERCENT, monto para DISCOUNT_AMOUNT, null para FREE_SERVICE
-  rewardLabel     String   // human-readable: "Corte gratis", "20% OFF", "$1000 de descuento"
+  rewardValue     Decimal? @db.Decimal(10, 2)
+  rewardLabel     String
   // null = aplica a todos los servicios; array de serviceId = restringido
   eligibleServiceIds Json?
   // Branding de la tarjeta
@@ -645,16 +647,42 @@ model LoyaltyProgram {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  cards  LoyaltyCard[]
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cards   LoyaltyCard[]
+  rewards LoyaltyReward[]
 
   @@map("loyalty_programs")
+}
+
+enum LoyaltyRewardMode {
+  CUMULATIVE  // stamps acumulan hacia milestones: 5→reward1, 10→reward2, reset
+  INDEPENDENT // cada reward tiene su propio ciclo (futuro)
 }
 
 enum LoyaltyRewardType {
   FREE_SERVICE      // rewardValue ignorado
   DISCOUNT_PERCENT  // rewardValue = 0..100
   DISCOUNT_AMOUNT   // rewardValue = monto en currency del tenant
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOYALTY REWARD (milestone de un programa — hasta 4 por programa)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LoyaltyReward {
+  id             String            @id @default(cuid())
+  programId      String
+  position       Int               // 1-4, orden visual y de evaluación
+  stampsRequired Int               // CUMULATIVE: threshold acumulado (ej: 5, 10)
+  rewardType     LoyaltyRewardType
+  rewardValue    Decimal?          @db.Decimal(10, 2)
+  rewardLabel    String
+  createdAt      DateTime          @default(now())
+
+  program LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, position])
+  @@map("loyalty_rewards")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -670,10 +698,11 @@ model LoyaltyCard {
   tenantId           String
   programId          String
   clientId           String   @unique
-  stampsCount        Int      @default(0) // stamps acumulados desde el último reward canjeado
+  stampsCount        Int      @default(0) // stamps en el ciclo actual
   totalStampsEarned  Int      @default(0) // lifetime — para stats
-  rewardsAvailable   Int      @default(0) // rewards ganados y no canjeados
+  rewardsAvailable   Int      @default(0) // rewards ganados y no canjeados (denorm)
   rewardsRedeemed    Int      @default(0) // lifetime canjeados
+  availableRewardIds Json     @default("[]") // string[] de LoyaltyReward.id pendientes de canjear
   lastStampAt        DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

@@ -1,5 +1,33 @@
-import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min, MaxLength } from 'class-validator'
-import { LoyaltyRewardType } from '@prisma/client'
+import {
+  IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString,
+  Max, Min, MaxLength, ValidateNested, IsArray, ArrayMaxSize, ArrayMinSize,
+} from 'class-validator'
+import { Type } from 'class-transformer'
+import { LoyaltyRewardType, LoyaltyRewardMode } from '@prisma/client'
+
+export class RewardItemDto {
+  @IsInt()
+  @Min(1)
+  @Max(4)
+  position!: number
+
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  stampsRequired!: number
+
+  @IsEnum(LoyaltyRewardType)
+  rewardType!: LoyaltyRewardType
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  rewardValue?: number
+
+  @IsString()
+  @MaxLength(120)
+  rewardLabel!: string
+}
 
 export class UpdateProgramDto {
   @IsOptional()
@@ -11,24 +39,16 @@ export class UpdateProgramDto {
   showOnBooking?: boolean
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  stampsRequired?: number
+  @IsEnum(LoyaltyRewardMode)
+  rewardMode?: LoyaltyRewardMode
 
   @IsOptional()
-  @IsEnum(LoyaltyRewardType)
-  rewardType?: LoyaltyRewardType
-
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  rewardValue?: number
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  rewardLabel?: string
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(4)
+  @ValidateNested({ each: true })
+  @Type(() => RewardItemDto)
+  rewards?: RewardItemDto[]
 
   @IsOptional()
   eligibleServiceIds?: string[] | null
@@ -45,7 +65,7 @@ export class UpdateProgramDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(9) // #RRGGBB or #RRGGBBAA
+  @MaxLength(9)
   cardColor?: string
 
   @IsOptional()

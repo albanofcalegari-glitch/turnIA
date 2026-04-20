@@ -484,10 +484,10 @@ class ApiClient {
   listLoyaltyCards = () =>
     this.request<LoyaltyCardWithClient[]>('/loyalty/cards')
 
-  redeemLoyaltyReward = (cardId: string, appointmentId?: string) =>
+  redeemLoyaltyReward = (cardId: string, rewardId: string, appointmentId?: string) =>
     this.request<{ redemption: LoyaltyRedemption; card: LoyaltyCard }>(
       `/loyalty/cards/${cardId}/redeem`,
-      { method: 'POST', body: JSON.stringify({ appointmentId }) },
+      { method: 'POST', body: JSON.stringify({ rewardId, appointmentId }) },
     )
 
   getMyLoyaltyCard = () =>
@@ -505,12 +505,24 @@ class ApiClient {
 // ── Loyalty types ───────────────────────────────────────────────────────────
 
 export type LoyaltyRewardType = 'FREE_SERVICE' | 'DISCOUNT_PERCENT' | 'DISCOUNT_AMOUNT'
+export type LoyaltyRewardMode = 'CUMULATIVE' | 'INDEPENDENT'
+
+export interface LoyaltyRewardItem {
+  id:             string
+  programId:      string
+  position:       number
+  stampsRequired: number
+  rewardType:     LoyaltyRewardType
+  rewardValue:    string | number | null
+  rewardLabel:    string
+}
 
 export interface LoyaltyProgram {
   id:              string
   tenantId:        string
   isActive:        boolean
   showOnBooking:   boolean
+  rewardMode:      LoyaltyRewardMode
   stampsRequired:  number
   rewardType:      LoyaltyRewardType
   rewardValue:     string | number | null
@@ -521,6 +533,7 @@ export interface LoyaltyProgram {
   cardColor:       string
   cardAccentColor: string | null
   cardBgImageUrl:  string | null
+  rewards:         LoyaltyRewardItem[]
   createdAt:       string
   updatedAt:       string
 }
@@ -534,6 +547,8 @@ export interface BookingLoyaltyProgram {
   stampsRequired:  number
   rewardType:      LoyaltyRewardType
   rewardLabel:     string
+  rewardMode:      LoyaltyRewardMode
+  rewards:         Omit<LoyaltyRewardItem, 'programId'>[]
 }
 
 export interface BookingLoyaltyCard {
@@ -542,14 +557,20 @@ export interface BookingLoyaltyCard {
   clientName:       string
 }
 
+export interface RewardItemInput {
+  position:       number
+  stampsRequired: number
+  rewardType:     LoyaltyRewardType
+  rewardValue?:   number | null
+  rewardLabel:    string
+}
+
 export interface LoyaltyProgramInput {
   isActive:        boolean
   showOnBooking?:  boolean
-  stampsRequired:  number
-  rewardType:      LoyaltyRewardType
-  rewardValue:     number | null
-  rewardLabel:     string
-  eligibleServiceIds: string[] | null
+  rewardMode?:     LoyaltyRewardMode
+  rewards?:        RewardItemInput[]
+  eligibleServiceIds?: string[] | null
   cardTitle:       string
   cardSubtitle:    string | null
   cardColor:       string
@@ -558,17 +579,18 @@ export interface LoyaltyProgramInput {
 }
 
 export interface LoyaltyCard {
-  id:                string
-  tenantId:          string
-  programId:         string
-  clientId:          string
-  stampsCount:       number
-  totalStampsEarned: number
-  rewardsAvailable:  number
-  rewardsRedeemed:   number
-  lastStampAt:       string | null
-  createdAt:         string
-  updatedAt:         string
+  id:                 string
+  tenantId:           string
+  programId:          string
+  clientId:           string
+  stampsCount:        number
+  totalStampsEarned:  number
+  rewardsAvailable:   number
+  rewardsRedeemed:    number
+  availableRewardIds: string[]
+  lastStampAt:        string | null
+  createdAt:          string
+  updatedAt:          string
 }
 
 export interface LoyaltyCardWithClient extends LoyaltyCard {

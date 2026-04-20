@@ -1,9 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Award, Gift, Loader2, Save, Users } from 'lucide-react'
+import { Award, Gift, Loader2, Plus, Save, Trash2, Users } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { apiClient, type LoyaltyProgram, type LoyaltyRewardType, type LoyaltyCardWithClient } from '@/lib/api'
+import {
+  apiClient,
+  type LoyaltyProgram,
+  type LoyaltyRewardType,
+  type LoyaltyRewardItem,
+  type LoyaltyCardWithClient,
+  type RewardItemInput,
+} from '@/lib/api'
 import { LoyaltyCardView } from '@/features/loyalty/LoyaltyCardView'
 import { Spinner } from '@/components/ui/Spinner'
 
@@ -47,8 +54,32 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 
 // ── Configuración del programa ──────────────────────────────────────────────
 
+interface LocalReward {
+  key: string // for React key (stable across edits)
+  position: number
+  stampsRequired: number
+  rewardType: LoyaltyRewardType
+  rewardValue: number | null
+  rewardLabel: string
+}
+
+function toLocalRewards(rewards: LoyaltyRewardItem[]): LocalReward[] {
+  if (rewards.length === 0) {
+    return [{ key: crypto.randomUUID(), position: 1, stampsRequired: 5, rewardType: 'FREE_SERVICE', rewardValue: null, rewardLabel: 'Servicio gratis' }]
+  }
+  return rewards.map(r => ({
+    key: r.id,
+    position: r.position,
+    stampsRequired: r.stampsRequired,
+    rewardType: r.rewardType,
+    rewardValue: r.rewardValue === null ? null : Number(r.rewardValue),
+    rewardLabel: r.rewardLabel,
+  }))
+}
+
 function ProgramConfig({ isAdmin }: { isAdmin: boolean }) {
   const [program, setProgram] = useState<LoyaltyProgram | null>(null)
+  const [rewards, setRewards] = useState<LocalReward[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
@@ -56,7 +87,7 @@ function ProgramConfig({ isAdmin }: { isAdmin: boolean }) {
 
   useEffect(() => {
     apiClient.getLoyaltyProgram()
-      .then(setProgram)
+      .then(p => { setProgram(p); setRewards(toLocalRewards(p.rewards)) })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
@@ -69,17 +100,50 @@ function ProgramConfig({ isAdmin }: { isAdmin: boolean }) {
     setProgram(p => p ? { ...p, [key]: value } : p)
   }
 
+  function updateReward(key: string, field: keyof LocalReward, value: any) {
+    setRewards(prev => prev.map(r => r.key === key ? { ...r, [field]: value } : r))
+  }
+
+  function addReward() {
+    if (rewards.length >= 4) return
+    const maxStamps = Math.max(...rewards.map(r => r.stampsRequired))
+    setRewards(prev => [...prev, {
+      key: crypto.randomUUID(),
+      position: prev.length + 1,
+      stampsRequired: maxStamps + 5,
+      rewardType: 'FREE_SERVICE',
+      rewardValue: null,
+      rewardLabel: 'Servicio gratis',
+    }])
+  }
+
+  function removeReward(key: string) {
+    if (rewards.length <= 1) return
+    setRewards(prev => prev.filter(r => r.key !== key).map((r, i) => ({ ...r, position: i + 1 })))
+  }
+
+  // El ciclo total es el max stampsRequired
+  const cycleTotal = Math.max(...rewards.map(r => r.stampsRequired))
+
   async function save() {
     if (!program) return
     setSaving(true)
     setError(null)
     try {
+      const rewardsInput: RewardItemInput[] = rewards
+        .sort((a, b) => a.stampsRequired - b.stampsRequired)
+        .map((r, i) => ({
+          position: i + 1,
+          stampsRequired: r.stampsRequired,
+          rewardType: r.rewardType,
+          rewardValue: r.rewardType === 'FREE_SERVICE' ? null : r.rewardValue,
+          rewardLabel: r.rewardLabel,
+        }))
+
       const saved = await apiClient.updateLoyaltyProgram({
         isActive:           program.isActive,
-        stampsRequired:     program.stampsRequired,
-        rewardType:         program.rewardType,
-        rewardValue:        program.rewardValue === null ? null : Number(program.rewardValue),
-        rewardLabel:        program.rewardLabel,
+        rewardMode:         program.rewardMode,
+        rewards:            rewardsInput,
         eligibleServiceIds: program.eligibleServiceIds,
         cardTitle:          program.cardTitle,
         cardSubtitle:       program.cardSubtitle,
@@ -87,7 +151,10 @@ function ProgramConfig({ isAdmin }: { isAdmin: boolean }) {
         cardAccentColor:    program.cardAccentColor,
         cardBgImageUrl:     program.cardBgImageUrl,
       })
-      setProgram(saved)
+      if (saved) {
+        setProgram(saved)
+        setRewards(toLocalRewards(saved.rewards))
+      }
       setSavedAt(new Date())
     } catch (e: any) {
       setError(e.message ?? 'Error al guardar')
@@ -113,56 +180,103 @@ function ProgramConfig({ isAdmin }: { isAdmin: boolean }) {
           </label>
         </Field>
 
-        <Field label="Sellos requeridos" hint="Cantidad de turnos completados para obtener el beneficio.">
-          <input
-            type="number"
-            min={1}
-            max={50}
-            value={program.stampsRequired}
-            onChange={e => update('stampsRequired', Number(e.target.value))}
-            disabled={!isAdmin}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-          />
-        </Field>
+        {/* Rewards */}
+        <div className="border-t pt-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Beneficios ({rewards.length}/4)
+            </div>
+            {isAdmin && rewards.length < 4 && (
+              <button
+                onClick={addReward}
+                className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+              >
+                <Plus size={12} /> Agregar
+              </button>
+            )}
+          </div>
 
-        <Field label="Tipo de beneficio">
-          <select
-            value={program.rewardType}
-            onChange={e => update('rewardType', e.target.value as LoyaltyRewardType)}
-            disabled={!isAdmin}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="FREE_SERVICE">Servicio gratis</option>
-            <option value="DISCOUNT_PERCENT">Descuento (%)</option>
-            <option value="DISCOUNT_AMOUNT">Descuento (monto fijo)</option>
-          </select>
-        </Field>
+          <div className="space-y-3">
+            {rewards
+              .sort((a, b) => a.stampsRequired - b.stampsRequired)
+              .map((reward, idx) => (
+              <div key={reward.key} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-bold text-brand-600">Beneficio {idx + 1}</span>
+                  {isAdmin && rewards.length > 1 && (
+                    <button
+                      onClick={() => removeReward(reward.key)}
+                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
 
-        {program.rewardType !== 'FREE_SERVICE' && (
-          <Field label={program.rewardType === 'DISCOUNT_PERCENT' ? 'Porcentaje de descuento' : 'Monto del descuento'}>
-            <input
-              type="number"
-              min={0}
-              step={program.rewardType === 'DISCOUNT_PERCENT' ? 1 : 100}
-              value={program.rewardValue === null ? '' : String(program.rewardValue)}
-              onChange={e => update('rewardValue', e.target.value === '' ? null : Number(e.target.value))}
-              disabled={!isAdmin}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </Field>
-        )}
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Sellos requeridos" hint="Acumulados para desbloquear">
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={reward.stampsRequired}
+                      onChange={e => updateReward(reward.key, 'stampsRequired', Number(e.target.value))}
+                      disabled={!isAdmin}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                    />
+                  </Field>
 
-        <Field label="Etiqueta del beneficio" hint='Texto que ve el cliente: "Corte gratis", "20% OFF", etc.'>
-          <input
-            type="text"
-            maxLength={120}
-            value={program.rewardLabel}
-            onChange={e => update('rewardLabel', e.target.value)}
-            disabled={!isAdmin}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </Field>
+                  <Field label="Tipo">
+                    <select
+                      value={reward.rewardType}
+                      onChange={e => updateReward(reward.key, 'rewardType', e.target.value)}
+                      disabled={!isAdmin}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                    >
+                      <option value="FREE_SERVICE">Servicio gratis</option>
+                      <option value="DISCOUNT_PERCENT">Descuento (%)</option>
+                      <option value="DISCOUNT_AMOUNT">Descuento ($)</option>
+                    </select>
+                  </Field>
+                </div>
 
+                {reward.rewardType !== 'FREE_SERVICE' && (
+                  <Field label={reward.rewardType === 'DISCOUNT_PERCENT' ? 'Porcentaje' : 'Monto'}>
+                    <input
+                      type="number"
+                      min={0}
+                      step={reward.rewardType === 'DISCOUNT_PERCENT' ? 1 : 100}
+                      value={reward.rewardValue ?? ''}
+                      onChange={e => updateReward(reward.key, 'rewardValue', e.target.value === '' ? null : Number(e.target.value))}
+                      disabled={!isAdmin}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                    />
+                  </Field>
+                )}
+
+                <Field label="Etiqueta" hint='Texto que ve el cliente'>
+                  <input
+                    type="text"
+                    maxLength={120}
+                    value={reward.rewardLabel}
+                    onChange={e => updateReward(reward.key, 'rewardLabel', e.target.value)}
+                    disabled={!isAdmin}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                    placeholder="Ej: 20% OFF en corte"
+                  />
+                </Field>
+              </div>
+            ))}
+          </div>
+
+          {rewards.length > 1 && (
+            <p className="mt-2 text-[11px] text-gray-400">
+              Ciclo total: {cycleTotal} sellos. Los beneficios se desbloquean al alcanzar cada umbral, luego el ciclo reinicia.
+            </p>
+          )}
+        </div>
+
+        {/* Branding */}
         <div className="border-t pt-4">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Diseño de la tarjeta</div>
           <Field label="Título">
@@ -172,7 +286,7 @@ function ProgramConfig({ isAdmin }: { isAdmin: boolean }) {
               value={program.cardTitle}
               onChange={e => update('cardTitle', e.target.value)}
               disabled={!isAdmin}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
             />
           </Field>
 
@@ -233,8 +347,8 @@ function ProgramConfig({ isAdmin }: { isAdmin: boolean }) {
       <div className="space-y-3">
         <div className="text-xs font-semibold uppercase tracking-wider text-gray-500">Preview</div>
         <LoyaltyCardView
-          program={program}
-          stampsCount={Math.min(2, program.stampsRequired)}
+          program={{ ...program, rewards }}
+          stampsCount={Math.min(2, cycleTotal)}
         />
         <p className="text-center text-xs text-gray-500">
           Así la ve tu cliente. Con el QR, puede mostrarla cuando viene al local.
@@ -262,6 +376,7 @@ function ErrorBox({ message }: { message: string }) {
 
 function CardsList() {
   const [cards, setCards]     = useState<LoyaltyCardWithClient[] | null>(null)
+  const [program, setProgram] = useState<LoyaltyProgram | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
   const [redeeming, setRedeeming] = useState<string | null>(null)
@@ -269,7 +384,9 @@ function CardsList() {
   async function load() {
     setLoading(true)
     try {
-      setCards(await apiClient.listLoyaltyCards())
+      const [c, p] = await Promise.all([apiClient.listLoyaltyCards(), apiClient.getLoyaltyProgram()])
+      setCards(c)
+      setProgram(p)
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -279,10 +396,10 @@ function CardsList() {
 
   useEffect(() => { load() }, [])
 
-  async function redeem(cardId: string) {
-    setRedeeming(cardId)
+  async function redeem(cardId: string, rewardId: string) {
+    setRedeeming(`${cardId}-${rewardId}`)
     try {
-      await apiClient.redeemLoyaltyReward(cardId)
+      await apiClient.redeemLoyaltyReward(cardId, rewardId)
       await load()
     } catch (e: any) {
       alert(e.message ?? 'Error al canjear')
@@ -302,6 +419,8 @@ function CardsList() {
     )
   }
 
+  const rewardsById = new Map(program?.rewards.map(r => [r.id, r]) ?? [])
+
   return (
     <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
       <table className="w-full text-sm">
@@ -315,35 +434,58 @@ function CardsList() {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {cards.map(card => (
-            <tr key={card.id}>
-              <td className="px-4 py-3">
-                <div className="font-medium text-gray-900">{card.client.firstName} {card.client.lastName}</div>
-                <div className="text-xs text-gray-400">{card.client.email ?? card.client.phone ?? '—'}</div>
-              </td>
-              <td className="px-4 py-3 text-gray-700">{card.stampsCount}</td>
-              <td className="px-4 py-3">
-                {card.rewardsAvailable > 0
-                  ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800"><Gift size={12} /> {card.rewardsAvailable} disponible{card.rewardsAvailable === 1 ? '' : 's'}</span>
-                  : <span className="text-xs text-gray-400">—</span>
-                }
-              </td>
-              <td className="px-4 py-3 text-xs text-gray-500">
-                {card.lastStampAt ? new Date(card.lastStampAt).toLocaleDateString('es-AR') : '—'}
-              </td>
-              <td className="px-4 py-3 text-right">
-                {card.rewardsAvailable > 0 && (
-                  <button
-                    onClick={() => redeem(card.id)}
-                    disabled={redeeming === card.id}
-                    className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-                  >
-                    {redeeming === card.id ? '…' : 'Canjear'}
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
+          {cards.map(card => {
+            const availableIds = (card.availableRewardIds ?? []) as string[]
+            const uniqueRewardIds = [...new Set(availableIds)]
+
+            return (
+              <tr key={card.id}>
+                <td className="px-4 py-3">
+                  <div className="font-medium text-gray-900">{card.client.firstName} {card.client.lastName}</div>
+                  <div className="text-xs text-gray-400">{card.client.email ?? card.client.phone ?? '—'}</div>
+                </td>
+                <td className="px-4 py-3 text-gray-700">{card.stampsCount}</td>
+                <td className="px-4 py-3">
+                  {uniqueRewardIds.length > 0
+                    ? uniqueRewardIds.map(rid => {
+                        const rw = rewardsById.get(rid)
+                        const count = availableIds.filter(id => id === rid).length
+                        return (
+                          <span key={rid} className="mr-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                            <Gift size={12} /> {count > 1 ? `${count}x ` : ''}{rw?.rewardLabel ?? 'Reward'}
+                          </span>
+                        )
+                      })
+                    : <span className="text-xs text-gray-400">—</span>
+                  }
+                </td>
+                <td className="px-4 py-3 text-xs text-gray-500">
+                  {card.lastStampAt ? new Date(card.lastStampAt).toLocaleDateString('es-AR') : '—'}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {uniqueRewardIds.length > 0 && (
+                    <div className="flex flex-wrap justify-end gap-1">
+                      {uniqueRewardIds.map(rid => {
+                        const rw = rewardsById.get(rid)
+                        const isRedeeming = redeeming === `${card.id}-${rid}`
+                        return (
+                          <button
+                            key={rid}
+                            onClick={() => redeem(card.id, rid)}
+                            disabled={!!redeeming}
+                            className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+                            title={rw?.rewardLabel}
+                          >
+                            {isRedeeming ? '…' : `Canjear ${rw?.rewardLabel ?? ''}`}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

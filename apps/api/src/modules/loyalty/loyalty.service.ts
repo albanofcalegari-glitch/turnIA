@@ -1,12 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
-import { Prisma, LoyaltyRewardType, LoyaltyStampReason, AppointmentStatus } from '@prisma/client'
+import { Prisma, LoyaltyRewardType, LoyaltyRewardMode, LoyaltyStampReason } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { UpdateProgramDto } from './dto/update-program.dto'
 
-// Default program seeded the first time an admin opens the UI.
-// Matches the most common case we've seen in Argentine barberías: "cada 5, uno gratis".
 const DEFAULT_PROGRAM = {
   isActive:        false,
+  rewardMode:      LoyaltyRewardMode.CUMULATIVE,
   stampsRequired:  5,
   rewardType:      LoyaltyRewardType.FREE_SERVICE,
   rewardValue:     null,
@@ -17,6 +16,10 @@ const DEFAULT_PROGRAM = {
   cardAccentColor: '#3b82f6',
 }
 
+const REWARDS_INCLUDE = {
+  rewards: { orderBy: { position: 'asc' as const } },
+}
+
 @Injectable()
 export class LoyaltyService {
   constructor(private readonly prisma: PrismaService) {}
@@ -25,33 +28,82 @@ export class LoyaltyService {
   // Program (config del tenant)
   // ───────────────────────────────────────────────────────────────────────────
 
-  /** Devuelve la config actual del tenant; crea una default si todavía no existe. */
   async getProgram(tenantId: string) {
-    const existing = await this.prisma.loyaltyProgram.findUnique({ where: { tenantId } })
+    const existing = await this.prisma.loyaltyProgram.findUnique({
+      where: { tenantId },
+      include: REWARDS_INCLUDE,
+    })
     if (existing) return existing
-    return this.prisma.loyaltyProgram.create({ data: { tenantId, ...DEFAULT_PROGRAM } })
+
+    const program = await this.prisma.loyaltyProgram.create({
+      data: { tenantId, ...DEFAULT_PROGRAM },
+    })
+    // Crear reward default
+    const reward = await this.prisma.loyaltyReward.create({
+      data: {
+        programId:      program.id,
+        position:       1,
+        stampsRequired: 5,
+        rewardType:     LoyaltyRewardType.FREE_SERVICE,
+        rewardLabel:    'Servicio gratis',
+      },
+    })
+    return { ...program, rewards: [reward] }
   }
 
   async updateProgram(tenantId: string, dto: UpdateProgramDto) {
-    // rewardValue sólo tiene sentido para DISCOUNT_*; para FREE_SERVICE lo anulamos
-    // para evitar datos inconsistentes si el admin cambia el tipo y olvida limpiar.
-    const { eligibleServiceIds, ...rest } = dto
+    const { rewards: rewardsInput, eligibleServiceIds, ...rest } = dto
+
+    await this.getProgram(tenantId) // garantiza que exista
+
     const data: Prisma.LoyaltyProgramUpdateInput = { ...rest }
-    if (dto.rewardType === LoyaltyRewardType.FREE_SERVICE) {
-      data.rewardValue = null
-    }
     if (eligibleServiceIds !== undefined) {
-      // null explícito = todos los servicios elegibles (limpia el filtro)
       data.eligibleServiceIds = eligibleServiceIds === null
         ? Prisma.DbNull
         : (eligibleServiceIds as Prisma.InputJsonValue)
     }
-    await this.getProgram(tenantId) // garantiza que exista
-    return this.prisma.loyaltyProgram.update({ where: { tenantId }, data })
+
+    // Sync legacy fields con el primer reward (backward compat)
+    if (rewardsInput && rewardsInput.length > 0) {
+      const first = rewardsInput.find(r => r.position === 1) ?? rewardsInput[0]
+      data.stampsRequired = first.stampsRequired
+      data.rewardType = first.rewardType
+      data.rewardValue = first.rewardType === LoyaltyRewardType.FREE_SERVICE ? null : first.rewardValue ?? null
+      data.rewardLabel = first.rewardLabel
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const program = await tx.loyaltyProgram.update({ where: { tenantId }, data })
+
+      if (rewardsInput) {
+        // Delete + recreate (max 4 rows, simple y seguro)
+        await tx.loyaltyReward.deleteMany({ where: { programId: program.id } })
+        for (const r of rewardsInput) {
+          await tx.loyaltyReward.create({
+            data: {
+              programId:      program.id,
+              position:       r.position,
+              stampsRequired: r.stampsRequired,
+              rewardType:     r.rewardType,
+              rewardValue:    r.rewardType === LoyaltyRewardType.FREE_SERVICE ? null : r.rewardValue ?? null,
+              rewardLabel:    r.rewardLabel,
+            },
+          })
+        }
+      }
+
+      return tx.loyaltyProgram.findUnique({
+        where: { tenantId },
+        include: REWARDS_INCLUDE,
+      })
+    })
   }
 
   async getPublicProgram(tenantId: string) {
-    const program = await this.prisma.loyaltyProgram.findUnique({ where: { tenantId } })
+    const program = await this.prisma.loyaltyProgram.findUnique({
+      where: { tenantId },
+      include: REWARDS_INCLUDE,
+    })
     if (!program || !program.isActive || !program.showOnBooking) return null
     return {
       cardTitle:       program.cardTitle,
@@ -62,11 +114,19 @@ export class LoyaltyService {
       stampsRequired:  program.stampsRequired,
       rewardType:      program.rewardType,
       rewardLabel:     program.rewardLabel,
+      rewardMode:      program.rewardMode,
+      rewards:         program.rewards.map(r => ({
+        id: r.id, position: r.position, stampsRequired: r.stampsRequired,
+        rewardType: r.rewardType, rewardValue: r.rewardValue, rewardLabel: r.rewardLabel,
+      })),
     }
   }
 
   async getBookingCard(tenantId: string, email: string) {
-    const program = await this.prisma.loyaltyProgram.findUnique({ where: { tenantId } })
+    const program = await this.prisma.loyaltyProgram.findUnique({
+      where: { tenantId },
+      include: REWARDS_INCLUDE,
+    })
     if (!program || !program.isActive || !program.showOnBooking) return null
 
     const client = await this.prisma.client.findFirst({
@@ -80,15 +140,15 @@ export class LoyaltyService {
     return {
       stampsCount:      card.stampsCount,
       rewardsAvailable: card.rewardsAvailable,
+      availableRewardIds: card.availableRewardIds as string[],
       clientName:       `${client.firstName} ${client.lastName}`.trim(),
     }
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Cards (vista del negocio y del cliente)
+  // Cards
   // ───────────────────────────────────────────────────────────────────────────
 
-  /** Lista todas las tarjetas del tenant (para la vista del negocio). */
   async listCards(tenantId: string) {
     return this.prisma.loyaltyCard.findMany({
       where:   { tenantId },
@@ -99,11 +159,6 @@ export class LoyaltyService {
     })
   }
 
-  /**
-   * Devuelve la tarjeta del cliente logueado en el tenant.
-   * Si el programa está activo y el cliente no tiene tarjeta todavía, se crea
-   * con stamps=0 para que la UI pueda renderizarla desde el primer turno.
-   */
   async getCardForClient(tenantId: string, userId: string) {
     const client = await this.prisma.client.findFirst({ where: { tenantId, userId } })
     if (!client) throw new NotFoundException('No tenés turnos registrados en este negocio')
@@ -120,12 +175,11 @@ export class LoyaltyService {
     return { program, card, client }
   }
 
-  /** Vista pública de una tarjeta por id (para el QR). No requiere auth. */
   async getCardPublic(cardId: string) {
     const card = await this.prisma.loyaltyCard.findUnique({
       where:   { id: cardId },
       include: {
-        program: true,
+        program: { include: REWARDS_INCLUDE },
         client:  { select: { firstName: true, lastName: true } },
         tenant:  { select: { name: true, slug: true, logoUrl: true } },
       },
@@ -135,31 +189,22 @@ export class LoyaltyService {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Stamps (hook desde appointments)
+  // Stamps
   // ───────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Emite un stamp para un appointment recién completado.
-   *
-   * Idempotente: el unique (cardId, appointmentId, reason=COMPLETED) garantiza
-   * que marcar dos veces el mismo turno como COMPLETED no duplica stamps.
-   * Si el stampsCount alcanza stampsRequired, incrementa rewardsAvailable y
-   * resta el umbral (el resto queda acumulado para el próximo ciclo).
-   *
-   * Llamado desde AppointmentsService.complete() — no lo uses directo desde
-   * un controller sin saber lo que hacés.
-   */
   async issueStampForAppointment(
     tx: Prisma.TransactionClient,
     params: { tenantId: string; appointmentId: string; clientId: string; serviceIds: string[] },
   ) {
     const { tenantId, appointmentId, clientId, serviceIds } = params
 
-    const program = await tx.loyaltyProgram.findUnique({ where: { tenantId } })
+    const program = await tx.loyaltyProgram.findUnique({
+      where: { tenantId },
+      include: REWARDS_INCLUDE,
+    })
     if (!program || !program.isActive) return null
+    if (program.rewards.length === 0) return null
 
-    // Filtro por servicios elegibles: si el programa restringe servicios y ninguno
-    // del appointment califica, no se emite stamp.
     const eligible = program.eligibleServiceIds as string[] | null | undefined
     if (Array.isArray(eligible) && eligible.length > 0) {
       const matches = serviceIds.some(sid => eligible.includes(sid))
@@ -172,48 +217,48 @@ export class LoyaltyService {
       create: { tenantId, programId: program.id, clientId },
     })
 
-    // Intentar crear el stamp; si ya existe (unique violation), salir sin error.
     try {
       await tx.loyaltyStamp.create({
-        data: {
-          cardId:        card.id,
-          appointmentId,
-          delta:         1,
-          reason:        LoyaltyStampReason.COMPLETED,
-        },
+        data: { cardId: card.id, appointmentId, delta: 1, reason: LoyaltyStampReason.COMPLETED },
       })
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return card
       throw e
     }
 
-    const newStampsCount = card.stampsCount + 1
-    let stampsCount      = newStampsCount
-    let rewardsAvailable = card.rewardsAvailable
-    if (newStampsCount >= program.stampsRequired) {
-      // Si alcanzaron el umbral, desbloqueamos un reward y arrancamos otro ciclo.
-      // Usamos módulo por si stampsRequired fuese 1 (edge case) o si por alguna
-      // razón newStampsCount saltó más de uno — así no perdemos stamps.
-      const earned = Math.floor(newStampsCount / program.stampsRequired)
-      stampsCount      = newStampsCount % program.stampsRequired
-      rewardsAvailable = card.rewardsAvailable + earned
+    const rewards = program.rewards // already sorted by position
+    const cycleMax = Math.max(...rewards.map(r => r.stampsRequired))
+    const oldCount = card.stampsCount
+    const newCount = oldCount + 1
+
+    // Detect newly unlocked rewards
+    const currentAvailable = (card.availableRewardIds as string[]) || []
+    const newlyUnlocked: string[] = []
+    for (const reward of rewards) {
+      if (oldCount < reward.stampsRequired && newCount >= reward.stampsRequired) {
+        newlyUnlocked.push(reward.id)
+      }
     }
+
+    let stampsCount = newCount
+    if (newCount >= cycleMax) {
+      stampsCount = 0
+    }
+
+    const availableRewardIds = [...currentAvailable, ...newlyUnlocked]
 
     return tx.loyaltyCard.update({
       where: { id: card.id },
-      data:  {
+      data: {
         stampsCount,
-        totalStampsEarned: card.totalStampsEarned + 1,
-        rewardsAvailable,
-        lastStampAt:       new Date(),
+        totalStampsEarned:  card.totalStampsEarned + 1,
+        rewardsAvailable:   availableRewardIds.length,
+        availableRewardIds: availableRewardIds as any,
+        lastStampAt:        new Date(),
       },
     })
   }
 
-  /**
-   * Revierte un stamp previamente emitido para un appointment — usado cuando
-   * un turno completado se cancela. Idempotente por el mismo unique key.
-   */
   async reverseStampForAppointment(
     tx: Prisma.TransactionClient,
     params: { tenantId: string; appointmentId: string; clientId: string },
@@ -226,35 +271,22 @@ export class LoyaltyService {
     const original = await tx.loyaltyStamp.findUnique({
       where: {
         cardId_appointmentId_reason: {
-          cardId:        card.id,
-          appointmentId,
-          reason:        LoyaltyStampReason.COMPLETED,
+          cardId: card.id, appointmentId, reason: LoyaltyStampReason.COMPLETED,
         },
       },
     })
     if (!original) return null
 
-    // Registrar reversal — puede fallar si ya se revirtió previamente.
     try {
       await tx.loyaltyStamp.create({
-        data: {
-          cardId:        card.id,
-          appointmentId,
-          delta:         -1,
-          reason:        LoyaltyStampReason.REVERSAL,
-        },
+        data: { cardId: card.id, appointmentId, delta: -1, reason: LoyaltyStampReason.REVERSAL },
       })
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return card
       throw e
     }
 
-    // Si el stamp original ya "pagó" un reward (es decir, stampsCount ya wrappeó),
-    // no podemos quitar ese reward si ya fue canjeado. Sólo ajustamos el contador.
-    // Simplificación: sólo restamos el stamp del ciclo actual. Si el cliente ya
-    // tiene un reward no canjeado y el stampsCount cae por debajo de 0, lo
-    // dejamos en 0 — el ciclo cerró.
-    const stampsCount      = Math.max(0, card.stampsCount - 1)
+    const stampsCount       = Math.max(0, card.stampsCount - 1)
     const totalStampsEarned = Math.max(0, card.totalStampsEarned - 1)
 
     return tx.loyaltyCard.update({
@@ -264,44 +296,50 @@ export class LoyaltyService {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Redemptions (canje del reward)
+  // Redemptions
   // ───────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Registra el canje de un reward. Lo dispara el staff cuando el cliente
-   * usa su beneficio. Decrementa rewardsAvailable y guarda snapshot del reward
-   * al momento del canje (por si la config del programa cambia después).
-   */
   async redeemReward(
     tenantId: string,
     cardId: string,
-    params: { appointmentId?: string; staffUserId?: string },
+    params: { rewardId: string; appointmentId?: string; staffUserId?: string },
   ) {
     const card = await this.prisma.loyaltyCard.findFirst({
-      where:   { id: cardId, tenantId },
-      include: { program: true },
+      where: { id: cardId, tenantId },
     })
     if (!card) throw new NotFoundException('Tarjeta no encontrada')
-    if (card.rewardsAvailable <= 0) {
-      throw new BadRequestException('Esta tarjeta no tiene rewards disponibles para canjear')
+
+    const available = (card.availableRewardIds as string[]) || []
+    if (!available.includes(params.rewardId)) {
+      throw new BadRequestException('Este reward no está disponible para canjear')
     }
+
+    const reward = await this.prisma.loyaltyReward.findUnique({ where: { id: params.rewardId } })
+    if (!reward) throw new NotFoundException('Reward no encontrado')
 
     return this.prisma.$transaction(async (tx) => {
       const redemption = await tx.loyaltyRedemption.create({
         data: {
           cardId:           card.id,
           appointmentId:    params.appointmentId,
-          rewardType:       card.program.rewardType,
-          rewardValue:      card.program.rewardValue,
-          rewardLabel:      card.program.rewardLabel,
+          rewardType:       reward.rewardType,
+          rewardValue:      reward.rewardValue,
+          rewardLabel:      reward.rewardLabel,
           redeemedByUserId: params.staffUserId,
         },
       })
+
+      // Remove first occurrence of this rewardId from available list
+      const updatedAvailable = [...available]
+      const idx = updatedAvailable.indexOf(params.rewardId)
+      if (idx !== -1) updatedAvailable.splice(idx, 1)
+
       const updated = await tx.loyaltyCard.update({
         where: { id: card.id },
-        data:  {
-          rewardsAvailable: card.rewardsAvailable - 1,
-          rewardsRedeemed:  card.rewardsRedeemed + 1,
+        data: {
+          rewardsAvailable:   updatedAvailable.length,
+          availableRewardIds: updatedAvailable as any,
+          rewardsRedeemed:    card.rewardsRedeemed + 1,
         },
       })
       return { redemption, card: updated }
