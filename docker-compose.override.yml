@@ -1,0 +1,6 @@
+# Dev overrides — used automatically by `docker compose up`
+# For production, use: docker compose -f docker-compose.yml up
+services:
+  postgres:
+    ports:
+      - "5432:5432"

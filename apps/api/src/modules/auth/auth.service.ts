@@ -1,16 +1,21 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common'
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 import { PrismaService } from '../../prisma/prisma.service'
+import { MailService } from '../mail/mail.service'
 import { JwtPayload } from '@turnia/shared'
 import { LoginDto } from './dto/login.dto'
 import { RegisterDto } from './dto/register.dto'
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name)
+
   constructor(
     private prisma:  PrismaService,
     private jwt:     JwtService,
+    private mail:    MailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -77,12 +82,105 @@ export class AuthService {
       firstName:   user.firstName,
       lastName:    user.lastName,
       isSuperAdmin: user.isSuperAdmin,
+      emailVerifiedAt: user.emailVerifiedAt,
       tenants: user.tenants.map(t => ({
         tenantId: t.tenantId,
         role:     t.role,
         tenant:   t.tenant,
       })),
     }
+  }
+
+  /**
+   * Genera un token de reseteo y se lo envía por email al usuario.
+   * Responde siempre OK — no revelamos si el email existe o no, para evitar
+   * que sirva como enumeration oracle.
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } })
+    if (!user || !user.isActive) return
+
+    const token = randomBytes(32).toString('hex')
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1h
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data:  {
+        passwordResetToken:     token,
+        passwordResetExpiresAt: expiresAt,
+      },
+    })
+
+    await this.mail.sendPasswordResetEmail({
+      to:         user.email,
+      firstName:  user.firstName,
+      resetToken: token,
+    })
+  }
+
+  async resetPassword(token: string, password: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { passwordResetToken: token } })
+    if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt < new Date()) {
+      throw new BadRequestException('Link inválido o expirado')
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12)
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data:  {
+        passwordHash,
+        passwordResetToken:     null,
+        passwordResetExpiresAt: null,
+      },
+    })
+  }
+
+  /**
+   * Reenvía el email de verificación. Si el usuario ya está verificado no hace
+   * nada. Idempotente desde el punto de vista del cliente — responde OK siempre.
+   */
+  async resendVerificationEmail(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where:   { id: userId },
+      include: { tenants: { include: { tenant: { select: { name: true } } } } },
+    })
+    if (!user || user.emailVerifiedAt) return
+
+    let token = user.emailVerificationToken
+    if (!token) {
+      token = randomBytes(32).toString('hex')
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data:  { emailVerificationToken: token },
+      })
+    }
+
+    const tenantName = user.tenants[0]?.tenant.name ?? 'turnIT'
+    await this.mail.sendWelcomeEmail({
+      to:           user.email,
+      firstName:    user.firstName,
+      tenantName,
+      verifyToken:  token,
+    })
+  }
+
+  /**
+   * Verifica el email a partir del token. Idempotente — si ya estaba verificado
+   * lo dejamos pasar para que el link del mail no rompa si el usuario lo abre dos veces.
+   */
+  async verifyEmail(token: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { emailVerificationToken: token } })
+    if (!user) throw new BadRequestException('Link de verificación inválido')
+
+    if (user.emailVerifiedAt) return
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data:  {
+        emailVerifiedAt:        new Date(),
+        emailVerificationToken: null,
+      },
+    })
   }
 
   private async signToken(user: { id: string; email: string; isSuperAdmin: boolean }) {

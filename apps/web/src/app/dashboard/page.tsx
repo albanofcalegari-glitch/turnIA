@@ -10,6 +10,7 @@ import { DayView } from '@/features/agenda/DayView'
 import { WeekView } from '@/features/agenda/WeekView'
 import { MonthView } from '@/features/agenda/MonthView'
 import type { Professional } from '@/features/booking/booking.types'
+import { useConfirm } from '@/components/ui/Dialog'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stat card
@@ -108,7 +109,8 @@ export default function DashboardPage() {
   const tenantId  = user?.tenantId  ?? ''
   const timezone  = user?.tenantTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 
-  const agenda = useAgenda(tenantId)
+  const { confirm, element: confirmDialog } = useConfirm()
+  const agenda = useAgenda(tenantId, confirm)
   const { view, setView, proFilter, setProFilter, stats } = agenda
 
   const [professionals, setProfessionals] = useState<Professional[]>([])
@@ -123,6 +125,7 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {confirmDialog}
       {/* Public booking URL — only for tenant users (not super-admins without tenant) */}
       {user?.tenantSlug && <PublicUrlCard slug={user.tenantSlug} />}
 
@@ -200,9 +203,12 @@ export default function DashboardPage() {
 
       {/* Agenda view */}
       <div className="rounded-xl border bg-white p-3 sm:p-5 overflow-x-auto">
-        {view === 'day'   && <DayView   agenda={agenda} timezone={timezone} />}
-        {view === 'week'  && <WeekView  agenda={agenda} timezone={timezone} />}
-        {view === 'month' && <MonthView agenda={agenda} timezone={timezone} />}
+        {view === 'day'
+          ? <DayView   agenda={agenda} timezone={timezone} />
+          : view === 'week'
+          ? <WeekView  agenda={agenda} timezone={timezone} />
+          : <MonthView agenda={agenda} timezone={timezone} />
+        }
       </div>
     </div>
   )

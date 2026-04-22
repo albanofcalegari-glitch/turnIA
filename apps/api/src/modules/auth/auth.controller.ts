@@ -2,6 +2,9 @@ import { Controller, Post, Get, Body, HttpCode, HttpStatus, UseGuards } from '@n
 import { AuthService } from './auth.service'
 import { LoginDto } from './dto/login.dto'
 import { RegisterDto } from './dto/register.dto'
+import { ForgotPasswordDto } from './dto/forgot-password.dto'
+import { ResetPasswordDto } from './dto/reset-password.dto'
+import { VerifyEmailDto } from './dto/verify-email.dto'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { SkipMembershipCheck } from '../../common/decorators/skip-membership-check.decorator'
@@ -34,5 +37,38 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: JwtPayload) {
     return this.authService.getProfile(user.sub)
+  }
+
+  /**
+   * Siempre responde 200 aunque el email no exista, para que no sirva como
+   * enumeración de usuarios registrados.
+   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.requestPasswordReset(dto.email)
+    return { ok: true }
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.authService.resetPassword(dto.token, dto.password)
+    return { ok: true }
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    await this.authService.verifyEmail(dto.token)
+    return { ok: true }
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async resendVerification(@CurrentUser() user: JwtPayload) {
+    await this.authService.resendVerificationEmail(user.sub)
+    return { ok: true }
   }
 }

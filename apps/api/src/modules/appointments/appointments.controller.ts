@@ -124,6 +124,12 @@ export class AppointmentsController {
     return this.appointmentsService.noShow(tenantId, id)
   }
 
+  @Patch(':id/reopen')
+  @UseGuards(JwtAuthGuard, TenantGuard)
+  reopen(@TenantId() tenantId: string, @Param('id') id: string) {
+    return this.appointmentsService.reopen(tenantId, id)
+  }
+
   /**
    * PATCH /api/v1/appointments/:id/reschedule
    *

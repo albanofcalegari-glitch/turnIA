@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+.turbo/
+.git/
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+*.tsbuildinfo
+.DS_Store
+docker-compose*.yml
+DEPLOY_HOSTINGER.md
+SETUP.md
+test-e2e-local.ps1
+mercado pago.txt

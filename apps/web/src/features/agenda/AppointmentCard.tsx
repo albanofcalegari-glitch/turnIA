@@ -7,6 +7,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { apiClient } from '@/lib/api'
 import { StatusBadge } from './StatusBadge'
+import { AttachmentsPanel } from './AttachmentsPanel'
 import { ALLOWED_ACTIONS, type Appointment, type AppointmentAction } from './agenda.types'
 
 // ── Action button config ───────────────────────────────────────────────────
@@ -16,6 +17,7 @@ const ACTION_CONFIG: Record<AppointmentAction, { label: string; cls: string }> =
   complete: { label: 'Completar',  cls: 'text-gray-700  bg-gray-50  hover:bg-gray-100  border-gray-200'  },
   no_show:  { label: 'No vino',    cls: 'text-orange-700 bg-orange-50 hover:bg-orange-100 border-orange-200' },
   cancel:   { label: 'Cancelar',   cls: 'text-red-700   bg-red-50   hover:bg-red-100   border-red-200'   },
+  reopen:   { label: 'Reabrir',    cls: 'text-brand-700 bg-white     hover:bg-brand-50  border-brand-200' },
 }
 
 interface Props {
@@ -40,16 +42,16 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
   const clientName = guestName
     || (client ? `${client.firstName} ${client.lastName}` : 'Invitado')
 
-  const serviceNames = items
-    .sort((a, b) => a.order - b.order)
-    .map(i => i.serviceName)
-    .join(' + ')
+  const sortedItems = [...items].sort((a, b) => a.order - b.order)
 
   const loyaltyCard = client?.loyaltyCard ?? null
   const hasReward   = (loyaltyCard?.rewardsAvailable ?? 0) > 0
 
   const allowedActions = ALLOWED_ACTIONS[status] ?? []
-  const isTerminal = allowedActions.length === 0
+  // "Terminal" here means visually dimmed — statuses that the operator already
+  // closed out. They can still expose a Reabrir action via allowedActions, so
+  // we can't derive this from the list anymore.
+  const isTerminal = status === 'COMPLETED' || status === 'NO_SHOW' || status === 'CANCELLED'
 
   async function handleRedeem() {
     if (!loyaltyCard) return
@@ -106,7 +108,24 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
         {(guestEmail || client?.email) && (
           <p className="text-xs text-gray-400">{guestEmail ?? client?.email}</p>
         )}
-        <p className="mt-0.5 text-sm text-gray-500">{serviceNames}</p>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {sortedItems.map(item => {
+            const color = item.service?.color ?? '#6b7280'
+            return (
+              <span
+                key={item.id}
+                className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-gray-700"
+                style={{ borderColor: `${color}55`, backgroundColor: `${color}12` }}
+              >
+                <span
+                  className="h-2 w-2 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+                {item.serviceName}
+              </span>
+            )
+          })}
+        </div>
       </div>
 
       {/* Professional */}
@@ -145,7 +164,7 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
       )}
 
       {/* Action buttons */}
-      {!isTerminal && !showCancel && (
+      {allowedActions.length > 0 && !showCancel && (
         <div className="mt-3 flex flex-wrap gap-2">
           {allowedActions.filter(a => a !== 'cancel').map(action => (
             <button
@@ -174,6 +193,9 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
           )}
         </div>
       )}
+
+      {/* Attachments */}
+      <AttachmentsPanel tenantId={appointment.tenantId} appointmentId={appointment.id} />
 
       {/* Cancel confirmation inline */}
       {showCancel && (

@@ -6,7 +6,7 @@ import { cn, formatDateLong, formatTime } from '@/lib/utils'
 import { apiClient, ApiError, type GuestAppointment } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useConfirm } from '@/components/ui/Dialog'
 
 interface Props {
   tenantSlug: string
@@ -19,7 +19,6 @@ const inputCls = cn(
 )
 
 export function CancelFlow({ tenantSlug }: Props) {
-  const confirm = useConfirm()
   const [tenantId, setTenantId]         = useState<string | null>(null)
   const [tenantName, setTenantName]     = useState('')
   const [timezone, setTimezone]         = useState('America/Argentina/Buenos_Aires')
@@ -31,6 +30,7 @@ export function CancelFlow({ tenantSlug }: Props) {
   const [cancelled, setCancelled]       = useState<Set<string>>(new Set())
   const [error, setError]               = useState<string | null>(null)
   const [initError, setInitError]       = useState(false)
+  const { confirm, element: confirmDialog } = useConfirm()
 
   async function handleSearch(e: FormEvent) {
     e.preventDefault()
@@ -107,6 +107,7 @@ export function CancelFlow({ tenantSlug }: Props) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {confirmDialog}
       {/* Header */}
       <header className="border-b bg-white px-6 py-4">
         <div className="mx-auto flex max-w-2xl items-center gap-3">

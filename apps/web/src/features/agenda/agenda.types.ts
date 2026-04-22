@@ -13,6 +13,9 @@ export interface AppointmentItem {
   durationMinutes: number
   price:           number | string
   order:           number
+  // Populated by the agenda endpoint (Prisma `include: { service: true }`).
+  // Guest-facing endpoints don't hydrate this, so treat as optional.
+  service?:        { id: string; name: string; color: string | null } | null
 }
 
 export interface AppointmentProfessional {
@@ -70,12 +73,14 @@ export interface Appointment {
 export const ALLOWED_ACTIONS: Record<AppointmentStatus, AppointmentAction[]> = {
   PENDING:     ['confirm', 'cancel', 'no_show'],
   CONFIRMED:   ['complete', 'cancel', 'no_show'],
-  CANCELLED:   [],
-  COMPLETED:   [],
-  NO_SHOW:     [],
+  // Terminal states keep a "reopen" escape hatch so an operator can undo a
+  // mis-click without rebuilding the appointment from scratch.
+  CANCELLED:   ['reopen'],
+  COMPLETED:   ['reopen'],
+  NO_SHOW:     ['reopen'],
   RESCHEDULED: ['confirm', 'cancel'],
 }
 
-export type AppointmentAction = 'confirm' | 'cancel' | 'complete' | 'no_show'
+export type AppointmentAction = 'confirm' | 'cancel' | 'complete' | 'no_show' | 'reopen'
 
 export type AgendaView = 'day' | 'week' | 'month'

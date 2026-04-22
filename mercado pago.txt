@@ -1,0 +1,17 @@
+App creada. Anotá el User ID: 209179949 (me sirve después).
+
+Ahora:
+
+En el menú lateral izquierdo, hacé click en "Credenciales de prueba" (está bajo "PRUEBAS").
+Ahí vas a ver:
+Public Key (empieza con TEST-)
+Access Token (empieza con TEST-)
+Copiá los dos valores y pasámelos.
+⚠️ Importante: el Access Token es secreto — cuando me lo pases, después regenerálo en MP por seguridad (hay un botón "Generar nuevo") una vez que terminemos la integración. O mejor: no me lo pases en el chat y ponélo vos directamente en el .env que te armo. Te cuento cómo en el siguiente mensaje.
+
+Sobre los próximos pasos que verás en "Estado / Etapa 1 de 5":
+
+✅ "Creá las cuentas de prueba" → lo hacemos después cuando probemos el flujo end-to-end
+✅ "Configurá tu integración" → eso lo hago yo en código
+✅ "Webhooks" → lo configuramos cuando el API esté listo
+Por ahora solo necesito las credenciales TEST. Mandame screenshot (podés tapar el Access Token si querés).

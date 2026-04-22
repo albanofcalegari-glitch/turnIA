@@ -1,11 +1,18 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common'
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common'
 import * as bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 import { PrismaService } from '../../prisma/prisma.service'
+import { MailService } from '../mail/mail.service'
 import { CreateTenantDto } from './dto/create-tenant.dto'
 
 @Injectable()
 export class TenantsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(TenantsService.name)
+
+  constructor(
+    private prisma: PrismaService,
+    private mail:   MailService,
+  ) {}
 
   async create(dto: CreateTenantDto) {
     const slugExists = await this.prisma.tenant.findUnique({ where: { slug: dto.slug } })
@@ -15,12 +22,13 @@ export class TenantsService {
     if (emailExists) throw new ConflictException('Ese email ya está registrado')
 
     const passwordHash = await bcrypt.hash(dto.adminPassword, 12)
+    const verifyToken  = randomBytes(32).toString('hex')
 
     // 45-day free trial. After that the tenant must subscribe via Mercado Pago
     // or the scheduled deactivation job + read-only guard will take over.
     const trialEndsAt = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000)
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
           name:     dto.name,
@@ -55,6 +63,7 @@ export class TenantsService {
           passwordHash,
           firstName:    dto.adminFirstName,
           lastName:     dto.adminLastName,
+          emailVerificationToken: verifyToken,
         },
       })
 
@@ -64,6 +73,17 @@ export class TenantsService {
 
       return { tenant, adminUserId: user.id }
     })
+
+    // El mail se envía fuera de la transacción para no retenerla si Resend
+    // tarda o falla. Si el envío falla logueamos pero no rompemos el registro.
+    this.mail.sendWelcomeEmail({
+      to:          dto.adminEmail,
+      firstName:   dto.adminFirstName,
+      tenantName:  result.tenant.name,
+      verifyToken,
+    }).catch((err) => this.logger.warn(`No se pudo enviar welcome email: ${err?.message ?? err}`))
+
+    return result
   }
 
   async findBySlug(slug: string) {

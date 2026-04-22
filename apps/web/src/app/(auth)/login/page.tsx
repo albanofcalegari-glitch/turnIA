@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { ApiError } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
@@ -63,9 +64,17 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                Contraseña
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700">
+                  Contraseña
+                </label>
+                <Link
+                  href="/olvide-password"
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700"
+                >
+                  ¿Olvidaste la contraseña?
+                </Link>
+              </div>
               <input
                 type="password"
                 required

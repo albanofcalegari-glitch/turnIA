@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError, type AdminBranch } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { useConfirm } from '@/components/ui/Dialog'
+import { ActionsMenu } from '@/components/ui/ActionsMenu'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Input classes (mirrors /dashboard/servicios so the look stays consistent)
@@ -25,13 +26,13 @@ const inputCls = cn(
 
 export default function SucursalesPage() {
   const { user } = useAuth()
-  const confirm = useConfirm()
   const tenantId = user?.tenantId ?? ''
 
   const [branches, setBranches] = useState<AdminBranch[]>([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const { confirm, element: confirmDialog } = useConfirm()
 
   // ── Fetch branches ──────────────────────────────────────────────────────
 
@@ -53,7 +54,12 @@ export default function SucursalesPage() {
     }
     const ok = await confirm({
       title:       'Desactivar sucursal',
-      message:     `¿Desactivar la sucursal "${b.name}"?\n\nLos turnos existentes seguirán visibles, pero ya no se podrán crear nuevos en esta sucursal.`,
+      message: (
+        <>
+          ¿Desactivar la sucursal <strong>{b.name}</strong>? Los turnos existentes seguirán visibles,
+          pero ya no se podrán crear nuevos en esta sucursal.
+        </>
+      ),
       confirmText: 'Desactivar',
       variant:     'danger',
     })
@@ -68,6 +74,7 @@ export default function SucursalesPage() {
 
   return (
     <div>
+      {confirmDialog}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Sucursales</h1>
@@ -156,13 +163,17 @@ export default function SucursalesPage() {
               <div className="flex items-center gap-3 flex-shrink-0 sm:ml-4">
                 {br.phone && <span className="text-sm text-gray-500">{br.phone}</span>}
                 {!br.isDefault && br.isActive && (
-                  <button
-                    onClick={() => handleDelete(br)}
-                    className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                    title="Desactivar sucursal"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <ActionsMenu
+                    label={`Acciones para ${br.name}`}
+                    items={[
+                      {
+                        label:   'Desactivar',
+                        icon:    <Trash2 size={14} />,
+                        onClick: () => handleDelete(br),
+                        danger:  true,
+                      },
+                    ]}
+                  />
                 )}
               </div>
             </div>

@@ -1,9 +1,13 @@
 'use client'
 
-import { cn, formatMonthYear, toDateString } from '@/lib/utils'
+import { useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { cn, formatTime, toDateString } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
+import { Dialog } from '@/components/ui/Dialog'
 import { AppointmentCard } from './AppointmentCard'
 import type { useAgenda } from './useAgenda'
+import type { Appointment } from './agenda.types'
 
 type AgendaHook = ReturnType<typeof useAgenda>
 
@@ -12,182 +16,158 @@ interface Props {
   timezone: string
 }
 
-const DAY_LABELS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do']
-
-function getMonthGrid(selectedDate: string): string[][] {
-  const d = new Date(selectedDate + 'T12:00:00')
-  const year = d.getFullYear()
-  const month = d.getMonth()
-  const first = new Date(year, month, 1)
-  const last  = new Date(year, month + 1, 0)
-
-  let startDay = first.getDay() - 1
-  if (startDay < 0) startDay = 6
-
-  const totalDays = last.getDate()
-  const weeks: string[][] = []
-  let week: string[] = []
-
-  for (let i = 0; i < startDay; i++) {
-    const prev = new Date(year, month, -(startDay - 1 - i))
-    week.push(toDateString(prev))
-  }
-
-  for (let day = 1; day <= totalDays; day++) {
-    week.push(toDateString(new Date(year, month, day)))
-    if (week.length === 7) {
-      weeks.push(week)
-      week = []
-    }
-  }
-
-  if (week.length > 0) {
-    let nextDay = 1
-    while (week.length < 7) {
-      week.push(toDateString(new Date(year, month + 1, nextDay++)))
-    }
-    weeks.push(week)
-  }
-
-  return weeks
-}
+const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+const MONTH_NAMES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+]
 
 export function MonthView({ agenda, timezone }: Props) {
   const {
-    selectedDate, setSelectedDate, setView,
+    selectedDate, setSelectedDate,
     monthAppointments,
     loading, error,
     actionLoading, executeAction,
-    goToPrevMonth, goToNextMonth,
     refresh,
+    goToPrevMonth, goToNextMonth,
   } = agenda
 
-  const d = new Date(selectedDate + 'T12:00:00')
-  const currentMonth = d.getMonth()
-  const monthStr = formatMonthYear(d.getFullYear(), currentMonth)
-  const weeks = getMonthGrid(selectedDate)
-  const today = toDateString(new Date())
+  const [openDate, setOpenDate] = useState<string | null>(null)
 
-  function handleDayClick(date: string) {
-    setSelectedDate(date)
-    setView('day')
-  }
+  const anchor = useMemo(() => new Date(selectedDate + 'T12:00:00'), [selectedDate])
+  const monthIdx = anchor.getMonth()
+  const today    = toDateString(new Date())
+
+  const gridDates = Object.keys(monthAppointments)
+
+  const openAppointments: Appointment[] = openDate ? (monthAppointments[openDate] ?? []) : []
 
   return (
     <div>
-      {/* Month nav */}
+      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             onClick={goToPrevMonth}
             className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50"
+            aria-label="Mes anterior"
           >
-            ‹
+            <ChevronLeft size={14} />
           </button>
           <button
             onClick={goToNextMonth}
             className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50"
+            aria-label="Mes siguiente"
           >
-            ›
+            <ChevronRight size={14} />
           </button>
-          <h2 className="ml-1 text-sm font-semibold text-gray-900 capitalize">{monthStr}</h2>
+          <h2 className="ml-1 text-sm font-semibold text-gray-900 capitalize">
+            {MONTH_NAMES[monthIdx]} {anchor.getFullYear()}
+          </h2>
         </div>
+
         <button
-          onClick={() => setSelectedDate(today)}
+          onClick={() => setSelectedDate(toDateString(new Date()))}
           className="rounded-lg border bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
         >
-          Este mes
+          Hoy
         </button>
       </div>
 
+      {/* Error */}
       {error && (
         <div className="mb-4 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3">
           <span className="text-sm text-red-700">{error}</span>
-          <button onClick={refresh} className="text-xs font-medium text-red-700 underline">Reintentar</button>
+          <button onClick={refresh} className="text-xs font-medium text-red-700 underline">
+            Reintentar
+          </button>
         </div>
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-16"><Spinner size="lg" /></div>
-      ) : (
-        <div>
-          {/* Header row */}
-          <div className="grid grid-cols-7 border-b">
-            {DAY_LABELS.map(label => (
-              <div key={label} className="py-2 text-center text-xs font-medium text-gray-500">
-                {label}
-              </div>
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <Spinner size="lg" />
+        </div>
+      )}
+
+      {/* Grid */}
+      {!loading && (
+        <div className="overflow-hidden rounded-xl border">
+          {/* Weekday header */}
+          <div className="grid grid-cols-7 border-b bg-gray-50 text-center text-[10px] font-medium uppercase tracking-wide text-gray-500">
+            {WEEKDAYS.map(w => (
+              <div key={w} className="py-2">{w}</div>
             ))}
           </div>
-
-          {/* Calendar grid */}
-          {weeks.map((week, wi) => (
-            <div key={wi} className="grid grid-cols-7 border-b last:border-b-0">
-              {week.map(date => {
-                const dayNum = new Date(date + 'T12:00:00').getDate()
-                const isCurrentMonth = new Date(date + 'T12:00:00').getMonth() === currentMonth
-                const isToday = date === today
-                const isSelected = date === selectedDate
-                const appts = monthAppointments[date] ?? []
-
-                return (
-                  <button
-                    key={date}
-                    onClick={() => handleDayClick(date)}
-                    className={cn(
-                      'relative min-h-[80px] border-r last:border-r-0 p-1.5 text-left transition-colors hover:bg-gray-50',
-                      !isCurrentMonth && 'bg-gray-50/50',
-                      isSelected && 'ring-2 ring-inset ring-brand-500',
-                    )}
-                  >
-                    <span className={cn(
-                      'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium',
-                      isToday && 'bg-brand-600 text-white',
-                      !isToday && isCurrentMonth && 'text-gray-900',
-                      !isToday && !isCurrentMonth && 'text-gray-300',
-                    )}>
-                      {dayNum}
-                    </span>
-
-                    {appts.length > 0 && (
-                      <div className="mt-0.5 space-y-0.5">
-                        {appts.slice(0, 3).map(a => (
-                          <div
-                            key={a.id}
-                            className={cn(
-                              'truncate rounded px-1 py-0.5 text-[10px] leading-tight',
-                              a.status === 'COMPLETED' && 'bg-green-50 text-green-700',
-                              a.status === 'CONFIRMED' && 'bg-brand-50 text-brand-700',
-                              a.status === 'PENDING'   && 'bg-amber-50 text-amber-700',
-                              a.status === 'CANCELLED' && 'bg-gray-100 text-gray-400 line-through',
-                              a.status === 'NO_SHOW'   && 'bg-red-50 text-red-600',
-                            )}
-                          >
-                            {new Date(a.startAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone })}{' '}
-                            {a.guestName || (a.client ? a.client.firstName : '')}
-                          </div>
-                        ))}
-                        {appts.length > 3 && (
-                          <p className="text-[9px] text-gray-400 pl-1">+{appts.length - 3} más</p>
-                        )}
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          ))}
+          {/* 6 rows x 7 cols */}
+          <div className="grid grid-cols-7">
+            {gridDates.map(date => {
+              const d = new Date(date + 'T12:00:00')
+              const inMonth = d.getMonth() === monthIdx
+              const isToday = date === today
+              const appts   = monthAppointments[date] ?? []
+              const count   = appts.length
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() => setOpenDate(date)}
+                  className={cn(
+                    'relative flex min-h-[72px] flex-col items-start border-b border-r p-1.5 text-left transition-colors hover:bg-brand-50/60',
+                    !inMonth && 'bg-gray-50/60 text-gray-400',
+                    isToday && 'bg-brand-50/40',
+                  )}
+                >
+                  <span className={cn(
+                    'inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium tabular-nums',
+                    isToday ? 'bg-brand-600 text-white' : 'text-gray-700',
+                    !inMonth && !isToday && 'text-gray-400',
+                  )}>
+                    {d.getDate()}
+                  </span>
+                  {count > 0 && (
+                    <div className="mt-1 flex w-full flex-col gap-0.5">
+                      {appts.slice(0, 3).map(a => (
+                        <span
+                          key={a.id}
+                          className="truncate rounded px-1 py-0.5 text-[10px] font-medium"
+                          style={{
+                            backgroundColor: `${a.professional.color ?? '#6b7280'}22`,
+                            color:           a.professional.color ?? '#374151',
+                          }}
+                        >
+                          {formatTime(a.startAt, timezone)} · {a.guestName || a.client?.firstName || 'Turno'}
+                        </span>
+                      ))}
+                      {count > 3 && (
+                        <span className="text-[10px] font-medium text-gray-500">
+                          +{count - 3} más
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
-      {/* Detail panel for selected day */}
-      {!loading && (monthAppointments[selectedDate]?.length ?? 0) > 0 && (
-        <div className="mt-6">
-          <h3 className="mb-3 text-sm font-semibold text-gray-700 capitalize">
-            Turnos del {new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </h3>
-          <div className="space-y-3">
-            {(monthAppointments[selectedDate] ?? []).map(appt => (
+      {/* Day detail modal */}
+      <Dialog
+        open={openDate !== null}
+        onClose={() => setOpenDate(null)}
+        title={openDate ? formatDayLabel(openDate) : undefined}
+        className="max-w-lg"
+      >
+        {openAppointments.length === 0 ? (
+          <p className="py-4 text-center text-sm text-gray-400">
+            Sin turnos para este día.
+          </p>
+        ) : (
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+            {openAppointments.map(appt => (
               <AppointmentCard
                 key={appt.id}
                 appointment={appt}
@@ -198,8 +178,22 @@ export function MonthView({ agenda, timezone }: Props) {
               />
             ))}
           </div>
+        )}
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={() => setOpenDate(null)}
+            className="rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Cerrar
+          </button>
         </div>
-      )}
+      </Dialog>
     </div>
   )
+}
+
+function formatDayLabel(date: string): string {
+  const d = new Date(date + 'T12:00:00')
+  const weekday = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][d.getDay()]
+  return `${weekday} ${d.getDate()} de ${MONTH_NAMES[d.getMonth()]}`
 }

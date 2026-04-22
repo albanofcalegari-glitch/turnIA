@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiClient } from '@/lib/api'
 import { toDateString } from '@/lib/utils'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
+import type { ConfirmOptions } from '@/components/ui/Dialog'
 import type {
   Appointment,
   AppointmentAction,
   AgendaView,
 } from './agenda.types'
+
+type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -33,12 +35,27 @@ function weekDates(monday: Date): string[] {
   })
 }
 
+/** Returns the first Monday on/before the 1st of the month containing `date`. */
+function monthGridStart(date: Date): Date {
+  const first = new Date(date.getFullYear(), date.getMonth(), 1)
+  return weekStart(first)
+}
+
+/** Returns 42 dates (6 weeks x 7 days) for a full-month calendar grid. */
+function monthGridDates(anchor: Date): string[] {
+  const start = monthGridStart(anchor)
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(start)
+    d.setDate(d.getDate() + i)
+    return toDateString(d)
+  })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Hook
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useAgenda(tenantId: string) {
-  const confirm = useConfirm()
+export function useAgenda(tenantId: string, confirmFn?: ConfirmFn) {
   const [view,         setView]         = useState<AgendaView>('day')
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()))
   const [proFilter,    setProFilter]    = useState<string>('')     // '' = all
@@ -58,12 +75,11 @@ export function useAgenda(tenantId: string) {
     setError(null)
     try {
       if (view === 'month') {
-        const d = new Date(selectedDate + 'T12:00:00')
-        const first = new Date(d.getFullYear(), d.getMonth(), 1)
-        const last  = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+        const anchor = new Date(selectedDate + 'T12:00:00')
+        const dates  = monthGridDates(anchor)
         const result = await apiClient.getAppointments(tenantId, {
-          from: toDateString(first),
-          to:   toDateString(last),
+          from: dates[0],
+          to:   dates[dates.length - 1],
           ...(proFilter ? { professionalId: proFilter } : {}),
         })
         setAppointments(result)
@@ -105,13 +121,19 @@ export function useAgenda(tenantId: string) {
     action:        AppointmentAction,
     payload?:      { reason?: string },
   ) => {
-    const confirmTitles: Partial<Record<AppointmentAction, { title: string; message: string; variant?: 'default' | 'danger' }>> = {
-      confirm:  { title: 'Confirmar turno',    message: '¿Confirmar este turno?' },
-      complete: { title: 'Completar turno',    message: '¿Marcar este turno como completado?' },
-      no_show:  { title: 'Marcar no asistió',  message: '¿Marcar este turno como "no asistió"?', variant: 'danger' },
+    const confirmSpecs: Partial<Record<AppointmentAction, ConfirmOptions>> = {
+      confirm:  { title: 'Confirmar turno',     message: '¿Confirmar este turno?',              confirmText: 'Confirmar' },
+      complete: { title: 'Completar turno',     message: '¿Marcar este turno como completado?', confirmText: 'Completar' },
+      no_show:  { title: 'Marcar no asistió',   message: '¿Marcar este turno como "no asistió"?', confirmText: 'Marcar no asistió', variant: 'danger' },
+      reopen:   { title: 'Reabrir turno',       message: 'El turno vuelve al estado "Confirmado" y se podrá completar o cancelar de nuevo.', confirmText: 'Reabrir' },
     }
-    const prompt = confirmTitles[action]
-    if (prompt && !(await confirm(prompt))) return
+    const spec = confirmSpecs[action]
+    if (spec) {
+      const ok = confirmFn
+        ? await confirmFn(spec)
+        : window.confirm(typeof spec.message === 'string' ? spec.message : '¿Confirmar?')
+      if (!ok) return
+    }
 
     setActionLoading(prev => ({ ...prev, [appointmentId]: true }))
     try {
@@ -129,6 +151,9 @@ export function useAgenda(tenantId: string) {
         case 'no_show':
           updated = await apiClient.noShowAppointment(tenantId, appointmentId)
           break
+        case 'reopen':
+          updated = await apiClient.reopenAppointment(tenantId, appointmentId)
+          break
       }
       // Optimistic update: replace the appointment in the local list
       setAppointments(prev =>
@@ -139,7 +164,7 @@ export function useAgenda(tenantId: string) {
     } finally {
       setActionLoading(prev => ({ ...prev, [appointmentId]: false }))
     }
-  }, [tenantId, confirm])
+  }, [tenantId, confirmFn])
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
@@ -159,16 +184,15 @@ export function useAgenda(tenantId: string) {
     })
   }
 
-  /** Appointments grouped by date string for month view. */
+  /** Appointments grouped by date for the 6-week month grid. */
   const monthAppointments: Record<string, Appointment[]> = {}
   if (view === 'month') {
-    for (const a of appointments) {
-      const date = toDateString(new Date(a.startAt))
-      ;(monthAppointments[date] ??= []).push(a)
-    }
-    for (const date of Object.keys(monthAppointments)) {
-      monthAppointments[date].sort((a, b) => a.startAt.localeCompare(b.startAt))
-    }
+    const anchor = new Date(selectedDate + 'T12:00:00')
+    monthGridDates(anchor).forEach(date => {
+      monthAppointments[date] = appointments
+        .filter(a => toDateString(new Date(a.startAt)) === date)
+        .sort((a, b) => a.startAt.localeCompare(b.startAt))
+    })
   }
 
   /** Stats for the selected day. */
@@ -192,6 +216,8 @@ export function useAgenda(tenantId: string) {
     d.setDate(d.getDate() + 7)
     setSelectedDate(toDateString(d))
   }
+
+  // ── Month navigation ──────────────────────────────────────────────────────
 
   function goToPrevMonth() {
     const d = new Date(selectedDate + 'T12:00:00')

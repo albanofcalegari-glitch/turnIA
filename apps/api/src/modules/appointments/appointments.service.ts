@@ -751,4 +751,31 @@ export class AppointmentsService {
       data:  { status: AppointmentStatus.NO_SHOW },
     })
   }
+
+  /**
+   * Reverts a terminal appointment (COMPLETED / NO_SHOW / CANCELLED) back to
+   * CONFIRMED. Use case: the operator mis-clicked or the client actually did
+   * show up. Clears completed/cancelled metadata so the timeline stays honest.
+   */
+  async reopen(tenantId: string, id: string) {
+    const appt = await this.findOne(tenantId, id)
+    const reopenable: AppointmentStatus[] = [
+      AppointmentStatus.COMPLETED,
+      AppointmentStatus.NO_SHOW,
+      AppointmentStatus.CANCELLED,
+    ]
+    if (!reopenable.includes(appt.status)) {
+      return appt
+    }
+    return this.prisma.appointment.update({
+      where: { id },
+      data:  {
+        status:             AppointmentStatus.CONFIRMED,
+        completedAt:        null,
+        cancelledAt:        null,
+        cancelledBy:        null,
+        cancellationReason: null,
+      },
+    })
+  }
 }
