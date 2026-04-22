@@ -19,6 +19,7 @@ export interface UserProfile {
       type:                string
       timezone:            string
       isActive:            boolean
+      plan:                string
       membershipExpiresAt: string | null
       hasMultipleBranches: boolean
     }
@@ -518,9 +519,10 @@ class ApiClient {
    * tenant's membership is only extended once MP confirms the first
    * payment via webhook.
    */
-  subscribe = () =>
+  subscribe = (tier: 'standard' | 'pro' = 'standard') =>
     this.request<{ initPoint: string; subscriptionId: string; reused: boolean }>('/subscriptions/me', {
       method: 'POST',
+      body:   JSON.stringify({ tier }),
     })
 
   getMySubscription = () =>

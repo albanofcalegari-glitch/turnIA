@@ -334,9 +334,8 @@ function BookingHeader({ tenant, slug }: { tenant: { name: string; logoUrl: stri
           <img src={tenant.logoUrl} alt={tenant.name} className="h-8 w-8 rounded-full object-cover" />
         )}
         <h1 className="text-base font-bold text-gray-900 sm:text-lg">{tenant.name}</h1>
-        <div className="ml-auto flex items-center gap-2 sm:gap-4">
-          <span className="hidden text-sm text-gray-400 sm:block">Reservar turno</span>
-          <Link href={`/${slug}/cancelar`} className="text-xs text-red-500 hover:text-red-700 sm:text-sm">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <Link href={`/${slug}/cancelar`} className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 sm:text-sm">
             Cancelar turno
           </Link>
         </div>

@@ -19,6 +19,7 @@ export interface UserSession {
   tenantTimezone: string | null
   /** Membership state — used to block the dashboard when SuperAdmin deactivates the tenant. */
   tenantIsActive:            boolean | null
+  tenantPlan:                string | null
   tenantMembershipExpiresAt: string | null
   /** Stage 1 (branches): drives whether the dashboard exposes the Sucursales nav item. */
   tenantHasMultipleBranches: boolean

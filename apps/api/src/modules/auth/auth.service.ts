@@ -62,6 +62,7 @@ export class AuthService {
                 type:                true,
                 timezone:            true,
                 isActive:            true,
+                plan:                true,
                 membershipExpiresAt: true,
                 // Stage 1 (branches): the dashboard uses this flag to decide
                 // whether to show the Sucursales nav item and the per-page

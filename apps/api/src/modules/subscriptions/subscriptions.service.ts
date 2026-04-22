@@ -2,6 +2,7 @@ import { Injectable, ConflictException, NotFoundException, Logger, BadRequestExc
 import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../../prisma/prisma.service'
 import { MercadoPagoService } from './mercadopago.service'
+import { PLANS, type PlanTier } from '@turnia/shared'
 
 /**
  * Subscriptions business logic. Two entry points worth understanding:
@@ -36,7 +37,10 @@ export class SubscriptionsService {
    * authorized subscription we reuse it — MP de-duplicates by payer_email so
    * creating a second one would error out anyway.
    */
-  async subscribe(tenantId: string) {
+  async subscribe(tenantId: string, tier: Exclude<PlanTier, 'trial'> = 'standard') {
+    const planConfig = PLANS[tier]
+    if (!planConfig) throw new BadRequestException('Plan inválido')
+
     const tenant = await this.prisma.tenant.findUnique({
       where:   { id: tenantId },
       include: { users: { where: { role: 'ADMIN' }, include: { user: true }, take: 1 } },
@@ -54,14 +58,9 @@ export class SubscriptionsService {
       return { initPoint: existing.initPoint, subscriptionId: existing.id, reused: true }
     }
     if (existing && existing.status === 'cancelled') {
-      // Hard delete so the (unique) tenantId constraint lets us create a new
-      // row. Payments remain because subscriptionId FK is SetNull.
       await this.prisma.subscription.delete({ where: { id: existing.id } })
     }
 
-    // MP rejects http/localhost back_urls. Allow an override via MP_BACK_URL
-    // so local dev can point at an ngrok tunnel (or the prod dashboard URL as
-    // a temporary placeholder). Falls back to WEB_URL for prod.
     const backUrl = this.config.get<string>('MP_BACK_URL')
                  ?? `${this.config.get<string>('WEB_URL')}/dashboard/suscripcion/callback`
     const planId  = this.config.get<string>('MP_PLAN_ID') || null
@@ -70,13 +69,13 @@ export class SubscriptionsService {
       payerEmail: adminEmail,
       backUrl,
       tenantId,
-      amount:     60_000,
-      currency:   'ARS',
-      reason:     `Suscripción TurnIT Estándar — ${tenant.name}`,
+      amount:     planConfig.amount,
+      currency:   planConfig.currency,
+      reason:     `${planConfig.reason} — ${tenant.name}`,
     })
 
-    const amount   = mpResponse.auto_recurring?.transaction_amount ?? 60_000
-    const currency = mpResponse.auto_recurring?.currency_id ?? 'ARS'
+    const amount   = mpResponse.auto_recurring?.transaction_amount ?? planConfig.amount
+    const currency = mpResponse.auto_recurring?.currency_id ?? planConfig.currency
 
     const sub = await this.prisma.subscription.create({
       data: {
@@ -92,6 +91,11 @@ export class SubscriptionsService {
         initPoint:       mpResponse.init_point ?? null,
         nextPaymentDate: mpResponse.next_payment_date ? new Date(mpResponse.next_payment_date) : null,
       },
+    })
+
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data:  { plan: tier },
     })
 
     return { initPoint: mpResponse.init_point, subscriptionId: sub.id, reused: false }
@@ -200,11 +204,13 @@ export class SubscriptionsService {
                  : now
       const newExpiry = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000)
 
+      const planTier = sub.amount.toNumber() >= PLANS.pro.amount ? 'pro' : 'standard'
+
       await this.prisma.tenant.update({
         where: { id: tenantId },
         data:  {
           membershipExpiresAt: newExpiry,
-          plan:                'standard',
+          plan:                planTier,
           isActive:            true,
         },
       })
@@ -273,17 +279,20 @@ export class SubscriptionsService {
         _sum: { amount: true },
         _count: true,
       }),
-      this.prisma.subscription.count({ where: { status: 'authorized' } }),
+      this.prisma.subscription.findMany({
+        where:  { status: 'authorized' },
+        select: { amount: true },
+      }),
       this.prisma.payment.count({
         where: { status: { in: ['rejected', 'cancelled'] }, createdAt: { gte: startOf30d } },
       }),
     ])
 
-    const mrr = activeSubs * 60_000
+    const mrr = activeSubs.reduce((sum, s) => sum + Number(s.amount), 0)
 
     return {
       mrr,
-      activeSubscriptions: activeSubs,
+      activeSubscriptions: activeSubs.length,
       collectedThisMonth:  Number(approvedThisMonth._sum.amount ?? 0),
       paymentsThisMonth:   approvedThisMonth._count,
       failedLast30d:       failed30d,

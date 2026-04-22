@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CreditCard, CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react'
+import { CreditCard, CheckCircle2, AlertTriangle, XCircle, Clock, Users, Zap } from 'lucide-react'
 import { apiClient, type MySubscription } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useConfirm } from '@/components/ui/Dialog'
+import { PLANS } from '@turnia/shared'
 
-const PLAN_AMOUNT = 60_000
-const PLAN_DISPLAY = PLAN_AMOUNT.toLocaleString('es-AR')
-const PLAN_LABEL  = 'Estándar'
+type Tier = 'standard' | 'pro'
 
 export default function SuscripcionPage() {
   const { user } = useAuth()
@@ -29,13 +28,12 @@ export default function SuscripcionPage() {
   const now       = new Date()
   const daysLeft  = expiresAt ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null
   const isTrial   = !sub || sub.status === 'cancelled'
+  const currentPlan = user?.tenantPlan ?? 'trial'
 
-  async function handleSubscribe() {
+  async function handleSubscribe(tier: Tier) {
     setSubmit(true); setError(null)
     try {
-      const res = await apiClient.subscribe()
-      // MP takes the user to their hosted checkout. On success they come back
-      // to /dashboard/suscripcion/callback.
+      const res = await apiClient.subscribe(tier)
       window.location.href = res.initPoint
     } catch (err: any) {
       setError(err?.message ?? 'No se pudo iniciar la suscripción')
@@ -54,8 +52,7 @@ export default function SuscripcionPage() {
     if (!ok) return
     setSubmit(true); setError(null)
     try {
-      const updated = await apiClient.cancelSubscription() as any
-      // Response shape: single subscription row; refetch to include payments
+      await apiClient.cancelSubscription()
       const fresh = await apiClient.getMySubscription()
       setSub(fresh)
     } catch (err: any) {
@@ -68,7 +65,7 @@ export default function SuscripcionPage() {
   if (loading) return <div className="p-6 text-sm text-gray-500">Cargando...</div>
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       {confirmDialog}
       <header>
         <h1 className="text-2xl font-bold text-gray-900">Suscripción</h1>
@@ -87,11 +84,13 @@ export default function SuscripcionPage() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Plan actual</p>
             <h2 className="mt-1 text-xl font-bold text-gray-900">
-              {sub && sub.status === 'authorized' ? PLAN_LABEL : 'Prueba gratuita'}
+              {sub && sub.status === 'authorized'
+                ? (currentPlan === 'pro' ? PLANS.pro.label : PLANS.standard.label)
+                : 'Prueba gratuita'}
             </h2>
             {sub && sub.status === 'authorized' ? (
               <p className="mt-1 text-sm text-gray-600">
-                ${PLAN_DISPLAY} ARS / mes · Cobro automático
+                ${Number(sub.amount).toLocaleString('es-AR')} ARS / mes · Cobro automático
               </p>
             ) : (
               <p className="mt-1 text-sm text-gray-600">
@@ -111,22 +110,8 @@ export default function SuscripcionPage() {
           </div>
         )}
 
-        {/* CTA principal */}
-        <div className="mt-5 border-t pt-5">
-          {isTrial && user?.role === 'ADMIN' && (
-            <button
-              onClick={handleSubscribe}
-              disabled={submitting}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <CreditCard size={16} />
-              {submitting ? 'Redirigiendo a Mercado Pago...' : `Suscribirme por $${PLAN_DISPLAY}/mes`}
-            </button>
-          )}
-          {isTrial && user?.role !== 'ADMIN' && (
-            <p className="text-xs text-gray-500">Solo el administrador del negocio puede contratar la suscripción.</p>
-          )}
-          {sub?.status === 'authorized' && user?.role === 'ADMIN' && (
+        {sub?.status === 'authorized' && user?.role === 'ADMIN' && (
+          <div className="mt-5 border-t pt-5">
             <button
               onClick={handleCancel}
               disabled={submitting}
@@ -134,20 +119,60 @@ export default function SuscripcionPage() {
             >
               Cancelar suscripción
             </button>
-          )}
-          {sub?.status === 'pending' && (
-            <div className="flex items-center gap-2 text-sm text-amber-700">
-              <AlertTriangle size={16} />
-              Esperando confirmación de pago de Mercado Pago...
-              {sub.initPoint && (
-                <a href={sub.initPoint} className="ml-2 font-medium text-brand-600 hover:underline">
-                  Reanudar pago →
-                </a>
-              )}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {sub?.status === 'pending' && (
+          <div className="mt-5 border-t pt-5 flex items-center gap-2 text-sm text-amber-700">
+            <AlertTriangle size={16} />
+            Esperando confirmación de pago de Mercado Pago...
+            {sub.initPoint && (
+              <a href={sub.initPoint} className="ml-2 inline-flex items-center rounded-md border border-brand-300 bg-white px-3 py-1 text-sm font-medium text-brand-600 hover:bg-brand-50">
+                Reanudar pago →
+              </a>
+            )}
+          </div>
+        )}
       </section>
+
+      {/* Plan cards */}
+      {isTrial && user?.role === 'ADMIN' && (
+        <section>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Elegí tu plan</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <PlanCard
+              tier="standard"
+              icon={<Users size={20} />}
+              features={[
+                '1 profesional',
+                'Turnos ilimitados',
+                'Programa de fidelidad',
+                'Reportes',
+              ]}
+              onSubscribe={() => handleSubscribe('standard')}
+              submitting={submitting}
+            />
+            <PlanCard
+              tier="pro"
+              icon={<Zap size={20} />}
+              features={[
+                'Profesionales ilimitados',
+                'Servicios ilimitados',
+                'Turnos ilimitados',
+                'Programa de fidelidad',
+                'Reportes',
+              ]}
+              recommended
+              onSubscribe={() => handleSubscribe('pro')}
+              submitting={submitting}
+            />
+          </div>
+        </section>
+      )}
+
+      {isTrial && user?.role !== 'ADMIN' && (
+        <p className="text-xs text-gray-500">Solo el administrador del negocio puede contratar la suscripción.</p>
+      )}
 
       {/* Historial de pagos */}
       {sub && sub.payments.length > 0 && (
@@ -185,6 +210,54 @@ export default function SuscripcionPage() {
           </div>
         </section>
       )}
+    </div>
+  )
+}
+
+function PlanCard({ tier, icon, features, recommended, onSubscribe, submitting }: {
+  tier:         Tier
+  icon:         React.ReactNode
+  features:     string[]
+  recommended?: boolean
+  onSubscribe:  () => void
+  submitting:   boolean
+}) {
+  const plan = PLANS[tier]
+  return (
+    <div className={`relative flex flex-col rounded-xl border p-5 ${recommended ? 'border-brand-500 ring-2 ring-brand-100' : 'border-gray-200'}`}>
+      {recommended && (
+        <span className="absolute -top-3 left-4 rounded-full bg-brand-600 px-3 py-0.5 text-xs font-semibold text-white">
+          Recomendado
+        </span>
+      )}
+      <div className="flex items-center gap-2 text-gray-900">
+        {icon}
+        <h3 className="text-lg font-bold">{plan.label}</h3>
+      </div>
+      <p className="mt-2 text-2xl font-bold text-gray-900">
+        ${plan.amount.toLocaleString('es-AR')}
+        <span className="text-sm font-normal text-gray-500"> / mes</span>
+      </p>
+      <ul className="mt-4 flex-1 space-y-2">
+        {features.map(f => (
+          <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
+            <CheckCircle2 size={14} className="shrink-0 text-green-500" />
+            {f}
+          </li>
+        ))}
+      </ul>
+      <button
+        onClick={onSubscribe}
+        disabled={submitting}
+        className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          recommended
+            ? 'bg-brand-600 text-white hover:bg-brand-700'
+            : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+        }`}
+      >
+        <CreditCard size={16} />
+        {submitting ? 'Redirigiendo...' : 'Suscribirme'}
+      </button>
     </div>
   )
 }

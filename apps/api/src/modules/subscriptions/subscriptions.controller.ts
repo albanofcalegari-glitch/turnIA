@@ -1,8 +1,8 @@
-import { Controller, Post, Get, Query, UseGuards, ForbiddenException } from '@nestjs/common'
+import { Controller, Post, Get, Body, Query, UseGuards, ForbiddenException } from '@nestjs/common'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { SkipMembershipCheck } from '../../common/decorators/skip-membership-check.decorator'
-import { JwtPayload, TenantRole } from '@turnia/shared'
+import { JwtPayload, TenantRole, type PlanTier } from '@turnia/shared'
 import { SubscriptionsService } from './subscriptions.service'
 
 // All routes in this controller are exempt from the global MembershipGuard:
@@ -20,12 +20,15 @@ export class SubscriptionsController {
    */
   @Post('me')
   @UseGuards(JwtAuthGuard)
-  subscribe(@CurrentUser() user: JwtPayload) {
+  subscribe(
+    @CurrentUser() user: JwtPayload,
+    @Body('tier') tier?: Exclude<PlanTier, 'trial'>,
+  ) {
     if (!user.tenantId) throw new ForbiddenException()
     if (user.role !== TenantRole.ADMIN) {
       throw new ForbiddenException('Solo el administrador puede contratar la suscripción')
     }
-    return this.subscriptions.subscribe(user.tenantId)
+    return this.subscriptions.subscribe(user.tenantId, tier || 'standard')
   }
 
   @Get('me')

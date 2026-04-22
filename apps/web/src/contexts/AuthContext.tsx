@@ -28,6 +28,7 @@ function profileToUserSession(profile: UserProfile): UserSession {
     tenantName:                primary?.tenant.name                ?? null,
     tenantTimezone:            primary?.tenant.timezone            ?? null,
     tenantIsActive:            primary?.tenant.isActive            ?? null,
+    tenantPlan:                primary?.tenant.plan                ?? null,
     tenantMembershipExpiresAt: primary?.tenant.membershipExpiresAt ?? null,
     tenantHasMultipleBranches: primary?.tenant.hasMultipleBranches ?? false,
     role:                      primary?.role                       ?? null,

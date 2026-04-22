@@ -120,7 +120,7 @@ export function CancelFlow({ tenantSlug }: Props) {
         {/* Back to booking */}
         <Link
           href={`/${tenantSlug}`}
-          className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800"
+          className="mb-6 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           ← Volver a reservar
         </Link>
