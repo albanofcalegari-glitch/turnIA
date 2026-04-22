@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Calendar, Scissors, Users, BarChart3 } from 'lucide-react'
+import { Calendar, Scissors, Users, BarChart3, Lock, Zap } from 'lucide-react'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
@@ -26,14 +27,38 @@ export default function ReportesPage() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
 
+  const plan = user?.tenantPlan ?? 'trial'
+  const needsPro = plan === 'standard'
+
   useEffect(() => {
-    if (!user?.tenantId) return
+    if (!user?.tenantId || needsPro) return
     setLoading(true)
     apiClient.getMonthlyReports(user.tenantId, 6)
       .then(setData)
       .catch(() => setError('No pudimos cargar los reportes.'))
       .finally(() => setLoading(false))
-  }, [user?.tenantId])
+  }, [user?.tenantId, needsPro])
+
+  if (needsPro) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-50">
+          <Lock size={28} className="text-brand-600" />
+        </div>
+        <h1 className="mt-4 text-xl font-bold text-gray-900">Reportes es una función Pro</h1>
+        <p className="mt-2 max-w-sm text-sm text-gray-500">
+          Accedé a métricas detalladas de turnos, servicios y clientes actualizando tu plan a Pro.
+        </p>
+        <Link
+          href="/dashboard/suscripcion"
+          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
+        >
+          <Zap size={16} />
+          Actualizar a Pro
+        </Link>
+      </div>
+    )
+  }
 
   if (loading) {
     return <div className="flex justify-center py-16"><Spinner /></div>
@@ -85,7 +110,7 @@ export default function ReportesPage() {
       </div>
 
       {/* Bar chart simple (CSS-only) */}
-      <div className="rounded-xl border bg-white p-5">
+      <div className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card">
         <h2 className="mb-4 text-sm font-medium text-gray-700">Turnos por mes</h2>
         <div className="flex items-end gap-3 sm:gap-6" style={{ height: 200 }}>
           {data.map((m) => {
@@ -110,7 +135,7 @@ export default function ReportesPage() {
       </div>
 
       {/* Tabla detallada */}
-      <div className="overflow-hidden rounded-xl border bg-white">
+      <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-card">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs uppercase text-gray-500">
             <tr>
@@ -154,9 +179,9 @@ function KpiCard({ icon, label, value, delta }: {
   const deltaPrefix = delta === null ? '' : delta > 0 ? '+' : ''
 
   return (
-    <div className="rounded-xl border bg-white p-5">
+    <div className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card transition-shadow duration-200 hover:shadow-card-hover">
       <div className="flex items-center gap-2 text-sm text-gray-500">{icon}{label}</div>
-      <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
+      <p className="mt-2 text-3xl font-extrabold tabular-nums text-gray-900">{value}</p>
       {delta !== null && (
         <p className={`mt-1 text-xs ${deltaColor}`}>
           {deltaPrefix}{delta} vs mes anterior

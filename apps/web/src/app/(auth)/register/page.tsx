@@ -108,15 +108,15 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <span className="text-3xl font-bold text-brand-600">turnIT</span>
+          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">turnIT</span>
           <p className="mt-1 text-sm text-gray-500">Creá tu cuenta y empezá a recibir turnos</p>
         </div>
 
-        <div className="rounded-2xl border bg-white p-5 shadow-sm sm:p-8">
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-card sm:p-8">
           <h1 className="mb-6 text-xl font-bold text-gray-900">Registrar tu negocio</h1>
 
           <form onSubmit={handleSubmit} className="space-y-4">

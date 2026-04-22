@@ -268,7 +268,7 @@ function ProfessionalCard({
     .toUpperCase()
 
   return (
-    <div className="rounded-xl border bg-white p-5">
+    <div className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card transition-shadow duration-200 hover:shadow-card-hover">
       <div className="flex items-center gap-3">
         <div
           className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"

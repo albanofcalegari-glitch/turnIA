@@ -43,9 +43,9 @@ export function Dialog({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={() => dismissOnBackdrop && onClose()}
       />
       <div
@@ -53,12 +53,12 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby={title ? 'dialog-title' : undefined}
         className={cn(
-          'relative z-10 w-full max-w-md rounded-2xl border bg-white p-6 shadow-xl',
+          'relative z-10 w-full max-w-md animate-slide-up rounded-2xl border border-gray-200/80 bg-white p-6 shadow-xl',
           className,
         )}
       >
         {title && (
-          <h2 id="dialog-title" className="mb-3 text-lg font-semibold text-gray-900">
+          <h2 id="dialog-title" className="mb-3 text-lg font-bold text-gray-900">
             {title}
           </h2>
         )}

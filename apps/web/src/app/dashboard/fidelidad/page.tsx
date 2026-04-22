@@ -166,7 +166,7 @@ function ProgramConfig({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       {/* Form */}
-      <div className="space-y-4 rounded-xl border bg-white p-5 shadow-sm">
+      <div className="space-y-4 rounded-xl border border-gray-200/80 bg-white p-5 shadow-card">
         <Field label="Programa activo" hint="Cuando está activo, los clientes registrados acumulan sellos al completar un turno.">
           <label className="inline-flex cursor-pointer items-center gap-2">
             <input
@@ -422,7 +422,7 @@ function CardsList() {
   const rewardsById = new Map(program?.rewards.map(r => [r.id, r]) ?? [])
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-card">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
           <tr>

@@ -153,7 +153,7 @@ export default function ConfiguracionPage() {
 
       <div className="space-y-6">
         {/* Business info */}
-        <section className="rounded-xl border bg-white p-5">
+        <section className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card">
           <div className="flex items-center gap-2 mb-4">
             <Settings size={16} className="text-gray-400" />
             <h2 className="text-sm font-semibold text-gray-700">Datos del negocio</h2>
@@ -170,7 +170,7 @@ export default function ConfiguracionPage() {
 
         {/* Schedule rules */}
         {rules && (
-          <section className="rounded-xl border bg-white p-5">
+          <section className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card">
             <div className="flex items-center gap-2 mb-4">
               <Clock size={16} className="text-gray-400" />
               <h2 className="text-sm font-semibold text-gray-700">Reglas de agenda</h2>
@@ -235,7 +235,7 @@ export default function ConfiguracionPage() {
 
         {/* Booking policies */}
         {rules && (
-          <section className="rounded-xl border bg-white p-5">
+          <section className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card">
             <div className="flex items-center gap-2 mb-4">
               <Shield size={16} className="text-gray-400" />
               <h2 className="text-sm font-semibold text-gray-700">Políticas de reserva</h2>
@@ -249,7 +249,7 @@ export default function ConfiguracionPage() {
 
         {/* Loyalty program */}
         {loyaltyProgram && (
-          <section className="rounded-xl border bg-white p-5">
+          <section className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card">
             <div className="flex items-center gap-2 mb-4">
               <Award size={16} className="text-gray-400" />
               <h2 className="text-sm font-semibold text-gray-700">Club de Fidelidad</h2>

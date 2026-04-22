@@ -3,12 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-  ForbiddenException,
 } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { CreateProfessionalDto } from './dto/create-professional.dto'
-import { PLANS, type PlanTier } from '@turnia/shared'
 
 @Injectable()
 export class ProfessionalsService {
@@ -25,22 +23,6 @@ export class ProfessionalsService {
    * - If omitted → creates an unlinked professional (staff without system account).
    */
   async create(tenantId: string, callerId: string, dto: CreateProfessionalDto) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where:  { id: tenantId },
-      select: { plan: true },
-    })
-    const plan = PLANS[(tenant?.plan ?? 'standard') as keyof typeof PLANS]
-    if (plan?.maxProfessionals !== null) {
-      const currentCount = await this.prisma.professional.count({
-        where: { tenantId, isActive: true },
-      })
-      if (currentCount >= (plan?.maxProfessionals ?? 1)) {
-        throw new ForbiddenException(
-          `Tu plan ${plan?.label ?? 'Estándar'} permite hasta ${plan?.maxProfessionals ?? 1} profesional${(plan?.maxProfessionals ?? 1) === 1 ? '' : 'es'}. Actualizá a Pro para agregar más.`,
-        )
-      }
-    }
-
     const userId = dto.userId ?? null
 
     if (userId) {

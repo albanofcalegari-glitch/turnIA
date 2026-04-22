@@ -242,7 +242,7 @@ export default function HorariosPage() {
               <Spinner size="lg" />
             </div>
           ) : (
-            <div className="rounded-xl border bg-white">
+            <div className="rounded-xl border border-gray-200/80 bg-white shadow-card">
               {/* Header — hidden on mobile */}
               <div className="hidden sm:grid grid-cols-[160px_60px_1fr_1fr] items-center gap-4 border-b bg-gray-50 px-5 py-3 text-xs font-medium uppercase tracking-wide text-gray-500">
                 <span>Día</span>

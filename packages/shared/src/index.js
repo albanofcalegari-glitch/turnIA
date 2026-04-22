@@ -1,7 +1,7 @@
 "use strict";
 // ── Enums ────────────────────────────────────────────────────────────────────
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ExceptionType = exports.AppointmentStatus = exports.TenantRole = void 0;
+exports.PLANS = exports.ExceptionType = exports.AppointmentStatus = exports.TenantRole = void 0;
 var TenantRole;
 (function (TenantRole) {
     TenantRole["ADMIN"] = "ADMIN";
@@ -24,4 +24,21 @@ var ExceptionType;
     ExceptionType["HOLIDAY"] = "HOLIDAY";
     ExceptionType["CUSTOM_HOURS"] = "CUSTOM_HOURS";
 })(ExceptionType || (exports.ExceptionType = ExceptionType = {}));
-//# sourceMappingURL=index.js.map
+exports.PLANS = {
+    standard: {
+        tier: 'standard',
+        label: 'Estándar',
+        amount: 60000,
+        currency: 'ARS',
+        maxProfessionals: 1,
+        reason: 'Suscripción TurnIT Estándar',
+    },
+    pro: {
+        tier: 'pro',
+        label: 'Pro',
+        amount: 75000,
+        currency: 'ARS',
+        maxProfessionals: null,
+        reason: 'Suscripción TurnIT Pro',
+    },
+};

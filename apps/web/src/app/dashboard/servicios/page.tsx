@@ -196,7 +196,7 @@ export default function ServiciosPage() {
               {paged.map(svc => (
                 <div
                   key={svc.id}
-                  className="flex flex-col gap-3 rounded-xl border bg-white p-4"
+                  className="flex flex-col gap-3 rounded-xl border border-gray-200/80 bg-white p-4 shadow-card transition-shadow duration-200 hover:shadow-card-hover"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -245,7 +245,7 @@ export default function ServiciosPage() {
           <>
           <div className="space-y-3">
             {paged.map(svc => (
-              <div key={svc.id} className="flex flex-col gap-2 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div key={svc.id} className="flex flex-col gap-2 rounded-xl border border-gray-200/80 bg-white p-4 shadow-card transition-shadow duration-200 hover:shadow-card-hover sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   {svc.color && (
                     <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: svc.color }} />
@@ -335,7 +335,7 @@ function CreateServiceModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div className="w-full max-w-md animate-slide-up rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">Nuevo servicio</h2>
           <button onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">

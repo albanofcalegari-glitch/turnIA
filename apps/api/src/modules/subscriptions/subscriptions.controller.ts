@@ -31,6 +31,13 @@ export class SubscriptionsController {
     return this.subscriptions.subscribe(user.tenantId, tier || 'standard')
   }
 
+  @Get('me/plan-requirement')
+  @UseGuards(JwtAuthGuard)
+  getPlanRequirement(@CurrentUser() user: JwtPayload) {
+    if (!user.tenantId) throw new ForbiddenException()
+    return this.subscriptions.getPlanRequirement(user.tenantId)
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getMine(@CurrentUser() user: JwtPayload) {

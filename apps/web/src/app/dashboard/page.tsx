@@ -18,9 +18,12 @@ import { useConfirm } from '@/components/ui/Dialog'
 
 function StatCard({ label, value, highlight = false }: { label: string; value: number; highlight?: boolean }) {
   return (
-    <div className="rounded-xl border bg-white p-5">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className={cn('mt-1 text-3xl font-bold', highlight ? 'text-brand-700' : 'text-gray-900')}>
+    <div className={cn(
+      'rounded-xl border bg-white p-5 shadow-card transition-shadow duration-200 hover:shadow-card-hover',
+      highlight && 'border-brand-100 bg-brand-50/30',
+    )}>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p>
+      <p className={cn('mt-2 text-3xl font-extrabold tabular-nums', highlight ? 'text-brand-700' : 'text-gray-900')}>
         {value}
       </p>
     </div>
@@ -202,7 +205,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Agenda view */}
-      <div className="rounded-xl border bg-white p-3 sm:p-5 overflow-x-auto">
+      <div className="rounded-xl border border-gray-200/80 bg-white p-3 shadow-card sm:p-5 overflow-x-auto">
         {view === 'day'
           ? <DayView   agenda={agenda} timezone={timezone} />
           : view === 'week'

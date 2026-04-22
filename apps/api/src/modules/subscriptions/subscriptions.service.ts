@@ -101,6 +101,14 @@ export class SubscriptionsService {
     return { initPoint: mpResponse.init_point, subscriptionId: sub.id, reused: false }
   }
 
+  async getPlanRequirement(tenantId: string) {
+    const profCount = await this.prisma.professional.count({
+      where: { tenantId, isActive: true },
+    })
+    const requiredTier = profCount > (PLANS.standard.maxProfessionals ?? 1) ? 'pro' : 'standard'
+    return { profCount, requiredTier, plans: PLANS }
+  }
+
   async getMySubscription(tenantId: string) {
     return this.prisma.subscription.findUnique({
       where:   { tenantId },

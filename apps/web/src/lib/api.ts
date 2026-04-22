@@ -528,6 +528,9 @@ class ApiClient {
   getMySubscription = () =>
     this.request<MySubscription | null>('/subscriptions/me')
 
+  getPlanRequirement = () =>
+    this.request<{ profCount: number; requiredTier: 'standard' | 'pro' }>('/subscriptions/me/plan-requirement')
+
   cancelSubscription = () =>
     this.request<MySubscription>('/subscriptions/me/cancel', { method: 'POST' })
 

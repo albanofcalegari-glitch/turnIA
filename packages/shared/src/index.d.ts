@@ -36,6 +36,16 @@ export interface JwtPayload {
     role?: TenantRole;
     isSuperAdmin: boolean;
 }
+export type PlanTier = 'trial' | 'standard' | 'pro';
+export interface PlanConfig {
+    tier: PlanTier;
+    label: string;
+    amount: number;
+    currency: string;
+    maxProfessionals: number | null;
+    reason: string;
+}
+export declare const PLANS: Record<Exclude<PlanTier, 'trial'>, PlanConfig>;
 export interface TimeSlot {
     startAt: string;
     endAt: string;
@@ -46,4 +56,3 @@ export interface AvailabilityRequest {
     serviceIds: string[];
     date: string;
 }
-//# sourceMappingURL=index.d.ts.map

@@ -15,11 +15,20 @@ export default function SuscripcionPage() {
   const [loading, setLoading]   = useState(true)
   const [submitting, setSubmit] = useState(false)
   const [error, setError]       = useState<string | null>(null)
+  const [profCount, setProfCount] = useState(0)
+  const [requiredTier, setRequiredTier] = useState<Tier>('standard')
   const { confirm, element: confirmDialog } = useConfirm()
 
   useEffect(() => {
-    apiClient.getMySubscription()
-      .then(setSub)
+    Promise.all([
+      apiClient.getMySubscription(),
+      apiClient.getPlanRequirement(),
+    ])
+      .then(([s, req]) => {
+        setSub(s)
+        setProfCount(req.profCount)
+        setRequiredTier(req.requiredTier)
+      })
       .catch(err => setError(err?.message ?? 'Error'))
       .finally(() => setLoading(false))
   }, [])
@@ -79,7 +88,7 @@ export default function SuscripcionPage() {
       )}
 
       {/* Estado actual */}
-      <section className="rounded-xl border bg-white p-5 sm:p-6">
+      <section className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Plan actual</p>
@@ -139,6 +148,11 @@ export default function SuscripcionPage() {
       {isTrial && user?.role === 'ADMIN' && (
         <section>
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Elegí tu plan</h2>
+          {requiredTier === 'pro' && (
+            <div className="mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
+              Tenés <strong>{profCount} profesionales</strong> activos. Necesitás el plan <strong>Pro</strong> para mantenerlos.
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <PlanCard
               tier="standard"
@@ -151,6 +165,8 @@ export default function SuscripcionPage() {
               ]}
               onSubscribe={() => handleSubscribe('standard')}
               submitting={submitting}
+              disabled={requiredTier === 'pro'}
+              disabledReason={`Tenés ${profCount} profesionales — necesitás Pro`}
             />
             <PlanCard
               tier="pro"
@@ -160,9 +176,9 @@ export default function SuscripcionPage() {
                 'Servicios ilimitados',
                 'Turnos ilimitados',
                 'Programa de fidelidad',
-                'Reportes',
+                'Reportes y métricas',
               ]}
-              recommended
+              recommended={requiredTier === 'pro'}
               onSubscribe={() => handleSubscribe('pro')}
               submitting={submitting}
             />
@@ -176,7 +192,7 @@ export default function SuscripcionPage() {
 
       {/* Historial de pagos */}
       {sub && sub.payments.length > 0 && (
-        <section className="rounded-xl border bg-white p-5 sm:p-6">
+        <section className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card sm:p-6">
           <h2 className="text-sm font-semibold text-gray-900">Historial de pagos</h2>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-sm">
@@ -214,64 +230,78 @@ export default function SuscripcionPage() {
   )
 }
 
-function PlanCard({ tier, icon, features, recommended, onSubscribe, submitting }: {
-  tier:         Tier
-  icon:         React.ReactNode
-  features:     string[]
-  recommended?: boolean
-  onSubscribe:  () => void
-  submitting:   boolean
+function PlanCard({ tier, icon, features, recommended, onSubscribe, submitting, disabled, disabledReason }: {
+  tier:            Tier
+  icon:            React.ReactNode
+  features:        string[]
+  recommended?:    boolean
+  onSubscribe:     () => void
+  submitting:      boolean
+  disabled?:       boolean
+  disabledReason?: string
 }) {
   const plan = PLANS[tier]
   return (
-    <div className={`relative flex flex-col rounded-xl border p-5 ${recommended ? 'border-brand-500 ring-2 ring-brand-100' : 'border-gray-200'}`}>
+    <div className={`relative flex flex-col rounded-xl border p-6 shadow-card transition-all duration-200 hover:shadow-card-hover ${recommended ? 'border-brand-400 ring-2 ring-brand-100 bg-gradient-to-b from-brand-50/40 to-white' : 'border-gray-200 bg-white'} ${disabled ? 'opacity-60' : ''}`}>
       {recommended && (
-        <span className="absolute -top-3 left-4 rounded-full bg-brand-600 px-3 py-0.5 text-xs font-semibold text-white">
+        <span className="absolute -top-3 left-4 rounded-full bg-gradient-to-r from-brand-600 to-brand-500 px-3 py-0.5 text-xs font-semibold text-white shadow-sm">
           Recomendado
         </span>
       )}
-      <div className="flex items-center gap-2 text-gray-900">
-        {icon}
+      <div className="flex items-center gap-2.5 text-gray-900">
+        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${recommended ? 'bg-brand-100 text-brand-600' : 'bg-gray-100 text-gray-600'}`}>
+          {icon}
+        </div>
         <h3 className="text-lg font-bold">{plan.label}</h3>
       </div>
-      <p className="mt-2 text-2xl font-bold text-gray-900">
+      <p className="mt-4 text-3xl font-extrabold tabular-nums text-gray-900">
         ${plan.amount.toLocaleString('es-AR')}
-        <span className="text-sm font-normal text-gray-500"> / mes</span>
+        <span className="text-sm font-normal text-gray-400"> / mes</span>
       </p>
-      <ul className="mt-4 flex-1 space-y-2">
+      <div className="my-5 h-px bg-gray-100" />
+      <ul className="flex-1 space-y-2.5">
         {features.map(f => (
-          <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
-            <CheckCircle2 size={14} className="shrink-0 text-green-500" />
+          <li key={f} className="flex items-center gap-2.5 text-sm text-gray-600">
+            <CheckCircle2 size={15} className="shrink-0 text-brand-500" />
             {f}
           </li>
         ))}
       </ul>
-      <button
-        onClick={onSubscribe}
-        disabled={submitting}
-        className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-          recommended
-            ? 'bg-brand-600 text-white hover:bg-brand-700'
-            : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-        }`}
-      >
-        <CreditCard size={16} />
-        {submitting ? 'Redirigiendo...' : 'Suscribirme'}
-      </button>
+      {disabled && disabledReason ? (
+        <p className="mt-6 text-center text-xs text-gray-500">{disabledReason}</p>
+      ) : (
+        <button
+          onClick={onSubscribe}
+          disabled={submitting}
+          className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60 ${
+            recommended
+              ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-sm hover:from-brand-700 hover:to-brand-600'
+              : 'border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50'
+          }`}
+        >
+          <CreditCard size={16} />
+          {submitting ? 'Redirigiendo...' : 'Suscribirme'}
+        </button>
+      )}
     </div>
   )
 }
 
 function StatusPill({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    authorized: { label: 'Activa',     cls: 'bg-green-50 text-green-700' },
-    pending:    { label: 'Pendiente',  cls: 'bg-amber-50 text-amber-700' },
-    paused:     { label: 'Pausada',    cls: 'bg-gray-100 text-gray-700' },
-    cancelled:  { label: 'Cancelada',  cls: 'bg-red-50 text-red-700' },
-    trial:      { label: 'Prueba',     cls: 'bg-brand-50 text-brand-700' },
+  const map: Record<string, { label: string; cls: string; dot: string }> = {
+    authorized: { label: 'Activa',     cls: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500' },
+    pending:    { label: 'Pendiente',  cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+    paused:     { label: 'Pausada',    cls: 'bg-gray-50 text-gray-700 border-gray-200',     dot: 'bg-gray-400' },
+    cancelled:  { label: 'Cancelada',  cls: 'bg-red-50 text-red-700 border-red-200',        dot: 'bg-red-500' },
+    trial:      { label: 'Prueba',     cls: 'bg-brand-50 text-brand-700 border-brand-200',   dot: 'bg-brand-500' },
   }
-  const { label, cls } = map[status] ?? map.trial
-  return <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}>{label}</span>
+  const { label, cls, dot } = map[status] ?? map.trial
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+      {label}
+    </span>
+  )
 }
 
 function PaymentStatus({ status }: { status: string }) {
