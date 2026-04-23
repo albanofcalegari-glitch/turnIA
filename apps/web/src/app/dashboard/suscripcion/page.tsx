@@ -36,7 +36,7 @@ export default function SuscripcionPage() {
   const expiresAt = user?.tenantMembershipExpiresAt ? new Date(user.tenantMembershipExpiresAt) : null
   const now       = new Date()
   const daysLeft  = expiresAt ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null
-  const isTrial   = !sub || sub.status === 'cancelled'
+  const isTrial   = !sub || sub.status === 'cancelled' || sub.status === 'pending'
   const currentPlan = user?.tenantPlan ?? 'trial'
 
   async function handleSubscribe(tier: Tier) {
