@@ -76,7 +76,7 @@ function ConfirmDialog({ opts, onClose }: { opts: ConfirmOptions | null; onClose
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4 py-8 backdrop-blur-sm"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4 py-8 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       onClick={() => onClose(false)}

@@ -12,6 +12,8 @@ export interface DialogProps {
   className?: string
   /** When true the backdrop does NOT dismiss on click. Defaults to false. */
   dismissOnBackdrop?: boolean
+  /** Render at a higher z-index (for confirms on top of other dialogs). */
+  overlay?: boolean
 }
 
 /**
@@ -25,6 +27,7 @@ export function Dialog({
   children,
   className,
   dismissOnBackdrop = true,
+  overlay = false,
 }: DialogProps) {
   useEffect(() => {
     if (!open) return
@@ -43,7 +46,7 @@ export function Dialog({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-fade-in">
+    <div className={cn("fixed inset-0 flex items-center justify-center p-4 animate-fade-in", overlay ? "z-[80]" : "z-[70]")}>
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={() => dismissOnBackdrop && onClose()}
@@ -110,6 +113,7 @@ export function useConfirm() {
       onClose={() => handle(false)}
       title={state.title ?? '¿Confirmar?'}
       dismissOnBackdrop
+      overlay
     >
       <div className="text-sm text-gray-600">{state.message}</div>
       <div className="mt-5 flex justify-end gap-2">
