@@ -88,7 +88,7 @@ export function WeekView({ agenda, timezone }: Props) {
       {loading ? (
         <div className="flex items-center justify-center py-16"><Spinner size="lg" /></div>
       ) : (
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid min-w-[640px] grid-cols-7 gap-2">
           {dates.map((date, idx) => {
             const appts = weekAppointments[date] ?? []
             const isToday = date === today
