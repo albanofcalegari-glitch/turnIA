@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, CreditCard, Award, BarChart3, Mail, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -32,7 +32,7 @@ const NAV: NavItem[] = [
     show:  (u) => u.tenantHasMultipleBranches,
   },
   { href: '/dashboard/fidelidad',     label: 'Fidelidad',      icon: Award     },
-  { href: '/dashboard/reportes',      label: 'Reportes',       icon: BarChart3, proOnly: true },
+  { href: '/dashboard/reportes',      label: 'Estadísticas',   icon: BarChart3 },
   { href: '/dashboard/configuracion', label: 'Configuración',  icon: Settings  },
   { href: '/dashboard/suscripcion',   label: 'Suscripción',    icon: CreditCard },
 ]
@@ -229,27 +229,84 @@ function EmailVerificationBanner({
   verifiedAt: string | null
   email:      string
 }) {
-  const [dismissed, setDismissed] = useState(false)
-  const [sending,   setSending]   = useState(false)
-  const [sent,      setSent]      = useState(false)
+  const { refreshUser } = useAuth()
+  const [dismissed,  setDismissed]  = useState(false)
+  const [sending,    setSending]    = useState(false)
+  const [phase,      setPhase]      = useState<'idle' | 'otp' | 'verified'>('idle')
+  const [digits,     setDigits]     = useState(['', '', '', '', '', ''])
+  const [error,      setError]      = useState('')
+  const [verifying,  setVerifying]  = useState(false)
+  const [cooldown,   setCooldown]   = useState(0)
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const setRef = (i: number) => (el: HTMLInputElement | null) => { inputRefs.current[i] = el }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (sessionStorage.getItem('turnit_email_banner_dismissed')) setDismissed(true)
   }, [])
 
-  if (verifiedAt || dismissed) return null
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
 
-  async function handleResend() {
+  if (verifiedAt || dismissed || phase === 'verified') return null
+
+  async function handleSendOtp() {
     if (sending) return
     setSending(true)
+    setError('')
     try {
-      await apiClient.resendVerification()
-      setSent(true)
+      await apiClient.requestEmailOtp()
+      setPhase('otp')
+      setCooldown(60)
+      setDigits(['', '', '', '', '', ''])
     } catch {
-      // silent — el usuario puede reintentar
+      setError('No se pudo enviar el código. Intentá de nuevo.')
     } finally {
       setSending(false)
+    }
+  }
+
+  function handleDigit(index: number, value: string) {
+    if (value.length > 1) {
+      const pasted = value.replace(/\D/g, '').slice(0, 6).split('')
+      const next = [...digits]
+      pasted.forEach((d, i) => { if (index + i < 6) next[index + i] = d })
+      setDigits(next)
+      const focus = Math.min(index + pasted.length, 5)
+      inputRefs.current[focus]?.focus()
+      if (next.every(d => d)) submitOtp(next.join(''))
+      return
+    }
+    const d = value.replace(/\D/g, '')
+    const next = [...digits]
+    next[index] = d
+    setDigits(next)
+    if (d && index < 5) inputRefs.current[index + 1]?.focus()
+    if (next.every(v => v)) submitOtp(next.join(''))
+  }
+
+  function handleKeyDown(index: number, e: React.KeyboardEvent) {
+    if (e.key === 'Backspace' && !digits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  async function submitOtp(code: string) {
+    setVerifying(true)
+    setError('')
+    try {
+      await apiClient.verifyEmailOtp(code)
+      setPhase('verified')
+      refreshUser()
+    } catch (err: any) {
+      setError(err?.message ?? 'Código incorrecto.')
+      setDigits(['', '', '', '', '', ''])
+      inputRefs.current[0]?.focus()
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -258,27 +315,63 @@ function EmailVerificationBanner({
     setDismissed(true)
   }
 
+  if (phase === 'otp') {
+    return (
+      <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+        <div className="flex items-center gap-2 mb-2">
+          <Mail size={16} className="shrink-0" />
+          <span>Ingresá el código de 6 dígitos que enviamos a <strong>{email}</strong></span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            {digits.map((d, i) => (
+              <input
+                key={i}
+                ref={setRef(i)}
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={d}
+                onChange={e => handleDigit(i, e.target.value)}
+                onKeyDown={e => handleKeyDown(i, e)}
+                disabled={verifying}
+                className="h-9 w-8 rounded-md border border-blue-300 bg-white text-center text-base font-semibold text-blue-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+              />
+            ))}
+          </div>
+          <button
+            onClick={handleSendOtp}
+            disabled={sending || cooldown > 0}
+            className="ml-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
+          >
+            {cooldown > 0 ? `Reenviar (${cooldown}s)` : 'Reenviar'}
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="ml-auto text-xs text-blue-500 hover:underline"
+          >
+            Más tarde
+          </button>
+        </div>
+        {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
+      </div>
+    )
+  }
+
   return (
     <div className="mb-4 flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2">
         <Mail size={16} className="shrink-0" />
-        <span>
-          {sent
-            ? <>Te reenviamos el link a <strong>{email}</strong>. Revisá también spam.</>
-            : <>Verificá tu email para mayor seguridad. Te enviamos un link a <strong>{email}</strong>.</>
-          }
-        </span>
+        <span>Verificá tu email para mayor seguridad. Te enviamos un link a <strong>{email}</strong>.</span>
       </div>
       <div className="flex shrink-0 gap-2">
-        {!sent && (
-          <button
-            onClick={handleResend}
-            disabled={sending}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {sending ? 'Enviando…' : 'Reenviar link'}
-          </button>
-        )}
+        <button
+          onClick={handleSendOtp}
+          disabled={sending}
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {sending ? 'Enviando…' : 'Verificar email'}
+        </button>
         <button
           onClick={handleDismiss}
           className="rounded-md border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
@@ -286,6 +379,7 @@ function EmailVerificationBanner({
           Más tarde
         </button>
       </div>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   )
 }

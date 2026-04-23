@@ -164,11 +164,45 @@ class ApiClient {
   resendVerification = () =>
     this.request<{ ok: true }>('/auth/resend-verification', { method: 'POST' })
 
+  requestEmailOtp = () =>
+    this.request<{ sent: boolean }>('/auth/request-email-otp', { method: 'POST' })
+
+  verifyEmailOtp = (code: string) =>
+    this.request<{ ok: true }>('/auth/verify-email-otp', {
+      method: 'POST',
+      body:   JSON.stringify({ code }),
+    })
+
+  // ── Guest OTP ─────────────────────────────────────────────────────────────
+
+  requestOtp = (tenantId: string, email: string) =>
+    this.request<{ sent: boolean }>('/guest-auth/request-otp', {
+      method: 'POST',
+      body:   JSON.stringify({ tenantId, email }),
+    })
+
+  verifyOtp = (tenantId: string, email: string, code: string) =>
+    this.request<{ valid: boolean; token?: string }>('/guest-auth/verify-otp', {
+      method: 'POST',
+      body:   JSON.stringify({ tenantId, email, code }),
+    })
+
   getMonthlyReports = (tenantId: string, months = 6) =>
     this.request<Array<{ month: string; appointments: number; services: number; uniqueClients: number }>>(
       `/reports/monthly?months=${months}`,
       { headers: { 'X-Tenant-ID': tenantId } },
     )
+
+  getDashboardStats = (tenantId: string, filters?: { period?: string; professionalId?: string }) => {
+    const params = new URLSearchParams()
+    if (filters?.period)           params.set('period', filters.period)
+    if (filters?.professionalId)   params.set('professionalId', filters.professionalId)
+    const q = params.toString()
+    return this.request<DashboardStats>(
+      `/reports/dashboard${q ? '?' + q : ''}`,
+      { headers: { 'X-Tenant-ID': tenantId } },
+    )
+  }
 
   // ── Tenants ───────────────────────────────────────────────────────────────
 
@@ -752,6 +786,46 @@ export interface Attachment {
   sizeBytes:     number
   uploadedById:  string | null
   createdAt:     string
+}
+
+export interface DashboardStats {
+  period: { from: string; to: string }
+  kpis: {
+    totalAppointments:     number
+    completedAppointments: number
+    cancelledAppointments: number
+    noShowAppointments:    number
+    pendingAppointments:   number
+    confirmedAppointments: number
+    totalServices:         number
+    revenue:               number
+    uniqueClients:         number
+    appointmentsDelta:     number
+    servicesDelta:         number
+    revenueDelta:          number
+    clientsDelta:          number
+  }
+  rates: { cancellation: number; completion: number; noShow: number }
+  topProfessionals: Array<{
+    id:             string
+    displayName:    string
+    avatarUrl:      string | null
+    color:          string | null
+    completedCount: number
+    totalCount:     number
+  }>
+  topServices: Array<{ serviceName: string; count: number }>
+  appointmentsByHour:      Array<{ hour: number; count: number }>
+  appointmentsByDayOfWeek: Array<{ day: number; count: number }>
+  monthlyEvolution: Array<{
+    month:         string
+    appointments:  number
+    services:      number
+    uniqueClients: number
+    revenue:       number
+    cancelled:     number
+  }>
+  clients: { newClients: number; recurringClients: number }
 }
 
 export interface AdminTenant {

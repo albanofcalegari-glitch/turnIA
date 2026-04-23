@@ -184,6 +184,74 @@ export class AuthService {
     })
   }
 
+  async requestEmailOtp(userId: string): Promise<{ sent: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where:   { id: userId },
+      include: { tenants: { select: { tenantId: true, tenant: { select: { name: true } } } } },
+    })
+    if (!user || user.emailVerifiedAt) return { sent: true }
+
+    const tenantId   = user.tenants[0]?.tenantId ?? 'system'
+    const tenantName = user.tenants[0]?.tenant.name ?? 'turnIT'
+
+    const recent = await this.prisma.otpCode.findFirst({
+      where: {
+        tenantId,
+        email:     user.email,
+        createdAt: { gte: new Date(Date.now() - 60_000) },
+      },
+    })
+    if (recent) return { sent: true }
+
+    await this.prisma.otpCode.deleteMany({ where: { tenantId, email: user.email } })
+
+    const code = String(Math.floor(100000 + Math.random() * 900000))
+    await this.prisma.otpCode.create({
+      data: {
+        tenantId,
+        email:     user.email,
+        code,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    })
+
+    await this.mail.sendOtpCode({ to: user.email, code, tenantName })
+    return { sent: true }
+  }
+
+  async verifyEmailOtp(userId: string, code: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where:  { id: userId },
+      select: { id: true, email: true, emailVerifiedAt: true, tenants: { select: { tenantId: true } } },
+    })
+    if (!user) throw new NotFoundException('Usuario no encontrado')
+    if (user.emailVerifiedAt) return
+
+    const tenantId = user.tenants[0]?.tenantId ?? 'system'
+
+    const otp = await this.prisma.otpCode.findFirst({
+      where: { tenantId, email: user.email, expiresAt: { gte: new Date() } },
+    })
+
+    if (!otp) throw new BadRequestException('Código expirado o inválido. Solicitá uno nuevo.')
+
+    if (otp.attempts >= 5) {
+      await this.prisma.otpCode.delete({ where: { id: otp.id } })
+      throw new BadRequestException('Demasiados intentos. Solicitá un nuevo código.')
+    }
+
+    if (otp.code !== code) {
+      await this.prisma.otpCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } })
+      throw new BadRequestException('Código incorrecto. Intentá de nuevo.')
+    }
+
+    await this.prisma.otpCode.delete({ where: { id: otp.id } })
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data:  { emailVerifiedAt: new Date(), emailVerificationToken: null },
+    })
+  }
+
   private async signToken(user: { id: string; email: string; isSuperAdmin: boolean }) {
     // Look up the user's first tenant membership so the JWT carries tenantId
     // and role — required by guards like RolesGuard and endpoints that check

@@ -40,11 +40,12 @@ function profileToUserSession(profile: UserProfile): UserSession {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface AuthContextValue {
-  session:  AuthSession | null
-  user:     UserSession | null
-  loading:  boolean
-  login:    (email: string, password: string) => Promise<void>
-  logout:   () => void
+  session:      AuthSession | null
+  user:         UserSession | null
+  loading:      boolean
+  login:        (email: string, password: string) => Promise<void>
+  logout:       () => void
+  refreshUser:  () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -112,6 +113,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router])
 
+  const refreshUser = useCallback(async () => {
+    const stored = getSession()
+    if (!stored) return
+    try {
+      const profile = await apiClient.getProfile()
+      const refreshed: AuthSession = {
+        accessToken: stored.accessToken,
+        user:        profileToUserSession(profile),
+      }
+      setSession(refreshed)
+      setSessionState(refreshed)
+    } catch { /* keep cached session */ }
+  }, [])
+
   const logout = useCallback(() => {
     clearSession()
     apiClient.clearToken()
@@ -120,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router])
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, login, logout }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

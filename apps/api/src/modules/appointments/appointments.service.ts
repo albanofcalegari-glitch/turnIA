@@ -10,6 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { SchedulesService } from '../schedules/schedules.service'
 import { BranchesService } from '../branches/branches.service'
 import { LoyaltyService } from '../loyalty/loyalty.service'
+import { GoogleCalendarService } from '../google-calendar/google-calendar.service'
 import { CreateAppointmentDto } from './dto/create-appointment.dto'
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto'
 
@@ -43,6 +44,7 @@ export class AppointmentsService {
     private readonly schedulesService: SchedulesService,
     private readonly branches: BranchesService,
     private readonly loyalty: LoyaltyService,
+    private readonly gcal: GoogleCalendarService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -287,6 +289,8 @@ export class AppointmentsService {
       throw new ConflictException('Ese horario ya no está disponible')
     }
 
+    this.gcal.syncAppointmentCreated(created.id).catch(() => {})
+
     return created
   }
 
@@ -505,6 +509,9 @@ export class AppointmentsService {
       throw new ConflictException('Ese horario ya no está disponible')
     }
 
+    this.gcal.syncAppointmentCancelled(originalId).catch(() => {})
+    this.gcal.syncAppointmentCreated(newAppointment.id).catch(() => {})
+
     return newAppointment
   }
 
@@ -690,11 +697,8 @@ export class AppointmentsService {
 
   async cancel(tenantId: string, id: string, cancelledBy: string, reason?: string) {
     const existing = await this.findOne(tenantId, id)
-    // Si el turno ya estaba COMPLETED, tenemos que revertir el stamp de loyalty
-    // (si el programa está activo y tiene cliente). Lo hacemos en la misma tx
-    // del update para que quede atómico.
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.appointment.update({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.appointment.update({
         where: { id },
         data: {
           status:             AppointmentStatus.CANCELLED,
@@ -710,8 +714,12 @@ export class AppointmentsService {
           clientId:      existing.clientId,
         })
       }
-      return updated
+      return u
     })
+
+    this.gcal.syncAppointmentCancelled(id).catch(() => {})
+
+    return updated
   }
 
   async confirm(tenantId: string, id: string) {

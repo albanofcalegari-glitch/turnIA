@@ -71,4 +71,19 @@ export class AuthController {
     await this.authService.resendVerificationEmail(user.sub)
     return { ok: true }
   }
+
+  @Post('request-email-otp')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async requestEmailOtp(@CurrentUser() user: JwtPayload) {
+    return this.authService.requestEmailOtp(user.sub)
+  }
+
+  @Post('verify-email-otp')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async verifyEmailOtp(@CurrentUser() user: JwtPayload, @Body('code') code: string) {
+    await this.authService.verifyEmailOtp(user.sub, code)
+    return { ok: true }
+  }
 }
