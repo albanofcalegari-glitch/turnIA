@@ -11,7 +11,7 @@ const DEFAULT_PROGRAM = {
   rewardValue:     null,
   rewardLabel:     'Servicio gratis',
   cardTitle:       'Club de Fidelidad',
-  cardSubtitle:    'Cada 5 turnos, uno gratis',
+  cardSubtitle:    'Sumá sellos para obtener beneficios',
   cardColor:       '#0f172a',
   cardAccentColor: '#3b82f6',
 }

@@ -678,7 +678,7 @@ model LoyaltyProgram {
   eligibleServiceIds Json?
   // Branding de la tarjeta
   cardTitle       String   @default("Club de Fidelidad")
-  cardSubtitle    String?  // p.ej. "Cada 5 cortes, uno gratis"
+  cardSubtitle    String?  // p.ej. "Sumá sellos para obtener beneficios"
   cardColor       String   @default("#0f172a") // hex principal
   cardAccentColor String?  // hex secundario para patrón
   cardBgImageUrl  String?  // opcional: imagen de fondo (ej: foto del local)

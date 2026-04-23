@@ -8,14 +8,16 @@ WORKDIR /app
 # Copy workspace root files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 
-# Copy only the packages needed by the web app
+# Copy ALL workspace package.json files so pnpm can resolve the full lockfile
+COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY packages/database/package.json packages/database/
 COPY packages/shared/package.json packages/shared/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (shamefully-hoist ensures symlinks work in Alpine)
+RUN echo "shamefully-hoist=true" > .npmrc && pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy source code (only what web needs)
 COPY packages/shared/ packages/shared/
 COPY apps/web/ apps/web/
 

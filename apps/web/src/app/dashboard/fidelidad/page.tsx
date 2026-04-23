@@ -297,7 +297,7 @@ function ProgramConfig({ isAdmin }: { isAdmin: boolean }) {
               value={program.cardSubtitle ?? ''}
               onChange={e => update('cardSubtitle', e.target.value || null)}
               disabled={!isAdmin}
-              placeholder="Cada 5 cortes, uno GRATIS"
+              placeholder="Sumá sellos para obtener beneficios"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </Field>
