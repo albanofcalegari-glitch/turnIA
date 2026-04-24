@@ -119,11 +119,10 @@ export function useAgenda(tenantId: string, confirmFn?: ConfirmFn) {
   const executeAction = useCallback(async (
     appointmentId: string,
     action:        AppointmentAction,
-    payload?:      { reason?: string },
+    payload?:      { reason?: string; paymentMethod?: string },
   ) => {
     const confirmSpecs: Partial<Record<AppointmentAction, ConfirmOptions>> = {
       confirm:  { title: 'Confirmar turno',     message: '¿Confirmar este turno?',              confirmText: 'Confirmar' },
-      complete: { title: 'Completar turno',     message: '¿Marcar este turno como completado?', confirmText: 'Completar' },
       no_show:  { title: 'Marcar no asistió',   message: '¿Marcar este turno como "no asistió"?', confirmText: 'Marcar no asistió', variant: 'danger' },
       reopen:   { title: 'Reabrir turno',       message: 'El turno vuelve al estado "Confirmado" y se podrá completar o cancelar de nuevo.', confirmText: 'Reabrir' },
     }
@@ -146,7 +145,7 @@ export function useAgenda(tenantId: string, confirmFn?: ConfirmFn) {
           updated = await apiClient.cancelAppointment(tenantId, appointmentId, payload?.reason)
           break
         case 'complete':
-          updated = await apiClient.completeAppointment(tenantId, appointmentId)
+          updated = await apiClient.completeAppointment(tenantId, appointmentId, payload?.paymentMethod)
           break
         case 'no_show':
           updated = await apiClient.noShowAppointment(tenantId, appointmentId)

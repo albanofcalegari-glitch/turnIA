@@ -58,6 +58,7 @@ export interface Appointment {
   guestPhone:     string | null
   confirmedAt:    string | null
   completedAt:    string | null
+  paymentMethod:  string | null
   cancelledAt:    string | null
   cancelledBy:    string | null
   cancellationReason: string | null

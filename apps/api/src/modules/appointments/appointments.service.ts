@@ -730,12 +730,12 @@ export class AppointmentsService {
     })
   }
 
-  async complete(tenantId: string, id: string) {
+  async complete(tenantId: string, id: string, paymentMethod?: string) {
     const existing = await this.findOne(tenantId, id)
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.appointment.update({
         where:   { id },
-        data:    { status: AppointmentStatus.COMPLETED, completedAt: new Date() },
+        data:    { status: AppointmentStatus.COMPLETED, completedAt: new Date(), paymentMethod: paymentMethod ?? null },
         include: { items: { select: { serviceId: true } } },
       })
       // Emitir stamp sólo si hay cliente registrado. Para guests sin cuenta no

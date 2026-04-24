@@ -473,10 +473,11 @@ class ApiClient {
       headers: { 'X-Tenant-ID': tenantId },
     })
 
-  completeAppointment = (tenantId: string, id: string) =>
+  completeAppointment = (tenantId: string, id: string, paymentMethod?: string) =>
     this.request<Appointment>(`/appointments/${id}/complete`, {
       method:  'PATCH',
-      headers: { 'X-Tenant-ID': tenantId },
+      headers: { 'X-Tenant-ID': tenantId, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ paymentMethod }),
     })
 
   noShowAppointment = (tenantId: string, id: string) =>

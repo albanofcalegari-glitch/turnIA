@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Gift } from 'lucide-react'
+import { Gift, CreditCard, Banknote, ArrowRightLeft, Wallet } from 'lucide-react'
 import { cn, formatTime } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -20,19 +20,31 @@ const ACTION_CONFIG: Record<AppointmentAction, { label: string; cls: string }> =
   reopen:   { label: 'Reabrir',    cls: 'text-brand-700 bg-white     hover:bg-brand-50  border-brand-200' },
 }
 
+const PAYMENT_METHODS = [
+  { value: 'CASH',         label: 'Efectivo',          icon: Banknote },
+  { value: 'DEBIT_CARD',   label: 'Tarjeta débito',    icon: CreditCard },
+  { value: 'CREDIT_CARD',  label: 'Tarjeta crédito',   icon: CreditCard },
+  { value: 'TRANSFER',     label: 'Transferencia',     icon: ArrowRightLeft },
+  { value: 'MERCADOPAGO',  label: 'MercadoPago',       icon: Wallet },
+]
+
+const PAYMENT_LABELS: Record<string, string> = Object.fromEntries(PAYMENT_METHODS.map(p => [p.value, p.label]))
+
 interface Props {
   appointment:  Appointment
   timezone:     string
   isLoading:    boolean
-  onAction:     (action: AppointmentAction, payload?: { reason?: string }) => void
+  onAction:     (action: AppointmentAction, payload?: { reason?: string; paymentMethod?: string }) => void
   onLoyaltyRedeemed?: () => void
 }
 
 export function AppointmentCard({ appointment, timezone, isLoading, onAction, onLoyaltyRedeemed }: Props) {
   const confirm = useConfirm()
-  const [showCancel,   setShowCancel]   = useState(false)
-  const [reason,       setReason]       = useState('')
-  const [redeeming,    setRedeeming]    = useState(false)
+  const [showCancel,    setShowCancel]    = useState(false)
+  const [showComplete,  setShowComplete]  = useState(false)
+  const [reason,        setReason]        = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
+  const [redeeming,     setRedeeming]     = useState(false)
 
   const {
     status, startAt, endAt, totalMinutes, items, professional, client,
@@ -48,9 +60,6 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
   const hasReward   = (loyaltyCard?.rewardsAvailable ?? 0) > 0
 
   const allowedActions = ALLOWED_ACTIONS[status] ?? []
-  // "Terminal" here means visually dimmed — statuses that the operator already
-  // closed out. They can still expose a Reabrir action via allowedActions, so
-  // we can't derive this from the list anymore.
   const isTerminal = status === 'COMPLETED' || status === 'NO_SHOW' || status === 'CANCELLED'
 
   async function handleRedeem() {
@@ -73,6 +82,12 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
     onAction('cancel', { reason: reason.trim() || undefined })
     setShowCancel(false)
     setReason('')
+  }
+
+  function handleComplete() {
+    onAction('complete', { paymentMethod })
+    setShowComplete(false)
+    setPaymentMethod('CASH')
   }
 
   return (
@@ -139,6 +154,16 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
         <span className="text-xs text-gray-500">{professional.displayName}</span>
       </div>
 
+      {/* Payment method badge (completed appointments) */}
+      {status === 'COMPLETED' && appointment.paymentMethod && (
+        <div className="mt-2">
+          <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700">
+            <CreditCard size={10} />
+            {PAYMENT_LABELS[appointment.paymentMethod] ?? appointment.paymentMethod}
+          </span>
+        </div>
+      )}
+
       {/* Notes */}
       {notes && (
         <p className="mt-2 rounded-lg bg-gray-50 px-3 py-1.5 text-xs text-gray-600 italic">
@@ -164,9 +189,9 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
       )}
 
       {/* Action buttons */}
-      {allowedActions.length > 0 && !showCancel && (
+      {allowedActions.length > 0 && !showCancel && !showComplete && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {allowedActions.filter(a => a !== 'cancel').map(action => (
+          {allowedActions.filter(a => a !== 'cancel' && a !== 'complete').map(action => (
             <button
               key={action}
               disabled={isLoading}
@@ -179,6 +204,18 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
               {ACTION_CONFIG[action].label}
             </button>
           ))}
+          {allowedActions.includes('complete') && (
+            <button
+              disabled={isLoading}
+              onClick={() => setShowComplete(true)}
+              className={cn(
+                'rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50',
+                ACTION_CONFIG.complete.cls,
+              )}
+            >
+              {ACTION_CONFIG.complete.label}
+            </button>
+          )}
           {allowedActions.includes('cancel') && (
             <button
               disabled={isLoading}
@@ -196,6 +233,48 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
 
       {/* Attachments */}
       <AttachmentsPanel tenantId={appointment.tenantId} appointmentId={appointment.id} />
+
+      {/* Complete with payment method */}
+      {showComplete && (
+        <div className="mt-3 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p className="text-xs font-medium text-gray-800">Medio de pago</p>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {PAYMENT_METHODS.map(pm => {
+              const selected = paymentMethod === pm.value
+              return (
+                <button
+                  key={pm.value}
+                  type="button"
+                  onClick={() => setPaymentMethod(pm.value)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors',
+                    selected
+                      ? 'border-brand-300 bg-brand-50 text-brand-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
+                  )}
+                >
+                  <pm.icon size={13} className={selected ? 'text-brand-600' : 'text-gray-400'} />
+                  {pm.label}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleComplete}
+              className="flex-1 rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+            >
+              Completar turno
+            </button>
+            <button
+              onClick={() => { setShowComplete(false); setPaymentMethod('CASH') }}
+              className="flex-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Cancel confirmation inline */}
       {showCancel && (

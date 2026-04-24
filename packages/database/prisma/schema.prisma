@@ -432,6 +432,7 @@ model Appointment {
   rescheduledFromId  String?           // id del appointment original
   confirmedAt        DateTime?
   completedAt        DateTime?
+  paymentMethod      String?
   // ── Google Calendar sync ──────────────────────────────────────────────────
   googleCalendarEventId String?
   // ── Stage 1 ──────────────────────────────────────────────────────────────

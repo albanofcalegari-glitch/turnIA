@@ -111,8 +111,12 @@ export class AppointmentsController {
 
   @Patch(':id/complete')
   @UseGuards(JwtAuthGuard, TenantGuard)
-  complete(@TenantId() tenantId: string, @Param('id') id: string) {
-    return this.appointmentsService.complete(tenantId, id)
+  complete(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body('paymentMethod') paymentMethod?: string,
+  ) {
+    return this.appointmentsService.complete(tenantId, id, paymentMethod)
   }
 
   @Patch(':id/cancel')
