@@ -31,17 +31,22 @@ export function Dialog({
 }: DialogProps) {
   useEffect(() => {
     if (!open) return
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKey)
-    const prevOverflow = document.body.style.overflow
+    const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', handleKey)
-      document.body.style.overflow = prevOverflow
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        if (overlay) e.stopImmediatePropagation()
+        onClose()
+      }
     }
-  }, [open, onClose])
+    document.addEventListener('keydown', handleKey, overlay)
+    return () => document.removeEventListener('keydown', handleKey, overlay)
+  }, [open, onClose, overlay])
 
   if (!open) return null
 

@@ -215,7 +215,7 @@ export class AuthService {
       },
     })
 
-    await this.mail.sendOtpCode({ to: user.email, code, tenantName })
+    await this.mail.sendOtpCode({ to: user.email, code, tenantName, purpose: 'verification' })
     return { sent: true }
   }
 

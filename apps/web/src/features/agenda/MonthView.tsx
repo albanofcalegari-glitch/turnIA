@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn, formatTime, toDateString } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
@@ -33,6 +33,7 @@ export function MonthView({ agenda, timezone }: Props) {
   } = agenda
 
   const [openDate, setOpenDate] = useState<string | null>(null)
+  const closeDetail = useCallback(() => setOpenDate(null), [])
 
   const anchor = useMemo(() => new Date(selectedDate + 'T12:00:00'), [selectedDate])
   const monthIdx = anchor.getMonth()
@@ -157,7 +158,7 @@ export function MonthView({ agenda, timezone }: Props) {
       {/* Day detail modal */}
       <Dialog
         open={openDate !== null}
-        onClose={() => setOpenDate(null)}
+        onClose={closeDetail}
         title={openDate ? formatDayLabel(openDate) : undefined}
         className="max-w-lg"
       >

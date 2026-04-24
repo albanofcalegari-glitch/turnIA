@@ -67,11 +67,14 @@ export class MailService {
     return this.send({ to: args.to, subject, html })
   }
 
-  async sendOtpCode(args: { to: string; code: string; tenantName: string }) {
+  async sendOtpCode(args: { to: string; code: string; tenantName: string; purpose?: 'booking' | 'verification' }) {
     const subject = `${args.code} — Tu código de verificación`
+    const purposeText = args.purpose === 'verification'
+      ? `verificar tu email en <strong>${escape(args.tenantName)}</strong>`
+      : `continuar con tu reserva en <strong>${escape(args.tenantName)}</strong>`
     const html = layout(`
       <h1 style="margin:0 0 16px;font-size:22px;">Código de verificación</h1>
-      <p>Usá este código para continuar con tu reserva en <strong>${escape(args.tenantName)}</strong>:</p>
+      <p>Usá este código para ${purposeText}:</p>
       <div style="margin:24px 0;text-align:center;">
         <span style="display:inline-block;background:#f3f4f6;border:2px solid #e5e7eb;border-radius:12px;padding:16px 32px;font-size:32px;font-weight:700;letter-spacing:8px;color:#111;">${args.code}</span>
       </div>
