@@ -1,278 +1,204 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Building2, Users, Calendar, Scissors, AlertTriangle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import {
+  Building2, Calendar, Users, TrendingUp, ArrowUpRight, ArrowDownRight,
+  CheckCircle2, XCircle, Clock, AlertTriangle, BarChart3,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { apiClient, type AdminTenant } from '@/lib/api'
+import { apiClient, type AdminStats, type PaymentMetrics } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
-import { Button } from '@/components/ui/Button'
 
-const PLAN_LABELS: Record<string, string> = {
-  trial:    'Trial',
-  standard: 'Estándar',
-  free:     'Free',
-  starter:  'Starter',
-  pro:      'Pro',
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
 }
 
 const PLAN_COLORS: Record<string, string> = {
-  trial:    'bg-amber-100 text-amber-700',
-  standard: 'bg-green-100 text-green-700',
-  free:     'bg-gray-100 text-gray-600',
-  starter:  'bg-blue-100 text-blue-700',
-  pro:      'bg-brand-100 text-brand-700',
+  trial: 'bg-amber-500/20 text-amber-600 dark:text-amber-400',
+  standard: 'bg-green-500/20 text-green-600 dark:text-green-400',
+  pro: 'bg-brand-500/20 text-brand-700 dark:text-brand-400',
+  free: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  starter: 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  peluqueria: 'Peluqueria',
-  barberia: 'Barberia',
-  spa: 'Spa',
-  estetica: 'Estetica',
-  masajes: 'Masajes',
-  custom: 'Otro',
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-AR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  })
-}
-
-function isExpired(date: string | null) {
-  if (!date) return false
-  return new Date(date) < new Date()
-}
-
-function isExpiringSoon(date: string | null) {
-  if (!date) return false
-  const d = new Date(date)
-  const now = new Date()
-  const diff = d.getTime() - now.getTime()
-  return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000 // 7 days
-}
-
-export default function AdminPage() {
-  const [tenants, setTenants] = useState<AdminTenant[]>([])
+export default function AdminDashboard() {
+  const [stats, setStats]     = useState<AdminStats | null>(null)
+  const [metrics, setMetrics] = useState<PaymentMetrics | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
 
   useEffect(() => {
-    apiClient.getAllTenants()
-      .then(setTenants)
-      .catch(() => setError('Error al cargar negocios'))
-      .finally(() => setLoading(false))
+    Promise.all([
+      apiClient.adminGetStats(),
+      apiClient.adminGetPaymentMetrics().catch(() => null),
+    ]).then(([s, m]) => {
+      setStats(s)
+      setMetrics(m)
+    }).finally(() => setLoading(false))
   }, [])
 
-  async function toggleActive(tenant: AdminTenant) {
-    try {
-      const updated = await apiClient.updateTenant(tenant.id, { isActive: !tenant.isActive })
-      setTenants(prev => prev.map(t => t.id === tenant.id ? { ...t, ...updated } : t))
-    } catch {
-      setError('Error al actualizar')
-    }
-  }
+  if (loading) return <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
+  if (!stats) return null
 
-  async function updateMembership(id: string, date: string | null, plan: string) {
-    try {
-      const updated = await apiClient.updateTenant(id, {
-        membershipExpiresAt: date,
-        plan,
-      })
-      setTenants(prev => prev.map(t => t.id === id ? { ...t, ...updated } : t))
-      setEditingId(null)
-    } catch {
-      setError('Error al actualizar membresia')
-    }
-  }
+  const monthDelta = stats.appointmentsLastMonth > 0
+    ? Math.round(((stats.appointmentsThisMonth - stats.appointmentsLastMonth) / stats.appointmentsLastMonth) * 100)
+    : null
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
-  const active = tenants.filter(t => t.isActive)
-  const inactive = tenants.filter(t => !t.isActive)
-  const expiringSoon = tenants.filter(t => t.isActive && isExpiringSoon(t.membershipExpiresAt))
+  const confirmed = stats.appointmentsByStatus['CONFIRMED'] ?? 0
+  const completed = stats.appointmentsByStatus['COMPLETED'] ?? 0
+  const cancelled = stats.appointmentsByStatus['CANCELLED'] ?? 0
+  const pending   = stats.appointmentsByStatus['PENDING'] ?? 0
+  const noShow    = stats.appointmentsByStatus['NO_SHOW'] ?? 0
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-bold text-gray-900 sm:text-2xl">Negocios registrados</h1>
-
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 underline">Cerrar</button>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        <StatCard icon={Building2} label="Total" value={tenants.length} />
-        <StatCard icon={Calendar} label="Activos" value={active.length} color="text-green-600" />
-        <StatCard icon={AlertTriangle} label="Por vencer" value={expiringSoon.length} color="text-amber-600" />
-        <StatCard icon={Building2} label="Inactivos" value={inactive.length} color="text-red-500" />
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">Dashboard</h1>
+        <span className="text-xs text-gray-500">{new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
       </div>
 
-      {/* Tenant list */}
-      {tenants.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
-          <Building2 size={32} className="mx-auto text-gray-300" />
-          <p className="mt-3 font-medium text-gray-700">No hay negocios registrados</p>
+      {/* KPI cards */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+        <KpiCard icon={Building2} label="Negocios" value={stats.totalTenants} sub={`${stats.activeTenants} activos`} color="text-blue-600 dark:text-blue-400" />
+        <KpiCard icon={Calendar} label="Turnos totales" value={stats.totalAppointments} color="text-brand-700 dark:text-brand-400" />
+        <KpiCard
+          icon={TrendingUp}
+          label="Turnos (mes)"
+          value={stats.appointmentsThisMonth}
+          delta={monthDelta}
+          color="text-green-600 dark:text-green-400"
+        />
+        <KpiCard icon={AlertTriangle} label="En trial" value={stats.trialTenants} color="text-amber-600 dark:text-amber-400" />
+        {metrics && (
+          <KpiCard icon={BarChart3} label="MRR" value={`$${metrics.mrr.toLocaleString('es-AR')}`} color="text-emerald-600 dark:text-emerald-400" />
+        )}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Appointments by status */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Turnos por estado</h2>
+          <div className="space-y-3">
+            <StatusBar label="Confirmados" value={confirmed} total={stats.totalAppointments} icon={CheckCircle2} color="bg-green-500" textColor="text-green-600 dark:text-green-400" />
+            <StatusBar label="Completados" value={completed} total={stats.totalAppointments} icon={CheckCircle2} color="bg-brand-500" textColor="text-brand-700 dark:text-brand-400" />
+            <StatusBar label="Pendientes" value={pending} total={stats.totalAppointments} icon={Clock} color="bg-amber-500" textColor="text-amber-600 dark:text-amber-400" />
+            <StatusBar label="Cancelados" value={cancelled} total={stats.totalAppointments} icon={XCircle} color="bg-red-500" textColor="text-red-600 dark:text-red-400" />
+            <StatusBar label="No show" value={noShow} total={stats.totalAppointments} icon={XCircle} color="bg-gray-500" textColor="text-gray-600 dark:text-gray-400" />
+          </div>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {tenants.map(tenant => (
-            <TenantRow
-              key={tenant.id}
-              tenant={tenant}
-              isEditing={editingId === tenant.id}
-              onToggleEdit={() => setEditingId(editingId === tenant.id ? null : tenant.id)}
-              onToggleActive={() => toggleActive(tenant)}
-              onSaveMembership={(date, plan) => updateMembership(tenant.id, date, plan)}
-            />
-          ))}
+
+        {/* Evolution chart */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Evolución (6 meses)</h2>
+          <div className="space-y-2">
+            {stats.evolution.map(e => {
+              const maxAppt = Math.max(...stats.evolution.map(x => x.appointments), 1)
+              return (
+                <div key={e.month} className="flex items-center gap-3">
+                  <span className="w-16 text-xs text-gray-500">{e.month}</span>
+                  <div className="flex-1">
+                    <div className="h-5 rounded-full bg-gray-100 dark:bg-gray-800">
+                      <div
+                        className="flex h-5 items-center rounded-full bg-brand-100 px-2 text-[10px] font-medium text-brand-700 transition-all dark:bg-brand-600/40 dark:text-brand-300"
+                        style={{ width: `${Math.max((e.appointments / maxAppt) * 100, 8)}%` }}
+                      >
+                        {e.appointments}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="w-12 text-right text-xs text-gray-500">{e.tenants} neg.</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
-      )}
+
+        {/* Top tenants */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Top negocios por turnos</h2>
+            <Link href="/admin/negocios" className="text-xs text-brand-600 hover:underline dark:text-brand-400">Ver todos</Link>
+          </div>
+          <div className="space-y-2">
+            {stats.topTenants.map((t, i) => (
+              <div key={t.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 dark:bg-gray-800 dark:text-gray-400">{i + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{t.name}</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">/{t.slug}</p>
+                </div>
+                <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', PLAN_COLORS[t.plan] ?? PLAN_COLORS.free)}>
+                  {t.plan}
+                </span>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t._count.appointments}</p>
+                  <p className="text-[10px] text-gray-500">turnos</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent tenants */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Últimos registros</h2>
+          <div className="space-y-2">
+            {stats.recentTenants.map(t => (
+              <div key={t.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <div className={cn('h-2.5 w-2.5 rounded-full', t.isActive ? 'bg-green-500' : 'bg-red-400')} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{t.name}</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">/{t.slug}</p>
+                </div>
+                <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', PLAN_COLORS[t.plan] ?? PLAN_COLORS.free)}>
+                  {t.plan}
+                </span>
+                <span className="text-xs text-gray-500">{formatDate(t.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
-function StatCard({ icon: Icon, label, value, color }: {
-  icon: any; label: string; value: number; color?: string
+function KpiCard({ icon: Icon, label, value, sub, delta, color }: {
+  icon: any; label: string; value: string | number; sub?: string; delta?: number | null; color?: string
 }) {
   return (
-    <div className="rounded-xl border bg-white p-4">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
       <div className="flex items-center gap-2">
-        <Icon size={16} className={color ?? 'text-gray-400'} />
-        <span className="text-sm text-gray-500">{label}</span>
+        <Icon size={14} className={color ?? 'text-gray-500'} />
+        <span className="text-xs text-gray-500">{label}</span>
       </div>
-      <p className={cn('mt-1 text-2xl font-bold', color ?? 'text-gray-900')}>{value}</p>
+      <p className={cn('mt-1 text-2xl font-bold', color ?? 'text-gray-900 dark:text-white')}>{typeof value === 'number' ? value.toLocaleString('es-AR') : value}</p>
+      {sub && <p className="text-[10px] text-gray-500">{sub}</p>}
+      {delta !== undefined && delta !== null && (
+        <div className={cn('mt-1 flex items-center gap-0.5 text-xs font-medium', delta >= 0 ? 'text-green-500' : 'text-red-500')}>
+          {delta >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+          {Math.abs(delta)}% vs mes ant.
+        </div>
+      )}
     </div>
   )
 }
 
-function TenantRow({ tenant, isEditing, onToggleEdit, onToggleActive, onSaveMembership }: {
-  tenant: AdminTenant
-  isEditing: boolean
-  onToggleEdit: () => void
-  onToggleActive: () => void
-  onSaveMembership: (date: string | null, plan: string) => void
+function StatusBar({ label, value, total, icon: Icon, color, textColor }: {
+  label: string; value: number; total: number; icon: any; color: string; textColor: string
 }) {
-  const [expDate, setExpDate] = useState(tenant.membershipExpiresAt?.slice(0, 10) ?? '')
-  const [plan, setPlan] = useState(tenant.plan)
-  const expired = isExpired(tenant.membershipExpiresAt)
-  const expiring = isExpiringSoon(tenant.membershipExpiresAt)
-
+  const pct = total > 0 ? (value / total) * 100 : 0
   return (
-    <div className={cn(
-      'rounded-xl border bg-white p-4',
-      !tenant.isActive && 'opacity-60',
-    )}>
-      {/* Main row */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={cn(
-            'h-3 w-3 flex-shrink-0 rounded-full',
-            tenant.isActive ? 'bg-green-500' : 'bg-red-400',
-          )} />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold text-gray-900">{tenant.name}</p>
-              <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', PLAN_COLORS[tenant.plan] ?? PLAN_COLORS.free)}>
-                {PLAN_LABELS[tenant.plan] ?? tenant.plan}
-              </span>
-              {expired && (
-                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
-                  Vencido
-                </span>
-              )}
-              {expiring && (
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                  Por vencer
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-gray-400">
-              /{tenant.slug} · {TYPE_LABELS[tenant.type] ?? tenant.type} · Creado {formatDate(tenant.createdAt)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-          <span className="flex items-center gap-1 text-xs text-gray-400" title="Servicios">
-            <Scissors size={12} /> {tenant._count.services}
-          </span>
-          <span className="flex items-center gap-1 text-xs text-gray-400" title="Profesionales">
-            <Users size={12} /> {tenant._count.professionals}
-          </span>
-          <span className="flex items-center gap-1 text-xs text-gray-400" title="Turnos">
-            <Calendar size={12} /> {tenant._count.appointments}
-          </span>
-
-          {tenant.membershipExpiresAt && (
-            <span className={cn(
-              'text-xs',
-              expired ? 'text-red-500 font-medium' : 'text-gray-400',
-            )}>
-              Vence: {formatDate(tenant.membershipExpiresAt)}
-            </span>
-          )}
-
-          <Button size="sm" variant="ghost" onClick={onToggleEdit}>
-            {isEditing ? 'Cerrar' : 'Editar'}
-          </Button>
-          <Button
-            size="sm"
-            variant={tenant.isActive ? 'danger' : 'primary'}
-            onClick={onToggleActive}
-          >
-            {tenant.isActive ? 'Desactivar' : 'Activar'}
-          </Button>
+    <div className="flex items-center gap-3">
+      <Icon size={14} className={textColor} />
+      <span className="w-24 text-xs text-gray-500 dark:text-gray-400">{label}</span>
+      <div className="flex-1">
+        <div className="h-4 rounded-full bg-gray-100 dark:bg-gray-800">
+          <div className={cn('h-4 rounded-full transition-all', color)} style={{ width: `${Math.max(pct, 1)}%` }} />
         </div>
       </div>
-
-      {/* Edit panel */}
-      {isEditing && (
-        <div className="mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-end">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Plan</label>
-            <select
-              value={plan}
-              onChange={e => setPlan(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="trial">Trial</option>
-              <option value="standard">Estándar</option>
-              <option value="free">Free</option>
-              <option value="starter">Starter</option>
-              <option value="pro">Pro</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Vigencia hasta</label>
-            <input
-              type="date"
-              value={expDate}
-              onChange={e => setExpDate(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => onSaveMembership(expDate || null, plan)}>
-              Guardar
-            </Button>
-            {expDate && (
-              <Button size="sm" variant="ghost" onClick={() => { setExpDate(''); onSaveMembership(null, plan) }}>
-                Sin vencimiento
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+      <span className={cn('w-12 text-right text-sm font-semibold', textColor)}>{value}</span>
+      <span className="w-10 text-right text-[10px] text-gray-500">{pct.toFixed(0)}%</span>
     </div>
   )
 }

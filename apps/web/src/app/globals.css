@@ -15,7 +15,11 @@
   }
 
   body {
-    @apply text-gray-900;
+    @apply bg-white text-gray-900 transition-colors duration-200;
+  }
+
+  .dark body {
+    @apply bg-gray-950 text-gray-100;
   }
 
   /* Subtle scrollbar for the main content area */
@@ -32,6 +36,12 @@
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-400;
   }
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-gray-700;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-600;
+  }
 }
 
 @layer components {
@@ -39,7 +49,13 @@
   .card {
     @apply rounded-xl border border-gray-200/80 bg-white shadow-card;
   }
+  .dark .card {
+    @apply border-gray-800 bg-gray-900 shadow-none;
+  }
   .card-hover {
     @apply card transition-shadow duration-200 hover:shadow-card-hover;
+  }
+  .dark .card-hover {
+    @apply hover:border-gray-700;
   }
 }

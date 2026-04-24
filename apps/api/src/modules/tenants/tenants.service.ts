@@ -153,4 +153,77 @@ export class TenantsService {
     })
     return { deactivated: result.count }
   }
+
+  async adminStats() {
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+
+    const [
+      totalTenants,
+      activeTenants,
+      trialTenants,
+      appointments,
+      appointmentsThisMonth,
+      appointmentsLastMonth,
+      byStatus,
+      recentTenants,
+      topTenants,
+    ] = await Promise.all([
+      this.prisma.tenant.count(),
+      this.prisma.tenant.count({ where: { isActive: true } }),
+      this.prisma.tenant.count({ where: { plan: 'trial', isActive: true } }),
+      this.prisma.appointment.count(),
+      this.prisma.appointment.count({ where: { createdAt: { gte: startOfMonth } } }),
+      this.prisma.appointment.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfMonth } } }),
+      this.prisma.appointment.groupBy({
+        by: ['status'],
+        _count: true,
+      }),
+      this.prisma.tenant.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: { id: true, name: true, slug: true, plan: true, createdAt: true, isActive: true },
+      }),
+      this.prisma.tenant.findMany({
+        where: { isActive: true },
+        orderBy: { appointments: { _count: 'desc' } },
+        take: 10,
+        select: {
+          id: true, name: true, slug: true, plan: true,
+          _count: { select: { appointments: true, professionals: true, services: true } },
+        },
+      }),
+    ])
+
+    const statusMap: Record<string, number> = {}
+    for (const s of byStatus) statusMap[s.status] = s._count
+
+    const last6Months: { month: string; tenants: number; appointments: number }[] = []
+    for (let i = 5; i >= 0; i--) {
+      const start = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1)
+      const label = start.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' })
+
+      const [tCount, aCount] = await Promise.all([
+        this.prisma.tenant.count({ where: { createdAt: { lt: end } } }),
+        this.prisma.appointment.count({ where: { createdAt: { gte: start, lt: end } } }),
+      ])
+      last6Months.push({ month: label, tenants: tCount, appointments: aCount })
+    }
+
+    return {
+      totalTenants,
+      activeTenants,
+      inactiveTenants: totalTenants - activeTenants,
+      trialTenants,
+      totalAppointments: appointments,
+      appointmentsThisMonth,
+      appointmentsLastMonth,
+      appointmentsByStatus: statusMap,
+      recentTenants,
+      topTenants,
+      evolution: last6Months,
+    }
+  }
 }

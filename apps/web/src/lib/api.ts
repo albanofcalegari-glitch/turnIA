@@ -545,6 +545,9 @@ class ApiClient {
       method: 'POST',
     })
 
+  adminGetStats = () =>
+    this.request<AdminStats>('/tenants/admin/stats')
+
   // ── Subscriptions (Mercado Pago) ────────────────────────────────────────
 
   /**
@@ -842,6 +845,20 @@ export interface AdminTenant {
     professionals: number
     services:      number
   }
+}
+
+export interface AdminStats {
+  totalTenants:         number
+  activeTenants:        number
+  inactiveTenants:      number
+  trialTenants:         number
+  totalAppointments:    number
+  appointmentsThisMonth: number
+  appointmentsLastMonth: number
+  appointmentsByStatus: Record<string, number>
+  recentTenants:        { id: string; name: string; slug: string; plan: string; createdAt: string; isActive: boolean }[]
+  topTenants:           { id: string; name: string; slug: string; plan: string; _count: { appointments: number; professionals: number; services: number } }[]
+  evolution:            { month: string; tenants: number; appointments: number }[]
 }
 
 export const apiClient = new ApiClient()

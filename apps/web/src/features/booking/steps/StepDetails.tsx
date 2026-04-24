@@ -1,8 +1,10 @@
 'use client'
 
+import { useState, useRef, useEffect } from 'react'
 import { cn, formatDateLong, formatTime } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
+import { apiClient } from '@/lib/api'
 import type { useBooking } from '../useBooking'
 
 type BookingHook = ReturnType<typeof useBooking>
@@ -37,8 +39,18 @@ const inputCls = cn(
   'focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20',
 )
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const SUSPICIOUS_RE = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER|CREATE|EXEC)\b|--|;|'|"|1\s*=\s*1|OR\s+1)/i
+
+function isValidEmail(v: string): boolean {
+  return EMAIL_RE.test(v.trim()) && !SUSPICIOUS_RE.test(v)
+}
+
+type Phase = 'email' | 'otp' | 'form'
+
 export function StepDetails({ booking }: Props) {
   const {
+    tenant,
     selectedServices,
     selectedProfessional,
     selectedDate,
@@ -53,12 +65,118 @@ export function StepDetails({ booking }: Props) {
     serviceBookings,
   } = booking
 
-  const isValid = guestInfo.name.trim().length > 0 && guestInfo.email.trim().length > 0
+  // ── OTP state ─────────────────────────────────────────────────────────────
+  const [phase, setPhase]         = useState<Phase>('email')
+  const [otpSending, setOtpSending] = useState(false)
+  const [otpError, setOtpError]   = useState<string | null>(null)
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', ''])
+  const [verifying, setVerifying] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [cooldown, setCooldown]   = useState(0)
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
-  // In multi-turno mode the user has booked N independent appointments via
-  // serviceBookings; the summary lists each one. In every other case (single
-  // service OR multi-service-with-unified-pro) we sum the price of the
-  // selected services and render a single combined summary.
+  // Cooldown timer for resend
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
+
+  const tenantId = tenant?.id ?? ''
+
+  // ── Phase 1: Request OTP ──────────────────────────────────────────────────
+  async function handleRequestOtp() {
+    const email = guestInfo.email.trim()
+    if (!email) { setEmailError('Ingresá tu email.'); return }
+    if (!isValidEmail(email)) {
+      setEmailError('Ingresá un email válido.')
+      return
+    }
+    setEmailError(null)
+    setOtpError(null)
+    setOtpSending(true)
+    try {
+      await apiClient.requestOtp(tenantId, email)
+      setPhase('otp')
+      setCooldown(60)
+      setTimeout(() => inputRefs.current[0]?.focus(), 100)
+    } catch (err: any) {
+      setOtpError(err?.message ?? 'No se pudo enviar el código. Intentá de nuevo.')
+    } finally {
+      setOtpSending(false)
+    }
+  }
+
+  // ── Phase 2: Verify OTP ───────────────────────────────────────────────────
+  function handleDigitChange(index: number, value: string) {
+    if (!/^\d?$/.test(value)) return
+    const next = [...otpDigits]
+    next[index] = value
+    setOtpDigits(next)
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus()
+    }
+    // Auto-verify when all 6 digits filled
+    if (value && next.every(d => d !== '')) {
+      verifyCode(next.join(''))
+    }
+  }
+
+  function handleDigitKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (pasted.length === 6) {
+      const digits = pasted.split('')
+      setOtpDigits(digits)
+      inputRefs.current[5]?.focus()
+      verifyCode(pasted)
+    }
+  }
+
+  async function verifyCode(code: string) {
+    setOtpError(null)
+    setVerifying(true)
+    try {
+      const res = await apiClient.verifyOtp(tenantId, guestInfo.email.trim(), code)
+      if (res.valid) {
+        if (res.token) {
+          try { localStorage.setItem('turnit_guest_token', res.token) } catch {}
+        }
+        setPhase('form')
+      }
+    } catch (err: any) {
+      setOtpError(err?.message ?? 'Código inválido.')
+      setOtpDigits(['', '', '', '', '', ''])
+      setTimeout(() => inputRefs.current[0]?.focus(), 100)
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  async function handleResendOtp() {
+    if (cooldown > 0) return
+    setOtpError(null)
+    setOtpSending(true)
+    try {
+      await apiClient.requestOtp(tenantId, guestInfo.email.trim())
+      setCooldown(60)
+      setOtpDigits(['', '', '', '', '', ''])
+    } catch (err: any) {
+      setOtpError(err?.message ?? 'No se pudo reenviar el código.')
+    } finally {
+      setOtpSending(false)
+    }
+  }
+
+  // ── Validation ────────────────────────────────────────────────────────────
+  const isValid = guestInfo.name.trim().length > 0
+
   const totalPrice = requiresMultiTurno
     ? serviceBookings.reduce(
         (acc, b) => acc + (typeof b.service.price === 'string' ? parseFloat(b.service.price) : b.service.price),
@@ -74,7 +192,11 @@ export function StepDetails({ booking }: Props) {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-900">Confirmá tu reserva</h2>
         <p className="mt-1 text-sm text-gray-500">
-          {requiresMultiTurno
+          {phase === 'email'
+            ? 'Ingresá tu email para verificar tu identidad.'
+            : phase === 'otp'
+            ? 'Ingresá el código de 6 dígitos que te enviamos por email.'
+            : requiresMultiTurno
             ? `Vas a reservar ${serviceBookings.length} turnos. Completá tus datos para confirmar.`
             : 'Completá tus datos para confirmar el turno.'}
         </p>
@@ -82,7 +204,6 @@ export function StepDetails({ booking }: Props) {
 
       {/* Booking summary */}
       {requiresMultiTurno ? (
-        /* Multi-service: show each booking separately */
         <div className="mb-6 space-y-3">
           {serviceBookings.map((b, idx) => (
             <div key={idx} className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
@@ -92,9 +213,7 @@ export function StepDetails({ booking }: Props) {
                 </span>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-gray-900">{b.service.name}</p>
-                  <p className="text-xs text-gray-500">
-                    con {b.professional.displayName}
-                  </p>
+                  <p className="text-xs text-gray-500">con {b.professional.displayName}</p>
                 </div>
                 <p className="text-sm font-semibold text-gray-900">
                   {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(
@@ -110,8 +229,6 @@ export function StepDetails({ booking }: Props) {
               </div>
             </div>
           ))}
-
-          {/* Total */}
           <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
             <p className="text-sm font-medium text-gray-600">Total ({serviceBookings.length} turnos)</p>
             <p className="text-base font-bold text-gray-900">
@@ -120,7 +237,6 @@ export function StepDetails({ booking }: Props) {
           </div>
         </div>
       ) : (
-        /* Single service: original summary */
         <div className="mb-6 rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
           {selectedProfessional && (
             <div className="flex items-center gap-3 px-4 py-3">
@@ -131,7 +247,6 @@ export function StepDetails({ booking }: Props) {
               </div>
             </div>
           )}
-
           <div className="flex items-center gap-3 px-4 py-3">
             <span className="text-lg">✂️</span>
             <div>
@@ -143,7 +258,6 @@ export function StepDetails({ booking }: Props) {
               </p>
             </div>
           </div>
-
           {selectedDate && selectedSlot && (
             <div className="flex items-center gap-3 px-4 py-3">
               <span className="text-lg">📅</span>
@@ -155,7 +269,6 @@ export function StepDetails({ booking }: Props) {
               </div>
             </div>
           )}
-
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
               <span className="text-lg">💰</span>
@@ -168,82 +281,183 @@ export function StepDetails({ booking }: Props) {
         </div>
       )}
 
-      {/* Guest info form */}
-      <div className="space-y-4">
-        <Field label="Nombre completo" required>
-          <input
-            type="text"
-            className={inputCls}
-            placeholder="Juan García"
-            value={guestInfo.name}
-            onChange={e => updateGuestInfo('name', e.target.value)}
-            autoComplete="name"
-          />
-        </Field>
+      {/* ── Phase 1: Email input ─────────────────────────────────────────── */}
+      {phase === 'email' && (
+        <div className="space-y-4">
+          <Field label="Email" required>
+            <input
+              type="email"
+              className={cn(inputCls, emailError && 'border-red-400')}
+              placeholder="juan@ejemplo.com"
+              value={guestInfo.email}
+              onChange={e => {
+                updateGuestInfo('email', e.target.value)
+                setEmailError(null)
+              }}
+              onKeyDown={e => e.key === 'Enter' && handleRequestOtp()}
+              autoComplete="email"
+              autoFocus
+            />
+            {emailError && (
+              <p className="mt-1 text-xs text-red-600">{emailError}</p>
+            )}
+          </Field>
 
-        <Field label="Email" required>
-          <input
-            type="email"
-            className={inputCls}
-            placeholder="juan@ejemplo.com"
-            value={guestInfo.email}
-            onChange={e => updateGuestInfo('email', e.target.value)}
-            autoComplete="email"
-          />
-        </Field>
+          {otpError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {otpError}
+            </div>
+          )}
 
-        <Field label="Teléfono">
-          <input
-            type="tel"
-            inputMode="tel"
-            className={inputCls}
-            placeholder="+54 9 11 1234-5678"
-            value={guestInfo.phone}
-            onChange={e => updateGuestInfo('phone', e.target.value.replace(/[^\d+\-\s()]/g, ''))}
-            autoComplete="tel"
-          />
-        </Field>
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={!guestInfo.email.trim() || otpSending}
+            onClick={handleRequestOtp}
+          >
+            {otpSending ? (
+              <><Spinner size="sm" className="text-white" /> Enviando código…</>
+            ) : (
+              'Enviar código de verificación'
+            )}
+          </Button>
 
-        <Field label="Notas para el profesional">
-          <textarea
-            className={cn(inputCls, 'resize-none')}
-            rows={3}
-            placeholder="Ej: cabello teñido, alergias, preferencias…"
-            value={guestInfo.notes}
-            onChange={e => updateGuestInfo('notes', e.target.value)}
-          />
-        </Field>
-      </div>
-
-      {/* Submit error */}
-      {submitError && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {submitError}
+          <p className="text-center text-xs text-gray-400">
+            Te enviaremos un código de 6 dígitos a tu email para verificar tu identidad.
+          </p>
         </div>
       )}
 
-      {/* Submit button */}
-      <Button
-        size="lg"
-        className="mt-6 w-full"
-        disabled={!isValid || submitting}
-        onClick={submit}
-      >
-        {submitting ? (
-          <>
-            <Spinner size="sm" className="text-white" />
-            Confirmando…
-          </>
-        ) : requiresMultiTurno ? (
-          `Confirmar ${serviceBookings.length} turnos`
-        ) : (
-          'Confirmar turno'
-        )}
-      </Button>
+      {/* ── Phase 2: OTP input ───────────────────────────────────────────── */}
+      {phase === 'otp' && (
+        <div className="space-y-4">
+          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            Enviamos un código a <strong>{guestInfo.email}</strong>
+          </div>
 
-      <p className="mt-3 text-center text-xs text-gray-400">
-        Anotá la fecha y hora del turno. Si necesitás cancelarlo, podés hacerlo desde la sección "Cancelar turno".
-      </p>
+          <div className="flex justify-center gap-2" onPaste={handlePaste}>
+            {otpDigits.map((digit, i) => (
+              <input
+                key={i}
+                ref={el => { inputRefs.current[i] = el }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={e => handleDigitChange(i, e.target.value)}
+                onKeyDown={e => handleDigitKeyDown(i, e)}
+                className={cn(
+                  'h-12 w-10 rounded-lg border-2 text-center text-lg font-bold',
+                  'focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20',
+                  otpError ? 'border-red-300' : 'border-gray-300',
+                )}
+                autoFocus={i === 0}
+              />
+            ))}
+          </div>
+
+          {verifying && (
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+              <Spinner size="sm" /> Verificando…
+            </div>
+          )}
+
+          {otpError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {otpError}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => { setPhase('email'); setOtpError(null); setOtpDigits(['','','','','','']) }}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              Cambiar email
+            </button>
+            <button
+              onClick={handleResendOtp}
+              disabled={cooldown > 0 || otpSending}
+              className={cn(
+                'text-sm font-medium',
+                cooldown > 0 ? 'text-gray-400' : 'text-brand-600 hover:text-brand-700',
+              )}
+            >
+              {otpSending ? 'Reenviando…' : cooldown > 0 ? `Reenviar (${cooldown}s)` : 'Reenviar código'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Phase 3: Guest info form (post-verification) ─────────────────── */}
+      {phase === 'form' && (
+        <>
+          <div className="mb-4 rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800">
+            Email verificado: <strong>{guestInfo.email}</strong>
+          </div>
+
+          <div className="space-y-4">
+            <Field label="Nombre completo" required>
+              <input
+                type="text"
+                className={inputCls}
+                placeholder="Juan García"
+                value={guestInfo.name}
+                onChange={e => updateGuestInfo('name', e.target.value)}
+                autoComplete="name"
+                autoFocus
+              />
+            </Field>
+
+            <Field label="Teléfono">
+              <input
+                type="tel"
+                inputMode="tel"
+                className={inputCls}
+                placeholder="+54 9 11 1234-5678"
+                value={guestInfo.phone}
+                onChange={e => updateGuestInfo('phone', e.target.value.replace(/[^\d+\-\s()]/g, ''))}
+                autoComplete="tel"
+              />
+            </Field>
+
+            <Field label="Notas para el profesional">
+              <textarea
+                className={cn(inputCls, 'resize-none')}
+                rows={3}
+                placeholder="Ej: cabello teñido, alergias, preferencias…"
+                value={guestInfo.notes}
+                onChange={e => updateGuestInfo('notes', e.target.value)}
+              />
+            </Field>
+          </div>
+
+          {submitError && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {submitError}
+            </div>
+          )}
+
+          <Button
+            size="lg"
+            className="mt-6 w-full"
+            disabled={!isValid || submitting}
+            onClick={submit}
+          >
+            {submitting ? (
+              <><Spinner size="sm" className="text-white" /> Confirmando…</>
+            ) : requiresMultiTurno ? (
+              `Confirmar ${serviceBookings.length} turnos`
+            ) : (
+              'Confirmar turno'
+            )}
+          </Button>
+
+          <p className="mt-3 text-center text-xs text-gray-400">
+            Anotá la fecha y hora del turno. Si necesitás cancelarlo, podés hacerlo desde la sección "Cancelar turno".
+          </p>
+        </>
+      )}
     </div>
   )
 }

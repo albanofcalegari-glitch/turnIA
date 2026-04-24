@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, CreditCard, Award, BarChart3, Mail, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { apiClient } from '@/lib/api'
 
 interface NavItem {
@@ -77,8 +78,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="border-b border-gray-100 p-4">
-        <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-lg font-extrabold tracking-tight text-transparent">turnIT</span>
+      <div className="border-b border-gray-100 p-4 dark:border-gray-800">
+        <div className="flex items-center justify-between">
+          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-lg font-extrabold tracking-tight text-transparent">turnIT</span>
+          <ThemeToggle />
+        </div>
         {user.tenantName && (
           <p className="mt-0.5 truncate text-xs font-medium text-gray-400">{user.tenantName}</p>
         )}
@@ -99,11 +103,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className={cn(
                 'group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-150',
                 isActive
-                  ? 'bg-brand-50 font-semibold text-brand-700 shadow-sm'
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900',
+                  ? 'bg-brand-50 font-semibold text-brand-700 shadow-sm dark:bg-brand-600/20 dark:text-brand-400'
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200',
               )}
             >
-              <item.icon size={16} className={cn('transition-colors', isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-600')} />
+              <item.icon size={16} className={cn('transition-colors', isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-400')} />
               {item.label}
               {locked && <Lock size={12} className="ml-auto text-gray-300" />}
             </Link>
@@ -112,13 +116,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </nav>
 
       {/* User footer */}
-      <div className="border-t border-gray-100 p-3">
-        <div className="flex items-center gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-gray-50">
+      <div className="border-t border-gray-100 p-3 dark:border-gray-800">
+        <div className="flex items-center gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-xs font-bold text-white shadow-sm">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-gray-800">
+            <p className="truncate text-xs font-semibold text-gray-800 dark:text-gray-200">
               {user.firstName} {user.lastName}
             </p>
             <p className="truncate text-[10px] text-gray-400">{user.email}</p>
@@ -126,7 +130,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={logout}
             title="Cerrar sesión"
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
           >
             <LogOut size={14} />
           </button>
@@ -136,13 +140,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   )
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Mobile header */}
-      <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-gray-100 bg-white/95 px-4 backdrop-blur-sm md:hidden">
+      <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-gray-100 bg-white/95 px-4 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95 md:hidden">
         <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-lg font-extrabold tracking-tight text-transparent">turnIT</span>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"
+          className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
         >
           {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -159,7 +163,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar — desktop: static, mobile: slide-over */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-gray-100 bg-white shadow-sidebar transition-transform duration-200 md:static md:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-gray-100 bg-white shadow-sidebar transition-transform duration-200 dark:border-gray-800 dark:bg-gray-900 md:static md:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >

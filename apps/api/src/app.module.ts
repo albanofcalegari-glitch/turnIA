@@ -18,6 +18,8 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { LoyaltyModule } from './modules/loyalty/loyalty.module'
 import { MailModule } from './modules/mail/mail.module'
 import { ReportsModule } from './modules/reports/reports.module'
+import { GuestAuthModule } from './modules/guest-auth/guest-auth.module'
+import { GoogleCalendarModule } from './modules/google-calendar/google-calendar.module'
 import { TenantMiddleware } from './common/middleware/tenant.middleware'
 
 @Module({
@@ -52,6 +54,8 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware'
     SubscriptionsModule,
     LoyaltyModule,
     ReportsModule,
+    GuestAuthModule,
+    GoogleCalendarModule,
   ],
   providers: [
     // Global guard: enforces membership status on every authenticated request.
@@ -72,6 +76,7 @@ export class AppModule {
         // and no JWT, so tenant middleware would 401. Signature is verified
         // inside the controller instead.
         { path: 'api/v1/webhooks/mercadopago',        method: RequestMethod.POST },
+        { path: 'api/v1/guest-auth/(.*)',              method: RequestMethod.ALL },
       )
       .forRoutes('*')
   }

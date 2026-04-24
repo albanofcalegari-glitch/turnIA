@@ -432,6 +432,8 @@ model Appointment {
   rescheduledFromId  String?           // id del appointment original
   confirmedAt        DateTime?
   completedAt        DateTime?
+  // ── Google Calendar sync ──────────────────────────────────────────────────
+  googleCalendarEventId String?
   // ── Stage 1 ──────────────────────────────────────────────────────────────
   version            Int               @default(1) // optimistic locking ORM
   createdAt          DateTime          @default(now())
@@ -809,4 +811,25 @@ model LoyaltyRedemption {
 
   @@index([cardId, redeemedAt])
   @@map("loyalty_redemptions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OTP CODE (verificación de email para booking público)
+//
+// Códigos de 6 dígitos enviados por email antes de permitir la reserva.
+// Expiran en 10 minutos, máximo 5 intentos. Se borran al verificar.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  tenantId  String
+  email     String
+  code      String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, email, code])
+  @@index([expiresAt])
+  @@map("otp_codes")
 }

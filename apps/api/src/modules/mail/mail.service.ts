@@ -67,6 +67,19 @@ export class MailService {
     return this.send({ to: args.to, subject, html })
   }
 
+  async sendOtpCode(args: { to: string; code: string; tenantName: string }) {
+    const subject = `${args.code} — Tu código de verificación`
+    const html = layout(`
+      <h1 style="margin:0 0 16px;font-size:22px;">Código de verificación</h1>
+      <p>Usá este código para continuar con tu reserva en <strong>${escape(args.tenantName)}</strong>:</p>
+      <div style="margin:24px 0;text-align:center;">
+        <span style="display:inline-block;background:#f3f4f6;border:2px solid #e5e7eb;border-radius:12px;padding:16px 32px;font-size:32px;font-weight:700;letter-spacing:8px;color:#111;">${args.code}</span>
+      </div>
+      <p style="color:#666;font-size:13px;">El código vence en 10 minutos. Si no solicitaste este código, ignorá este email.</p>
+    `)
+    return this.send({ to: args.to, subject, html })
+  }
+
   async sendPasswordResetEmail(args: { to: string; firstName: string; resetToken: string }) {
     const resetUrl = `${this.webUrl}/restablecer-password/${args.resetToken}`
     const subject = 'Restablecé tu contraseña en turnIT'

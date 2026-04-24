@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
 import './globals.css'
 
@@ -13,13 +14,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body className={inter.className}>
-        <AuthProvider>
-          <ConfirmProvider>
-            {children}
-          </ConfirmProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ConfirmProvider>
+              {children}
+            </ConfirmProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

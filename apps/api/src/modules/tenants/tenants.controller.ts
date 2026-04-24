@@ -77,4 +77,11 @@ export class TenantsController {
     if (!user.isSuperAdmin) throw new ForbiddenException()
     return this.tenantsService.deactivateExpired()
   }
+
+  @Get('admin/stats')
+  @UseGuards(JwtAuthGuard)
+  async getStats(@CurrentUser() user: JwtPayload) {
+    if (!user.isSuperAdmin) throw new ForbiddenException()
+    return this.tenantsService.adminStats()
+  }
 }

@@ -13,6 +13,15 @@ export class ReportsController {
     private readonly prisma: PrismaService,
   ) {}
 
+  @Get('dashboard')
+  async dashboard(
+    @TenantId() tenantId: string,
+    @Query('period') period?: string,
+    @Query('professionalId') professionalId?: string,
+  ) {
+    return this.reports.getDashboardStats(tenantId, { period, professionalId })
+  }
+
   @Get('monthly')
   async monthly(
     @TenantId() tenantId: string,

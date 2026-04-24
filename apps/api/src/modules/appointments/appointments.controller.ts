@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common'
 import { AppointmentsService } from './appointments.service'
 import { CreateAppointmentDto } from './dto/create-appointment.dto'
@@ -19,6 +20,11 @@ import { TenantGuard } from '../../common/guards/tenant.guard'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { TenantId } from '../../common/decorators/tenant.decorator'
 import { JwtPayload } from '@turnia/shared'
+
+const SUSPICIOUS_EMAIL_RE = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER|CREATE|EXEC)\b|--|;|'|"|1\s*=\s*1|OR\s+1)/i
+function assertSafeEmail(v: string) {
+  if (SUSPICIOUS_EMAIL_RE.test(v)) throw new BadRequestException('Email inválido.')
+}
 
 @Controller('appointments')
 export class AppointmentsController {
@@ -56,6 +62,7 @@ export class AppointmentsController {
     @TenantId() tenantId: string,
     @Query('email') email: string,
   ) {
+    assertSafeEmail(email)
     return this.appointmentsService.findByGuestEmail(tenantId, email)
   }
 
@@ -71,6 +78,7 @@ export class AppointmentsController {
     @Body('email') email: string,
     @Body('reason') reason?: string,
   ) {
+    assertSafeEmail(email)
     return this.appointmentsService.guestCancel(tenantId, id, email, reason)
   }
 

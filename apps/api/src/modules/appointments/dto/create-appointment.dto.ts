@@ -8,6 +8,7 @@ import {
   ArrayMinSize,
 } from 'class-validator'
 import { Type } from 'class-transformer'
+import { IsSafeEmail } from '../../../common/validators/safe-email.validator'
 
 /**
  * A single service line within the appointment.
@@ -65,6 +66,7 @@ export class CreateAppointmentDto {
 
   @IsOptional()
   @IsEmail()
+  @IsSafeEmail()
   guestEmail?: string
 
   @IsOptional()
