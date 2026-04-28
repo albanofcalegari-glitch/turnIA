@@ -96,11 +96,11 @@ export default function ConfiguracionPage() {
       const isOutlook = params.get('session_state') !== null
       if (isOutlook) {
         const res = await apiClient.connectOutlookCalendar(code)
-        setOutlookCal({ connected: true, email: res.email, enabled: true })
+        setOutlookCal({ available: true, connected: true, email: res.email, enabled: true })
         setCalMsg(`Outlook Calendar conectado: ${res.email}`)
       } else {
         const res = await apiClient.connectGoogleCalendar(code)
-        setGoogleCal({ connected: true, email: res.email, enabled: true })
+        setGoogleCal({ available: true, connected: true, email: res.email, enabled: true })
         setCalMsg(`Google Calendar conectado: ${res.email}`)
       }
     } catch {
@@ -165,6 +165,8 @@ export default function ConfiguracionPage() {
   }
 
   const detectedProvider = detectProvider()
+  const showGoogle  = (googleCal?.available && detectedProvider === 'google') || googleCal?.connected
+  const showOutlook = (outlookCal?.available && detectedProvider === 'outlook') || outlookCal?.connected
 
   async function connectCalendar(provider: 'google' | 'outlook') {
     setCalLoading(true)
@@ -183,10 +185,10 @@ export default function ConfiguracionPage() {
     try {
       if (provider === 'google') {
         await apiClient.disconnectGoogleCalendar()
-        setGoogleCal({ connected: false, email: null, enabled: false })
+        setGoogleCal(prev => ({ ...prev!, available: prev?.available ?? false, connected: false, email: null, enabled: false }))
       } else {
         await apiClient.disconnectOutlookCalendar()
-        setOutlookCal({ connected: false, email: null, enabled: false })
+        setOutlookCal(prev => ({ ...prev!, available: prev?.available ?? false, connected: false, email: null, enabled: false }))
       }
     } catch { /* fail silently */ }
     finally { setCalLoading(false) }
@@ -323,8 +325,8 @@ export default function ConfiguracionPage() {
           </section>
         )}
 
-        {/* Calendar integration — only shown for Gmail/Outlook or if already connected */}
-        {(detectedProvider !== null || googleCal?.connected || outlookCal?.connected) && (
+        {/* Calendar integration — only shown if credentials are configured on the server */}
+        {(showGoogle || showOutlook) && (
           <section className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card">
             <div className="flex items-center gap-2 mb-4">
               <Calendar size={16} className="text-gray-400" />
@@ -339,7 +341,7 @@ export default function ConfiguracionPage() {
 
             <div className="px-1 space-y-3">
               {/* Google Calendar */}
-              {(googleCal?.connected || detectedProvider === 'google') && (
+              {showGoogle && (
                 <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
                   <div className="min-w-0">
                     <span className="text-sm text-gray-700 font-medium">Google Calendar</span>
@@ -371,7 +373,7 @@ export default function ConfiguracionPage() {
               )}
 
               {/* Outlook Calendar */}
-              {(outlookCal?.connected || detectedProvider === 'outlook') && (
+              {showOutlook && (
                 <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
                   <div className="min-w-0">
                     <span className="text-sm text-gray-700 font-medium">Outlook Calendar</span>

@@ -664,6 +664,7 @@ class ApiClient {
 // ── Calendar types ──────────────────────────────────────────────────────────
 
 export interface CalendarStatus {
+  available: boolean
   connected: boolean
   email:     string | null
   enabled:   boolean

@@ -108,12 +108,14 @@ export class GoogleCalendarService {
   }
 
   async getStatus(tenantId: string): Promise<{
+    available: boolean
     connected: boolean
     email:     string | null
     enabled:   boolean
   }> {
     const config = await this.getConfig(tenantId)
     return {
+      available: this.configured,
       connected: !!config.googleRefreshToken,
       email:     config.googleEmail ?? null,
       enabled:   config.googleSyncEnabled ?? false,

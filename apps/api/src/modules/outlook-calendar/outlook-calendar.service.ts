@@ -107,12 +107,14 @@ export class OutlookCalendarService {
   }
 
   async getStatus(tenantId: string): Promise<{
+    available: boolean
     connected: boolean
     email:     string | null
     enabled:   boolean
   }> {
     const config = await this.getConfig(tenantId)
     return {
+      available: this.configured,
       connected: !!config.outlookRefreshToken,
       email:     config.outlookEmail ?? null,
       enabled:   config.outlookSyncEnabled ?? false,
