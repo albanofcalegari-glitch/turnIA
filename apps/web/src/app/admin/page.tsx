@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   Building2, Calendar, Users, TrendingUp, ArrowUpRight, ArrowDownRight,
-  CheckCircle2, XCircle, Clock, AlertTriangle, BarChart3,
+  CheckCircle2, XCircle, Clock, AlertTriangle, BarChart3, Mail,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { apiClient, type AdminStats, type PaymentMetrics } from '@/lib/api'
@@ -72,6 +72,40 @@ export default function AdminDashboard() {
         {metrics && (
           <KpiCard icon={BarChart3} label="MRR" value={`$${metrics.mrr.toLocaleString('es-AR')}`} color="text-emerald-600 dark:text-emerald-400" />
         )}
+        <KpiCard
+          icon={Mail}
+          label="Emails (mes)"
+          value={stats.emailsSentThisMonth}
+          sub={`de ${stats.emailMonthlyLimit.toLocaleString('es-AR')}`}
+          color={stats.emailsSentThisMonth > stats.emailMonthlyLimit * 0.8
+            ? 'text-red-600 dark:text-red-400'
+            : 'text-purple-600 dark:text-purple-400'}
+        />
+      </div>
+
+      {/* Email usage bar */}
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Mail size={14} className="text-purple-600 dark:text-purple-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Uso de emails (Resend)</span>
+          </div>
+          <span className="text-xs text-gray-500">
+            Renueva: {new Date(stats.emailResetsAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}
+          </span>
+        </div>
+        <div className="h-4 rounded-full bg-gray-100 dark:bg-gray-800">
+          <div
+            className={cn(
+              'h-4 rounded-full transition-all',
+              stats.emailsSentThisMonth > stats.emailMonthlyLimit * 0.8 ? 'bg-red-500' : 'bg-purple-500',
+            )}
+            style={{ width: `${Math.min((stats.emailsSentThisMonth / stats.emailMonthlyLimit) * 100, 100)}%` }}
+          />
+        </div>
+        <p className="mt-1 text-xs text-gray-500">
+          {stats.emailsSentThisMonth.toLocaleString('es-AR')} / {stats.emailMonthlyLimit.toLocaleString('es-AR')} emails enviados este mes
+        </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

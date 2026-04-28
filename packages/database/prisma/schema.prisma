@@ -433,8 +433,9 @@ model Appointment {
   confirmedAt        DateTime?
   completedAt        DateTime?
   paymentMethod      String?
-  // ── Google Calendar sync ──────────────────────────────────────────────────
-  googleCalendarEventId String?
+  // ── Calendar sync ───────────────────────────────────────────────────────
+  googleCalendarEventId  String?
+  outlookCalendarEventId String?
   // ── Stage 1 ──────────────────────────────────────────────────────────────
   version            Int               @default(1) // optimistic locking ORM
   createdAt          DateTime          @default(now())
@@ -833,4 +834,15 @@ model OtpCode {
   @@index([tenantId, email, code])
   @@index([expiresAt])
   @@map("otp_codes")
+}
+
+model EmailLog {
+  id       String   @id @default(cuid())
+  tenantId String?
+  to       String
+  subject  String
+  sentAt   DateTime @default(now())
+
+  @@index([sentAt])
+  @@map("email_logs")
 }

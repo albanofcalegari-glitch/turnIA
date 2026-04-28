@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Settings, Clock, Calendar, Users, Shield, Award } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { apiClient, ApiError, type LoyaltyProgram } from '@/lib/api'
+import { apiClient, ApiError, type LoyaltyProgram, type CalendarStatus } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,6 +79,37 @@ export default function ConfiguracionPage() {
   const [loyaltyProgram, setLoyaltyProgram] = useState<LoyaltyProgram | null>(null)
   const [savingLoyalty,  setSavingLoyalty]   = useState(false)
 
+  const [googleCal,  setGoogleCal]  = useState<CalendarStatus | null>(null)
+  const [outlookCal, setOutlookCal] = useState<CalendarStatus | null>(null)
+  const [calLoading, setCalLoading] = useState(false)
+  const [calMsg,     setCalMsg]     = useState<string | null>(null)
+
+  const handleCalendarCallback = useCallback(async () => {
+    const params = new URLSearchParams(window.location.search)
+    const code  = params.get('code')
+    const state = params.get('state')
+    if (!code || !state) return
+
+    window.history.replaceState({}, '', window.location.pathname)
+    setCalLoading(true)
+    try {
+      const isOutlook = params.get('session_state') !== null
+      if (isOutlook) {
+        const res = await apiClient.connectOutlookCalendar(code)
+        setOutlookCal({ connected: true, email: res.email, enabled: true })
+        setCalMsg(`Outlook Calendar conectado: ${res.email}`)
+      } else {
+        const res = await apiClient.connectGoogleCalendar(code)
+        setGoogleCal({ connected: true, email: res.email, enabled: true })
+        setCalMsg(`Google Calendar conectado: ${res.email}`)
+      }
+    } catch {
+      setCalMsg('Error al conectar el calendario. Intentá de nuevo.')
+    } finally {
+      setCalLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!tenantSlug) return
     setLoading(true)
@@ -92,7 +123,17 @@ export default function ConfiguracionPage() {
       })
       .catch(() => setError('No se pudo cargar la configuración.'))
       .finally(() => setLoading(false))
-  }, [tenantSlug])
+
+    Promise.all([
+      apiClient.getGoogleCalendarStatus().catch(() => null),
+      apiClient.getOutlookCalendarStatus().catch(() => null),
+    ]).then(([g, o]) => {
+      setGoogleCal(g)
+      setOutlookCal(o)
+    })
+
+    handleCalendarCallback()
+  }, [tenantSlug, handleCalendarCallback])
 
   async function handleSlotChange(newValue: number) {
     if (!config?.scheduleRules || newValue === config.scheduleRules.slotDurationMinutes) {
@@ -114,6 +155,41 @@ export default function ConfiguracionPage() {
     } finally {
       setSavingSlot(false)
     }
+  }
+
+  function detectProvider(): 'google' | 'outlook' | null {
+    const email = user?.email?.toLowerCase() ?? ''
+    if (email.endsWith('@gmail.com') || email.endsWith('@googlemail.com')) return 'google'
+    if (email.endsWith('@hotmail.com') || email.endsWith('@outlook.com') || email.endsWith('@live.com') || email.endsWith('@msn.com')) return 'outlook'
+    return null
+  }
+
+  const detectedProvider = detectProvider()
+
+  async function connectCalendar(provider: 'google' | 'outlook') {
+    setCalLoading(true)
+    try {
+      const { url } = provider === 'google'
+        ? await apiClient.getGoogleCalendarAuthUrl()
+        : await apiClient.getOutlookCalendarAuthUrl()
+      window.location.href = url
+    } catch {
+      setCalLoading(false)
+    }
+  }
+
+  async function disconnectCalendar(provider: 'google' | 'outlook') {
+    setCalLoading(true)
+    try {
+      if (provider === 'google') {
+        await apiClient.disconnectGoogleCalendar()
+        setGoogleCal({ connected: false, email: null, enabled: false })
+      } else {
+        await apiClient.disconnectOutlookCalendar()
+        setOutlookCal({ connected: false, email: null, enabled: false })
+      }
+    } catch { /* fail silently */ }
+    finally { setCalLoading(false) }
   }
 
   async function toggleLoyalty(field: 'isActive' | 'showOnBooking') {
@@ -243,6 +319,88 @@ export default function ConfiguracionPage() {
             <div className="px-1">
               <InfoRow label="Reservas de invitados" value={rules.allowGuestBooking ? 'Permitidas' : 'Solo usuarios registrados'} />
               <InfoRow label="Confirmación automática" value={rules.autoConfirm ? 'Sí — turnos se confirman al reservar' : 'No — requiere confirmación manual'} />
+            </div>
+          </section>
+        )}
+
+        {/* Calendar integration — only shown for Gmail/Outlook or if already connected */}
+        {(detectedProvider !== null || googleCal?.connected || outlookCal?.connected) && (
+          <section className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card">
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar size={16} className="text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-700">Sincronización de calendario</h2>
+            </div>
+
+            {calMsg && (
+              <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${calMsg.includes('Error') ? 'border border-red-200 bg-red-50 text-red-700' : 'border border-green-200 bg-green-50 text-green-700'}`}>
+                {calMsg}
+              </div>
+            )}
+
+            <div className="px-1 space-y-3">
+              {/* Google Calendar */}
+              {(googleCal?.connected || detectedProvider === 'google') && (
+                <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                  <div className="min-w-0">
+                    <span className="text-sm text-gray-700 font-medium">Google Calendar</span>
+                    {googleCal?.connected
+                      ? <p className="text-xs text-green-600 mt-0.5">Conectado: {googleCal.email}</p>
+                      : <p className="text-xs text-gray-400 mt-0.5">Sincronizá los turnos con tu Google Calendar</p>
+                    }
+                  </div>
+                  <div className="flex-shrink-0">
+                    {googleCal?.connected ? (
+                      <button
+                        onClick={() => disconnectCalendar('google')}
+                        disabled={calLoading}
+                        className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Desconectar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => connectCalendar('google')}
+                        disabled={calLoading}
+                        className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                      >
+                        {calLoading ? 'Conectando...' : 'Conectar'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Outlook Calendar */}
+              {(outlookCal?.connected || detectedProvider === 'outlook') && (
+                <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                  <div className="min-w-0">
+                    <span className="text-sm text-gray-700 font-medium">Outlook Calendar</span>
+                    {outlookCal?.connected
+                      ? <p className="text-xs text-green-600 mt-0.5">Conectado: {outlookCal.email}</p>
+                      : <p className="text-xs text-gray-400 mt-0.5">Sincronizá los turnos con tu Outlook Calendar</p>
+                    }
+                  </div>
+                  <div className="flex-shrink-0">
+                    {outlookCal?.connected ? (
+                      <button
+                        onClick={() => disconnectCalendar('outlook')}
+                        disabled={calLoading}
+                        className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Desconectar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => connectCalendar('outlook')}
+                        disabled={calLoading}
+                        className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                      >
+                        {calLoading ? 'Conectando...' : 'Conectar'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         )}

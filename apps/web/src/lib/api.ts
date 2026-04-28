@@ -585,6 +585,50 @@ class ApiClient {
   adminGetPaymentMetrics = () =>
     this.request<PaymentMetrics>('/subscriptions/admin/metrics')
 
+  // ── Calendar integrations ──────────────────────────────────────────────
+
+  getGoogleCalendarStatus = () =>
+    this.request<CalendarStatus>('/integrations/google/status')
+
+  getGoogleCalendarAuthUrl = () =>
+    this.request<{ url: string }>('/integrations/google/auth-url')
+
+  connectGoogleCalendar = (code: string) =>
+    this.request<{ connected: boolean; email: string }>('/integrations/google/callback', {
+      method: 'POST',
+      body:   JSON.stringify({ code }),
+    })
+
+  disconnectGoogleCalendar = () =>
+    this.request<{ disconnected: boolean }>('/integrations/google/disconnect', { method: 'POST' })
+
+  updateGoogleCalendarConfig = (enabled: boolean) =>
+    this.request<{ ok: boolean }>('/integrations/google/config', {
+      method: 'PATCH',
+      body:   JSON.stringify({ enabled }),
+    })
+
+  getOutlookCalendarStatus = () =>
+    this.request<CalendarStatus>('/integrations/outlook/status')
+
+  getOutlookCalendarAuthUrl = () =>
+    this.request<{ url: string }>('/integrations/outlook/auth-url')
+
+  connectOutlookCalendar = (code: string) =>
+    this.request<{ connected: boolean; email: string }>('/integrations/outlook/callback', {
+      method: 'POST',
+      body:   JSON.stringify({ code }),
+    })
+
+  disconnectOutlookCalendar = () =>
+    this.request<{ disconnected: boolean }>('/integrations/outlook/disconnect', { method: 'POST' })
+
+  updateOutlookCalendarConfig = (enabled: boolean) =>
+    this.request<{ ok: boolean }>('/integrations/outlook/config', {
+      method: 'PATCH',
+      body:   JSON.stringify({ enabled }),
+    })
+
   // ── Loyalty ─────────────────────────────────────────────────────────────
 
   getLoyaltyProgram = () =>
@@ -615,6 +659,14 @@ class ApiClient {
     this.request<BookingLoyaltyCard | null>(
       `/loyalty/booking-card/${tenantId}?email=${encodeURIComponent(email)}`,
     )
+}
+
+// ── Calendar types ──────────────────────────────────────────────────────────
+
+export interface CalendarStatus {
+  connected: boolean
+  email:     string | null
+  enabled:   boolean
 }
 
 // ── Loyalty types ───────────────────────────────────────────────────────────
@@ -860,6 +912,9 @@ export interface AdminStats {
   recentTenants:        { id: string; name: string; slug: string; plan: string; createdAt: string; isActive: boolean }[]
   topTenants:           { id: string; name: string; slug: string; plan: string; _count: { appointments: number; professionals: number; services: number } }[]
   evolution:            { month: string; tenants: number; appointments: number }[]
+  emailsSentThisMonth:  number
+  emailMonthlyLimit:    number
+  emailResetsAt:        string
 }
 
 export const apiClient = new ApiClient()

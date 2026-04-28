@@ -11,6 +11,7 @@ import { SchedulesService } from '../schedules/schedules.service'
 import { BranchesService } from '../branches/branches.service'
 import { LoyaltyService } from '../loyalty/loyalty.service'
 import { GoogleCalendarService } from '../google-calendar/google-calendar.service'
+import { OutlookCalendarService } from '../outlook-calendar/outlook-calendar.service'
 import { CreateAppointmentDto } from './dto/create-appointment.dto'
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto'
 
@@ -45,6 +46,7 @@ export class AppointmentsService {
     private readonly branches: BranchesService,
     private readonly loyalty: LoyaltyService,
     private readonly gcal: GoogleCalendarService,
+    private readonly outlook: OutlookCalendarService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -290,6 +292,7 @@ export class AppointmentsService {
     }
 
     this.gcal.syncAppointmentCreated(created.id).catch(() => {})
+    this.outlook.syncAppointmentCreated(created.id).catch(() => {})
 
     return created
   }
@@ -511,6 +514,8 @@ export class AppointmentsService {
 
     this.gcal.syncAppointmentCancelled(originalId).catch(() => {})
     this.gcal.syncAppointmentCreated(newAppointment.id).catch(() => {})
+    this.outlook.syncAppointmentCancelled(originalId).catch(() => {})
+    this.outlook.syncAppointmentCreated(newAppointment.id).catch(() => {})
 
     return newAppointment
   }
@@ -718,6 +723,7 @@ export class AppointmentsService {
     })
 
     this.gcal.syncAppointmentCancelled(id).catch(() => {})
+    this.outlook.syncAppointmentCancelled(id).catch(() => {})
 
     return updated
   }

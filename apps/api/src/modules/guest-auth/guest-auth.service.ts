@@ -53,13 +53,17 @@ export class GuestAuthService {
       select: { name: true },
     })
 
-    await this.mail.sendOtpCode({
+    const sent = await this.mail.sendOtpCode({
       to:         normalizedEmail,
       code,
       tenantName: tenant?.name ?? 'turnIT',
     })
 
-    return { sent: true }
+    if (!sent) {
+      this.logger.warn(`OTP email failed for ${normalizedEmail} — client will skip verification`)
+    }
+
+    return { sent }
   }
 
   async verifyOtp(

@@ -1,12 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Resend } from 'resend'
+import { PrismaService } from '../../prisma/prisma.service'
 
 interface SendArgs {
-  to:      string
-  subject: string
-  html:    string
-  text?:   string
+  to:       string
+  subject:  string
+  html:     string
+  text?:    string
+  tenantId?: string
 }
 
 @Injectable()
@@ -16,7 +18,10 @@ export class MailService {
   private readonly from:   string
   private readonly webUrl: string
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     const apiKey = this.config.get<string>('RESEND_API_KEY')
     this.from   = this.config.get<string>('MAIL_FROM')   ?? 'turnIT <onboarding@resend.dev>'
     this.webUrl = this.config.get<string>('WEB_URL')     ?? 'http://localhost:3000'
@@ -26,7 +31,6 @@ export class MailService {
     }
   }
 
-  /** Envía un email transaccional. Si falla, loggea y devuelve false sin tirar — los flujos de auth no deben romperse por un mail caído. */
   async send(args: SendArgs): Promise<boolean> {
     if (!this.resend) {
       this.logger.log(`[mock email] to=${args.to} subject="${args.subject}"`)
@@ -44,10 +48,27 @@ export class MailService {
         this.logger.error(`Resend error sending to ${args.to}: ${JSON.stringify(error)}`)
         return false
       }
+      this.prisma.emailLog.create({
+        data: { to: args.to, subject: args.subject, tenantId: args.tenantId ?? null },
+      }).catch(() => {})
       return true
     } catch (err) {
       this.logger.error(`Mail send failed for ${args.to}`, err as Error)
       return false
+    }
+  }
+
+  async getEmailStats(): Promise<{ sentThisMonth: number; monthlyLimit: number; resetsAt: string }> {
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const sentThisMonth = await this.prisma.emailLog.count({
+      where: { sentAt: { gte: startOfMonth } },
+    })
+    return {
+      sentThisMonth,
+      monthlyLimit: 3000,
+      resetsAt: nextMonth.toISOString(),
     }
   }
 

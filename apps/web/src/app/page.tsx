@@ -5,7 +5,7 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       <nav className="border-b border-gray-100 px-4 py-4 flex items-center justify-between max-w-7xl mx-auto sm:px-6">
-        <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-xl font-extrabold tracking-tight text-transparent">turnIT</span>
+        <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">turnIT</span>
         <div className="flex items-center gap-2 sm:gap-4">
           <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Iniciar sesión</Link>
           <Link href="/register" className="text-sm font-semibold bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-all shadow-sm hover:shadow sm:px-5">

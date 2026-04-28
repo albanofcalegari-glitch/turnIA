@@ -96,10 +96,14 @@ export function StepDetails({ booking }: Props) {
     setOtpError(null)
     setOtpSending(true)
     try {
-      await apiClient.requestOtp(tenantId, email)
-      setPhase('otp')
-      setCooldown(60)
-      setTimeout(() => inputRefs.current[0]?.focus(), 100)
+      const res = await apiClient.requestOtp(tenantId, email)
+      if (res.sent) {
+        setPhase('otp')
+        setCooldown(60)
+        setTimeout(() => inputRefs.current[0]?.focus(), 100)
+      } else {
+        setPhase('form')
+      }
     } catch (err: any) {
       setOtpError(err?.message ?? 'No se pudo enviar el código. Intentá de nuevo.')
     } finally {
@@ -333,6 +337,9 @@ export function StepDetails({ booking }: Props) {
         <div className="space-y-4">
           <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
             Enviamos un código a <strong>{guestInfo.email}</strong>
+          </div>
+          <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            ¿No lo encontrás? Revisá tu carpeta de <strong>spam</strong> o <strong>correo no deseado</strong>.
           </div>
 
           <div className="flex justify-center gap-2" onPaste={handlePaste}>

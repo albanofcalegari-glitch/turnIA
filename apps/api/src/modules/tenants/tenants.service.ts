@@ -212,6 +212,11 @@ export class TenantsService {
       last6Months.push({ month: label, tenants: tCount, appointments: aCount })
     }
 
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const emailsSentThisMonth = await this.prisma.emailLog.count({
+      where: { sentAt: { gte: startOfMonth } },
+    })
+
     return {
       totalTenants,
       activeTenants,
@@ -224,6 +229,9 @@ export class TenantsService {
       recentTenants,
       topTenants,
       evolution: last6Months,
+      emailsSentThisMonth,
+      emailMonthlyLimit: 3000,
+      emailResetsAt: nextMonth.toISOString(),
     }
   }
 }
