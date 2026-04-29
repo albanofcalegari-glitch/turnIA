@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, type DashboardStats } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
+import { Dialog } from '@/components/ui/Dialog'
 import type { Professional } from '@/features/booking/booking.types'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ export default function DashboardPage() {
   const [error, setError]     = useState<string | null>(null)
   const [period, setPeriod]   = useState('current_month')
   const [proFilter, setProFilter]       = useState('')
+  const [showRevenue, setShowRevenue]   = useState(false)
   const [professionals, setProfessionals] = useState<Professional[]>([])
 
   useEffect(() => {
@@ -122,7 +124,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard icon={<Calendar size={18} />}    label="Total Turnos"    value={kpis.totalAppointments} delta={kpis.appointmentsDelta} />
         <KpiCard icon={<Scissors size={18} />}     label="Servicios"       value={kpis.totalServices}      delta={kpis.servicesDelta} highlight />
-        <KpiCard icon={<DollarSign size={18} />}   label="Ingresos"        value={kpis.revenue}            delta={kpis.revenueDelta} format="currency" />
+        <KpiCard icon={<DollarSign size={18} />}   label="Ingresos"        value={kpis.revenue}            delta={kpis.revenueDelta} format="currency" onClick={() => setShowRevenue(true)} />
         <KpiCard icon={<Users size={18} />}        label="Clientes Únicos" value={kpis.uniqueClients}      delta={kpis.clientsDelta} />
       </div>
 
@@ -236,8 +238,10 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Revenue Detail */}
-      <RevenueDetail stats={stats} monthlyEvolution={monthlyEvolution} />
+      {/* Revenue Detail Modal */}
+      <Dialog open={showRevenue} onClose={() => setShowRevenue(false)} title="Detalle de ingresos" className="max-w-2xl">
+        <RevenueDetail stats={stats} />
+      </Dialog>
 
       {/* Clients */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -276,28 +280,29 @@ function fmtARS(n: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 }
 
-function RevenueDetail({ stats, monthlyEvolution }: { stats: DashboardStats; monthlyEvolution: DashboardStats['monthlyEvolution'] }) {
+function RevenueDetail({ stats }: { stats: DashboardStats }) {
   const [showDays, setShowDays] = useState(false)
   const { revenueByPaymentMethod, revenueByDay } = stats
   const totalRevenue = stats.kpis.revenue
 
-  if (totalRevenue === 0 && revenueByPaymentMethod.length === 0) return null
+  if (totalRevenue === 0 && revenueByPaymentMethod.length === 0) {
+    return <p className="py-6 text-center text-sm text-gray-400">Sin ingresos en el período</p>
+  }
 
   return (
-    <Card title="">
+    <div>
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <DollarSign size={18} className="text-green-600" />
-          <h3 className="text-sm font-semibold text-gray-700">Detalle de ingresos</h3>
+          <span className="text-sm font-semibold text-gray-700">Total</span>
         </div>
         <p className="text-xl font-extrabold tabular-nums text-green-700">{fmtARS(totalRevenue)}</p>
       </div>
 
-      {/* By payment method */}
       {revenueByPaymentMethod.length > 0 && (
         <div className="mb-5">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">Por medio de pago</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {revenueByPaymentMethod.map(pm => {
               const cfg = PM_CONFIG[pm.method]
               const Icon = cfg?.icon ?? DollarSign
@@ -317,7 +322,6 @@ function RevenueDetail({ stats, monthlyEvolution }: { stats: DashboardStats; mon
         </div>
       )}
 
-      {/* By day — collapsible */}
       {revenueByDay.length > 0 && (
         <div>
           <button
@@ -353,15 +357,15 @@ function RevenueDetail({ stats, monthlyEvolution }: { stats: DashboardStats; mon
           )}
         </div>
       )}
-    </Card>
+    </div>
   )
 }
 
 // ── KPI Card ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ icon, label, value, delta, format, highlight }: {
+function KpiCard({ icon, label, value, delta, format, highlight, onClick }: {
   icon: React.ReactNode; label: string; value: number; delta: number
-  format?: 'currency'; highlight?: boolean
+  format?: 'currency'; highlight?: boolean; onClick?: () => void
 }) {
   const fmt = format === 'currency' ? `$${value.toLocaleString('es-AR')}` : value.toLocaleString('es-AR')
   const dFmt = format === 'currency'
@@ -369,10 +373,14 @@ function KpiCard({ icon, label, value, delta, format, highlight }: {
     : `${delta >= 0 ? '+' : ''}${delta}`
 
   return (
-    <div className={cn(
-      'rounded-xl border bg-white p-4 shadow-card transition-shadow hover:shadow-card-hover sm:p-5',
-      highlight && 'border-brand-100 bg-brand-50/30',
-    )}>
+    <div
+      onClick={onClick}
+      className={cn(
+        'rounded-xl border bg-white p-4 shadow-card transition-shadow hover:shadow-card-hover sm:p-5',
+        highlight && 'border-brand-100 bg-brand-50/30',
+        onClick && 'cursor-pointer ring-brand-500/40 hover:ring-2',
+      )}
+    >
       <div className="flex items-center gap-2 text-gray-400">
         {icon}
         <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
