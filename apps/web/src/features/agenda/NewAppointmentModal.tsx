@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { X, Search, User, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { apiClient, ApiError, type ClientSearchResult } from '@/lib/api'
@@ -39,8 +39,6 @@ export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
   const [clientResults, setClientResults] = useState<ClientSearchResult[]>([])
   const [selectedClient, setSelectedClient] = useState<ClientSearchResult | null>(null)
   const [searching,     setSearching]     = useState(false)
-  const [showDropdown,  setShowDropdown]  = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
 
   // New client fields
   const [newName,  setNewName]  = useState('')
@@ -89,7 +87,6 @@ export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
       try {
         const results = await apiClient.searchClients(tenantId, clientSearch)
         setClientResults(results)
-        setShowDropdown(true)
       } catch {
         setClientResults([])
       } finally {
@@ -98,17 +95,6 @@ export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
     }, 300)
     return () => clearTimeout(timer)
   }, [tenantId, clientSearch, clientMode])
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   // ── Validation ────────────────────────────────────────────────────────
   const hasClient = clientMode === 'existing'
@@ -200,7 +186,7 @@ export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
             </div>
 
             {clientMode === 'existing' ? (
-              <div ref={searchRef} className="relative">
+              <div>
                 {selectedClient ? (
                   <div className="flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-3 py-2.5">
                     <div className="flex items-center gap-2">
@@ -230,21 +216,21 @@ export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
                       />
                       {searching && <Spinner size="sm" className="absolute right-3 top-1/2 -translate-y-1/2" />}
                     </div>
-                    {showDropdown && clientResults.length > 0 && (
-                      <div className="absolute z-10 mt-1 w-full rounded-lg border bg-white shadow-lg">
+                    {clientResults.length > 0 && (
+                      <div className="mt-1 max-h-48 overflow-y-auto rounded-lg border bg-white">
                         {clientResults.map(c => (
                           <button
                             key={c.id}
                             type="button"
-                            onClick={() => { setSelectedClient(c); setShowDropdown(false); setClientSearch('') }}
-                            className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-gray-50"
+                            onClick={() => { setSelectedClient(c); setClientSearch('') }}
+                            className="flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2.5 text-left text-sm last:border-0 hover:bg-gray-50"
                           >
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-600">
+                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-600">
                               {c.firstName[0]}{c.lastName[0]}
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <p className="font-medium text-gray-900">{c.firstName} {c.lastName}</p>
-                              <p className="text-xs text-gray-500">
+                              <p className="truncate text-xs text-gray-500">
                                 {[c.email, c.phone].filter(Boolean).join(' · ')}
                               </p>
                             </div>
@@ -252,10 +238,10 @@ export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
                         ))}
                       </div>
                     )}
-                    {showDropdown && clientSearch.trim().length >= 2 && clientResults.length === 0 && !searching && (
-                      <div className="absolute z-10 mt-1 w-full rounded-lg border bg-white px-3 py-3 text-center text-sm text-gray-500 shadow-lg">
-                        No se encontraron clientes. Probá con &quot;Nuevo cliente&quot;.
-                      </div>
+                    {clientSearch.trim().length >= 2 && clientResults.length === 0 && !searching && (
+                      <p className="mt-2 text-center text-sm text-gray-500">
+                        No se encontraron clientes. Probá con &ldquo;Nuevo cliente&rdquo;.
+                      </p>
                     )}
                   </>
                 )}
