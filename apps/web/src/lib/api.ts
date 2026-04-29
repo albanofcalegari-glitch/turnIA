@@ -904,7 +904,7 @@ export interface DashboardStats {
   }>
   clients: { newClients: number; recurringClients: number }
   revenueByPaymentMethod: Array<{ method: string; total: number; count: number }>
-  revenueByDay: Array<{ date: string; total: number; count: number }>
+  revenueByDay: Array<{ date: string; total: number; count: number; byMethod: Array<{ method: string; total: number; count: number }> }>
 }
 
 export interface AdminTenant {

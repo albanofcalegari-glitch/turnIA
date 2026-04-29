@@ -332,27 +332,36 @@ function RevenueDetail({ stats }: { stats: DashboardStats }) {
             {showDays ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
           {showDays && (
-            <div className="max-h-72 overflow-y-auto rounded-lg border">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b bg-gray-50 text-left text-gray-500">
-                    <th className="px-3 py-2 font-medium">Fecha</th>
-                    <th className="px-3 py-2 font-medium text-right">Turnos</th>
-                    <th className="px-3 py-2 font-medium text-right">Ingreso</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {revenueByDay.map(d => (
-                    <tr key={d.date} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="px-3 py-2 text-gray-700 capitalize">
-                        {new Date(d.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-gray-600">{d.count}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{fmtARS(d.total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="max-h-80 overflow-y-auto rounded-lg border">
+              {revenueByDay.map(d => (
+                <div key={d.date} className="border-b last:border-0">
+                  <div className="flex items-center justify-between bg-gray-50 px-3 py-2">
+                    <span className="text-xs font-medium text-gray-700 capitalize">
+                      {new Date(d.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' })}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-gray-400">{d.count} turno{d.count !== 1 ? 's' : ''}</span>
+                      <span className="text-xs font-bold tabular-nums text-gray-900">{fmtARS(d.total)}</span>
+                    </div>
+                  </div>
+                  {d.byMethod.length > 0 && (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-1.5">
+                      {d.byMethod.map(pm => {
+                        const cfg = PM_CONFIG[pm.method]
+                        const Icon = cfg?.icon ?? DollarSign
+                        return (
+                          <div key={pm.method} className="flex items-center gap-1.5 text-[11px]">
+                            <Icon size={12} className={cfg?.color ?? 'text-gray-400'} />
+                            <span className="text-gray-500">{cfg?.label ?? pm.method}</span>
+                            <span className="font-semibold tabular-nums text-gray-700">{fmtARS(pm.total)}</span>
+                            <span className="text-gray-400">({pm.count})</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

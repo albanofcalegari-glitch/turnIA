@@ -48,7 +48,7 @@ export interface DashboardStats {
   }>
   clients: { newClients: number; recurringClients: number }
   revenueByPaymentMethod: Array<{ method: string; total: number; count: number }>
-  revenueByDay: Array<{ date: string; total: number; count: number }>
+  revenueByDay: Array<{ date: string; total: number; count: number; byMethod: Array<{ method: string; total: number; count: number }> }>
 }
 
 const PRODUCTIVE: AppointmentStatus[] = [
@@ -291,18 +291,30 @@ export class ReportsService {
       .sort((a, b) => b[1].total - a[1].total)
       .map(([method, v]) => ({ method, total: Math.round(v.total), count: v.count }))
 
-    // ── Revenue by day ──────────────────────────────────────────────────
-    const dayMap = new Map<string, { total: number; count: number }>()
+    // ── Revenue by day (with payment method breakdown) ────────────────
+    const dayMap = new Map<string, { total: number; count: number; byMethod: Map<string, { total: number; count: number }> }>()
     for (const a of completed) {
       const dateStr = a.startAt.toISOString().split('T')[0]
-      const entry = dayMap.get(dateStr) ?? { total: 0, count: 0 }
+      const entry = dayMap.get(dateStr) ?? { total: 0, count: 0, byMethod: new Map() }
       entry.total += Number(a.totalPrice)
       entry.count++
+      const m = a.paymentMethod ?? 'SIN_DATO'
+      const mEntry = entry.byMethod.get(m) ?? { total: 0, count: 0 }
+      mEntry.total += Number(a.totalPrice)
+      mEntry.count++
+      entry.byMethod.set(m, mEntry)
       dayMap.set(dateStr, entry)
     }
     const revenueByDay = [...dayMap.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, v]) => ({ date, total: Math.round(v.total), count: v.count }))
+      .map(([date, v]) => ({
+        date,
+        total: Math.round(v.total),
+        count: v.count,
+        byMethod: [...v.byMethod.entries()]
+          .sort((a, b) => b[1].total - a[1].total)
+          .map(([method, mv]) => ({ method, total: Math.round(mv.total), count: mv.count })),
+      }))
 
     // ── Response ─────────────────────────────────────────────────────────
     return {
