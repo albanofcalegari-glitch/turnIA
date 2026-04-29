@@ -400,7 +400,7 @@ function CreateServiceModal({
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Precio</label>
-              <input type="number" min={0} step="0.01" value={price} onChange={e => setPrice(e.target.value)} placeholder="0 (gratis)" className={inputCls} />
+              <input type="number" min={0} step="0.01" value={price} onChange={e => setPrice(e.target.value)} placeholder="Opcional" className={inputCls} />
             </div>
           </div>
 
@@ -522,7 +522,7 @@ function EditServiceModal({
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Precio</label>
-              <input type="number" min={0} step="0.01" value={price} onChange={e => setPrice(e.target.value)} placeholder="0 (sin precio)" className={inputCls} />
+              <input type="number" min={0} step="0.01" value={price} onChange={e => setPrice(e.target.value)} placeholder="Opcional" className={inputCls} />
             </div>
           </div>
 
