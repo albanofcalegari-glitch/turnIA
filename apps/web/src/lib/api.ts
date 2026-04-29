@@ -96,11 +96,14 @@ class ApiClient {
   clearToken()             { this.token = null  }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const method = (options.method ?? 'GET').toUpperCase()
     const res = await fetch(`${API_URL}${path}`, {
-      cache: 'no-store',
+      ...(method === 'GET' ? { cache: 'no-store' as RequestCache } : {}),
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
         ...options.headers,
       },
