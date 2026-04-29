@@ -47,6 +47,8 @@ export interface DashboardStats {
     cancelled:     number
   }>
   clients: { newClients: number; recurringClients: number }
+  revenueByPaymentMethod: Array<{ method: string; total: number; count: number }>
+  revenueByDay: Array<{ date: string; total: number; count: number }>
 }
 
 const PRODUCTIVE: AppointmentStatus[] = [
@@ -151,6 +153,7 @@ export class ReportsService {
         status:         true,
         startAt:        true,
         totalPrice:     true,
+        paymentMethod:  true,
         clientId:       true,
         guestEmail:     true,
         professionalId: true,
@@ -275,6 +278,32 @@ export class ReportsService {
       if (!a.clientId && a.guestEmail) guestSet.add(a.guestEmail.toLowerCase())
     }
 
+    // ── Revenue by payment method ──────────────────────────────────────
+    const pmMap = new Map<string, { total: number; count: number }>()
+    for (const a of completed) {
+      const m = a.paymentMethod ?? 'SIN_DATO'
+      const entry = pmMap.get(m) ?? { total: 0, count: 0 }
+      entry.total += Number(a.totalPrice)
+      entry.count++
+      pmMap.set(m, entry)
+    }
+    const revenueByPaymentMethod = [...pmMap.entries()]
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([method, v]) => ({ method, total: Math.round(v.total), count: v.count }))
+
+    // ── Revenue by day ──────────────────────────────────────────────────
+    const dayMap = new Map<string, { total: number; count: number }>()
+    for (const a of completed) {
+      const dateStr = a.startAt.toISOString().split('T')[0]
+      const entry = dayMap.get(dateStr) ?? { total: 0, count: 0 }
+      entry.total += Number(a.totalPrice)
+      entry.count++
+      dayMap.set(dateStr, entry)
+    }
+    const revenueByDay = [...dayMap.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, v]) => ({ date, total: Math.round(v.total), count: v.count }))
+
     // ── Response ─────────────────────────────────────────────────────────
     return {
       period: {
@@ -306,6 +335,8 @@ export class ReportsService {
         newClients:       currentClientIds.length - returningCount + guestSet.size,
         recurringClients: returningCount,
       },
+      revenueByPaymentMethod,
+      revenueByDay,
     }
   }
 }

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { CalendarDays, CalendarRange, Calendar, Users, Plus, Banknote, CreditCard, ArrowRightLeft, Wallet, DollarSign } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { CalendarDays, CalendarRange, Calendar, Users, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
@@ -27,18 +27,6 @@ function StatCard({ label, value, highlight = false }: { label: string; value: n
   )
 }
 
-const PAYMENT_CONFIG: Record<string, { label: string; icon: typeof Banknote; color: string }> = {
-  CASH:        { label: 'Efectivo',        icon: Banknote,       color: 'text-green-600 dark:text-green-400' },
-  DEBIT_CARD:  { label: 'Tarjeta débito',  icon: CreditCard,     color: 'text-blue-600 dark:text-blue-400' },
-  CREDIT_CARD: { label: 'Tarjeta crédito', icon: CreditCard,     color: 'text-purple-600 dark:text-purple-400' },
-  TRANSFER:    { label: 'Transferencia',   icon: ArrowRightLeft, color: 'text-cyan-600 dark:text-cyan-400' },
-  MERCADOPAGO: { label: 'MercadoPago',     icon: Wallet,         color: 'text-sky-600 dark:text-sky-400' },
-}
-
-function fmtARS(n: number) {
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
-}
-
 export default function AgendaPage() {
   const { user } = useAuth()
   const tenantId = user?.tenantId ?? ''
@@ -46,25 +34,10 @@ export default function AgendaPage() {
 
   const { confirm, element: confirmDialog } = useConfirm()
   const agenda = useAgenda(tenantId, confirm)
-  const { view, setView, proFilter, setProFilter, stats, dayAppointments } = agenda
+  const { view, setView, proFilter, setProFilter, stats } = agenda
 
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [showNewAppt,   setShowNewAppt]   = useState(false)
-
-  const cajaDiaria = useMemo(() => {
-    const completed = dayAppointments.filter(a => a.status === 'COMPLETED')
-    const byMethod: Record<string, { count: number; total: number }> = {}
-    let grandTotal = 0
-    for (const a of completed) {
-      const price = typeof a.totalPrice === 'string' ? parseFloat(a.totalPrice) : a.totalPrice
-      grandTotal += price
-      const method = a.paymentMethod ?? 'SIN_DATO'
-      if (!byMethod[method]) byMethod[method] = { count: 0, total: 0 }
-      byMethod[method].count++
-      byMethod[method].total += price
-    }
-    return { grandTotal, byMethod, completedCount: completed.length }
-  }, [dayAppointments])
 
   useEffect(() => {
     if (!tenantId) return
@@ -148,38 +121,6 @@ export default function AgendaPage() {
         <StatCard label="Pendientes"  value={stats.pending}   />
         <StatCard label="Completados" value={stats.completed} />
       </div>
-
-      {cajaDiaria.completedCount > 0 && (
-        <div className="mb-4 rounded-xl border bg-white p-4 shadow-card dark:border-gray-800 dark:bg-gray-900 dark:shadow-none sm:mb-6 sm:p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <DollarSign size={16} className="text-green-600 dark:text-green-400" />
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Caja del día</h3>
-            </div>
-            <p className="text-lg font-extrabold tabular-nums text-green-700 dark:text-green-400">
-              {fmtARS(cajaDiaria.grandTotal)}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {Object.entries(cajaDiaria.byMethod)
-              .sort(([, a], [, b]) => b.total - a.total)
-              .map(([method, data]) => {
-                const cfg = PAYMENT_CONFIG[method]
-                const Icon = cfg?.icon ?? DollarSign
-                return (
-                  <div key={method} className="flex items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800">
-                    <Icon size={15} className={cfg?.color ?? 'text-gray-400'} />
-                    <div className="min-w-0">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{cfg?.label ?? 'Sin dato'}</p>
-                      <p className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">{fmtARS(data.total)}</p>
-                      <p className="text-[10px] text-gray-400">{data.count} turno{data.count > 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                )
-              })}
-          </div>
-        </div>
-      )}
 
       <div className="rounded-xl border border-gray-200/80 bg-white p-3 shadow-card dark:border-gray-800 dark:bg-gray-900 dark:shadow-none sm:p-5 overflow-x-auto">
         {view === 'day'

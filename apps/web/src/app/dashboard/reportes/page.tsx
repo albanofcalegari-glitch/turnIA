@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   Calendar, TrendingUp, TrendingDown, Minus, Users, Scissors,
-  DollarSign, Trophy,
+  DollarSign, Trophy, Banknote, CreditCard, ArrowRightLeft, Wallet, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -236,7 +236,10 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Clients + Revenue */}
+      {/* Revenue Detail */}
+      <RevenueDetail stats={stats} monthlyEvolution={monthlyEvolution} />
+
+      {/* Clients */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Clientes nuevos vs recurrentes">
           <ClientsDonut clients={stats.clients} />
@@ -256,6 +259,101 @@ export default function DashboardPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+// ── Revenue Detail ──────────────────────────────────────────────────────────
+
+const PM_CONFIG: Record<string, { label: string; icon: typeof Banknote; color: string }> = {
+  CASH:        { label: 'Efectivo',        icon: Banknote,       color: 'text-green-600' },
+  DEBIT_CARD:  { label: 'Tarjeta débito',  icon: CreditCard,     color: 'text-blue-600' },
+  CREDIT_CARD: { label: 'Tarjeta crédito', icon: CreditCard,     color: 'text-purple-600' },
+  TRANSFER:    { label: 'Transferencia',   icon: ArrowRightLeft, color: 'text-cyan-600' },
+  MERCADOPAGO: { label: 'MercadoPago',     icon: Wallet,         color: 'text-sky-600' },
+}
+
+function fmtARS(n: number) {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+}
+
+function RevenueDetail({ stats, monthlyEvolution }: { stats: DashboardStats; monthlyEvolution: DashboardStats['monthlyEvolution'] }) {
+  const [showDays, setShowDays] = useState(false)
+  const { revenueByPaymentMethod, revenueByDay } = stats
+  const totalRevenue = stats.kpis.revenue
+
+  if (totalRevenue === 0 && revenueByPaymentMethod.length === 0) return null
+
+  return (
+    <Card title="">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <DollarSign size={18} className="text-green-600" />
+          <h3 className="text-sm font-semibold text-gray-700">Detalle de ingresos</h3>
+        </div>
+        <p className="text-xl font-extrabold tabular-nums text-green-700">{fmtARS(totalRevenue)}</p>
+      </div>
+
+      {/* By payment method */}
+      {revenueByPaymentMethod.length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">Por medio de pago</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            {revenueByPaymentMethod.map(pm => {
+              const cfg = PM_CONFIG[pm.method]
+              const Icon = cfg?.icon ?? DollarSign
+              const pct = totalRevenue > 0 ? Math.round((pm.total / totalRevenue) * 100) : 0
+              return (
+                <div key={pm.method} className="rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <Icon size={15} className={cfg?.color ?? 'text-gray-400'} />
+                    <span className="text-xs text-gray-500 truncate">{cfg?.label ?? pm.method}</span>
+                  </div>
+                  <p className="mt-1 text-sm font-bold tabular-nums text-gray-900">{fmtARS(pm.total)}</p>
+                  <p className="text-[10px] text-gray-400">{pm.count} turno{pm.count !== 1 ? 's' : ''} · {pct}%</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* By day — collapsible */}
+      {revenueByDay.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowDays(d => !d)}
+            className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-400 hover:text-gray-600"
+          >
+            Detalle por día
+            {showDays ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+          {showDays && (
+            <div className="max-h-72 overflow-y-auto rounded-lg border">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-gray-50 text-left text-gray-500">
+                    <th className="px-3 py-2 font-medium">Fecha</th>
+                    <th className="px-3 py-2 font-medium text-right">Turnos</th>
+                    <th className="px-3 py-2 font-medium text-right">Ingreso</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revenueByDay.map(d => (
+                    <tr key={d.date} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="px-3 py-2 text-gray-700 capitalize">
+                        {new Date(d.date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-gray-600">{d.count}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{fmtARS(d.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
   )
 }
 
