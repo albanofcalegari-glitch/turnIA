@@ -97,6 +97,7 @@ class ApiClient {
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const res = await fetch(`${API_URL}${path}`, {
+      cache: 'no-store',
       ...options,
       headers: {
         'Content-Type': 'application/json',
