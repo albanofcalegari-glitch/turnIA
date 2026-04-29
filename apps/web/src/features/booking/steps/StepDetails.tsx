@@ -24,7 +24,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
         {label}
         {required && <span className="ml-1 text-red-500">*</span>}
       </label>
@@ -37,6 +37,7 @@ const inputCls = cn(
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900',
   'placeholder:text-gray-400',
   'focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20',
+  'dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500',
 )
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -194,8 +195,8 @@ export function StepDetails({ booking }: Props) {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Confirmá tu reserva</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Confirmá tu reserva</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {phase === 'email'
             ? 'Ingresá tu email para verificar tu identidad.'
             : phase === 'otp'
@@ -210,17 +211,17 @@ export function StepDetails({ booking }: Props) {
       {requiresMultiTurno ? (
         <div className="mb-6 space-y-3">
           {serviceBookings.map((b, idx) => (
-            <div key={idx} className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+            <div key={idx} className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:divide-gray-700">
               <div className="flex items-center gap-3 px-4 py-3">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
                   {idx + 1}
                 </span>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-900">{b.service.name}</p>
-                  <p className="text-xs text-gray-500">con {b.professional.displayName}</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{b.service.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">con {b.professional.displayName}</p>
                 </div>
                 {(typeof b.service.price === 'string' ? parseFloat(b.service.price) : b.service.price) > 0 && (
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
                     {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(
                       typeof b.service.price === 'string' ? parseFloat(b.service.price) : b.service.price,
                     )}
@@ -229,29 +230,29 @@ export function StepDetails({ booking }: Props) {
               </div>
               <div className="flex items-center gap-3 px-4 py-2.5">
                 <span className="text-sm">📅</span>
-                <p className="text-sm text-gray-700 capitalize">
+                <p className="text-sm text-gray-700 capitalize dark:text-gray-300">
                   {formatDateLong(b.date)} — {formatTime(b.slot.startAt, timezone)}
                 </p>
               </div>
             </div>
           ))}
           {totalPrice > 0 && (
-            <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
-              <p className="text-sm font-medium text-gray-600">Total ({serviceBookings.length} turnos)</p>
-              <p className="text-base font-bold text-gray-900">
+            <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total ({serviceBookings.length} turnos)</p>
+              <p className="text-base font-bold text-gray-900 dark:text-white">
                 {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(totalPrice)}
               </p>
             </div>
           )}
         </div>
       ) : (
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white divide-y divide-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:divide-gray-700">
           {selectedProfessional && (
             <div className="flex items-center gap-3 px-4 py-3">
               <span className="text-lg">👤</span>
               <div>
                 <p className="text-xs text-gray-400 uppercase tracking-wide">Profesional</p>
-                <p className="text-sm font-medium text-gray-900">{selectedProfessional.displayName}</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedProfessional.displayName}</p>
               </div>
             </div>
           )}
@@ -261,7 +262,7 @@ export function StepDetails({ booking }: Props) {
               <p className="text-xs text-gray-400 uppercase tracking-wide">
                 Servicio{selectedServices.length > 1 ? 's' : ''}
               </p>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
                 {selectedServices.map(s => s.name).join(' + ')}
               </p>
             </div>
@@ -271,7 +272,7 @@ export function StepDetails({ booking }: Props) {
               <span className="text-lg">📅</span>
               <div>
                 <p className="text-xs text-gray-400 uppercase tracking-wide">Fecha y hora</p>
-                <p className="text-sm font-medium text-gray-900 capitalize">
+                <p className="text-sm font-medium text-gray-900 capitalize dark:text-white">
                   {formatDateLong(selectedDate)} — {formatTime(selectedSlot.startAt, timezone)}
                 </p>
               </div>
@@ -283,7 +284,7 @@ export function StepDetails({ booking }: Props) {
                 <span className="text-lg">💰</span>
                 <p className="text-xs text-gray-400 uppercase tracking-wide">Total</p>
               </div>
-              <p className="text-base font-bold text-gray-900">
+              <p className="text-base font-bold text-gray-900 dark:text-white">
                 {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(totalPrice)}
               </p>
             </div>
@@ -341,10 +342,10 @@ export function StepDetails({ booking }: Props) {
       {/* ── Phase 2: OTP input ───────────────────────────────────────────── */}
       {phase === 'otp' && (
         <div className="space-y-4">
-          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
             Enviamos un código a <strong>{guestInfo.email}</strong>
           </div>
-          <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
             ¿No lo encontrás? Revisá tu carpeta de <strong>spam</strong> o <strong>correo no deseado</strong>.
           </div>
 
@@ -360,9 +361,9 @@ export function StepDetails({ booking }: Props) {
                 onChange={e => handleDigitChange(i, e.target.value)}
                 onKeyDown={e => handleDigitKeyDown(i, e)}
                 className={cn(
-                  'h-12 w-10 rounded-lg border-2 text-center text-lg font-bold',
+                  'h-12 w-10 rounded-lg border-2 text-center text-lg font-bold text-gray-900 dark:text-white dark:bg-gray-800',
                   'focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20',
-                  otpError ? 'border-red-300' : 'border-gray-300',
+                  otpError ? 'border-red-300 dark:border-red-500' : 'border-gray-300 dark:border-gray-600',
                 )}
                 autoFocus={i === 0}
               />
@@ -384,7 +385,7 @@ export function StepDetails({ booking }: Props) {
           <div className="flex items-center justify-between">
             <button
               onClick={() => { setPhase('email'); setOtpError(null); setOtpDigits(['','','','','','']) }}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               Cambiar email
             </button>
@@ -405,7 +406,7 @@ export function StepDetails({ booking }: Props) {
       {/* ── Phase 3: Guest info form (post-verification) ─────────────────── */}
       {phase === 'form' && (
         <>
-          <div className="mb-4 rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800">
+          <div className="mb-4 rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
             Email verificado: <strong>{guestInfo.email}</strong>
           </div>
 

@@ -33,8 +33,8 @@ function ProfessionalCard({
       className={cn(
         'flex w-full items-center gap-4 rounded-xl border-2 p-4 text-left transition-all',
         selected
-          ? 'border-brand-600 bg-brand-50 ring-2 ring-brand-600/20'
-          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50',
+          ? 'border-brand-600 bg-brand-50 ring-2 ring-brand-600/20 dark:bg-brand-900/20'
+          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600 dark:hover:bg-gray-750',
       )}
     >
       {/* Avatar */}
@@ -56,16 +56,16 @@ function ProfessionalCard({
 
       {/* Info */}
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-gray-900">{professional.displayName}</p>
+        <p className="font-semibold text-gray-900 dark:text-white">{professional.displayName}</p>
         {professional.bio && (
-          <p className="mt-0.5 text-sm text-gray-500 line-clamp-2">{professional.bio}</p>
+          <p className="mt-0.5 text-sm text-gray-500 line-clamp-2 dark:text-gray-400">{professional.bio}</p>
         )}
       </div>
 
       {/* Selection indicator */}
       <div className={cn(
         'ml-2 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-        selected ? 'border-brand-600 bg-brand-600' : 'border-gray-300',
+        selected ? 'border-brand-600 bg-brand-600' : 'border-gray-300 dark:border-gray-600',
       )}>
         {selected && <span className="text-[10px] text-white font-bold">✓</span>}
       </div>
@@ -84,15 +84,11 @@ export function StepProfessional({ booking }: Props) {
     currentServiceIndex,
   } = booking
 
-  // Multi-turno fallback: there's no single pro who can do all the selected
-  // services, so we ask the user to pick a pro for the current service in
-  // the iteration. The very first time we land here we show an explicit
-  // warning so they understand they're going to end up with N appointments.
   if (requiresMultiTurno && currentService) {
     if (eligibleProfessionals.length === 0) {
       return (
-        <div className="rounded-2xl border bg-white p-10 text-center">
-          <p className="text-gray-500 font-medium">Sin profesionales disponibles</p>
+        <div className="rounded-2xl border bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-gray-500 font-medium dark:text-gray-400">Sin profesionales disponibles</p>
           <p className="mt-1 text-sm text-gray-400">
             Ningún profesional ofrece &ldquo;{currentService.name}&rdquo;. Volvé al paso anterior y probá con otra combinación.
           </p>
@@ -108,11 +104,11 @@ export function StepProfessional({ booking }: Props) {
     return (
       <div>
         {currentServiceIndex === 0 && (
-          <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-900">
+          <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">
               No hay un solo profesional que haga los {selectedServices.length} servicios
             </p>
-            <p className="mt-1 text-sm text-amber-800">
+            <p className="mt-1 text-sm text-amber-800 dark:text-amber-400">
               Vas a reservar un turno por cada servicio. Podés elegir un profesional diferente para cada uno.
             </p>
           </div>
@@ -122,7 +118,7 @@ export function StepProfessional({ booking }: Props) {
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
             Servicio {currentServiceIndex + 1} de {selectedServices.length}
           </p>
-          <h2 className="mt-1 text-xl font-bold text-gray-900">
+          <h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">
             ¿Con quién hacés &ldquo;{currentService.name}&rdquo;?
           </h2>
         </div>
@@ -141,11 +137,10 @@ export function StepProfessional({ booking }: Props) {
     )
   }
 
-  // Unified flow (single service OR multi-service with unified pros).
   if (eligibleProfessionals.length === 0) {
     return (
-      <div className="rounded-2xl border bg-white p-10 text-center">
-        <p className="text-gray-500 font-medium">Sin profesionales disponibles</p>
+      <div className="rounded-2xl border bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-800">
+        <p className="text-gray-500 font-medium dark:text-gray-400">Sin profesionales disponibles</p>
         <p className="mt-1 text-sm text-gray-400">
           {selectedServices.length === 1
             ? 'Ningún profesional ofrece este servicio en este momento.'
@@ -163,8 +158,8 @@ export function StepProfessional({ booking }: Props) {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900">¿Con quién querés atenderte?</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">¿Con quién querés atenderte?</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {selectedServices.length === 1
             ? `Profesionales que ofrecen "${selectedServices[0].name}"`
             : `Profesionales que ofrecen los ${selectedServices.length} servicios seleccionados`}

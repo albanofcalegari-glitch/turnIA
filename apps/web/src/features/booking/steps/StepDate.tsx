@@ -112,28 +112,28 @@ export function StepDate({ booking }: Props) {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900">¿Qué día te viene bien?</h2>
-        <p className="mt-1 text-sm text-gray-500">Elegí una fecha para ver los horarios disponibles.</p>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">¿Qué día te viene bien?</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Elegí una fecha para ver los horarios disponibles.</p>
       </div>
 
-      <div className="rounded-2xl border bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         {/* Month navigation */}
         <div className="mb-4 flex items-center justify-between">
           <button
             onClick={prevMonth}
             disabled={!canGoPrev}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 disabled:opacity-30"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700"
             aria-label="Mes anterior"
           >
             ‹
           </button>
-          <p className="text-sm font-semibold text-gray-900 capitalize">
+          <p className="text-sm font-semibold text-gray-900 capitalize dark:text-white">
             {formatMonthYear(viewYear, viewMonth)}
           </p>
           <button
             onClick={nextMonth}
             disabled={!canGoNext}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 disabled:opacity-30"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700"
             aria-label="Mes siguiente"
           >
             ›
@@ -166,9 +166,9 @@ export function StepDate({ booking }: Props) {
                 aria-label={`${day} de ${formatMonthYear(viewYear, viewMonth)}`}
                 className={cn(
                   'aspect-square rounded-lg text-sm font-medium transition-colors',
-                  disabled  && 'cursor-not-allowed text-gray-200',
-                  !disabled && !selected && 'text-gray-700 hover:bg-brand-50 hover:text-brand-700',
-                  todayCell && !selected && !disabled && 'font-bold text-brand-600 underline underline-offset-2',
+                  disabled  && 'cursor-not-allowed text-gray-200 dark:text-gray-700',
+                  !disabled && !selected && 'text-gray-700 hover:bg-brand-50 hover:text-brand-700 dark:text-gray-300 dark:hover:bg-brand-900/30 dark:hover:text-brand-400',
+                  todayCell && !selected && !disabled && 'font-bold text-brand-600 underline underline-offset-2 dark:text-brand-400',
                   selected  && 'bg-brand-600 text-white',
                 )}
               >

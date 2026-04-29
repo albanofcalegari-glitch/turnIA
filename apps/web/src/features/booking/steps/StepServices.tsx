@@ -37,8 +37,8 @@ function ServiceCard({
       className={cn(
         'w-full rounded-xl border-2 p-4 text-left transition-all',
         selected
-          ? 'border-brand-600 bg-brand-50 ring-2 ring-brand-600/20'
-          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50',
+          ? 'border-brand-600 bg-brand-50 ring-2 ring-brand-600/20 dark:bg-brand-900/20'
+          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600 dark:hover:bg-gray-750',
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -50,10 +50,10 @@ function ServiceCard({
                 style={{ backgroundColor: service.color }}
               />
             )}
-            <p className="font-semibold text-gray-900 truncate">{service.name}</p>
+            <p className="font-semibold text-gray-900 truncate dark:text-white">{service.name}</p>
           </div>
           {service.description && (
-            <p className="mt-0.5 text-sm text-gray-500 line-clamp-2">{service.description}</p>
+            <p className="mt-0.5 text-sm text-gray-500 line-clamp-2 dark:text-gray-400">{service.description}</p>
           )}
           <p className="mt-1.5 text-sm text-gray-400">
             {service.durationMinutes} min
@@ -62,13 +62,13 @@ function ServiceCard({
 
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
           {formatPrice(service.price, service.currency) && (
-            <p className="text-base font-semibold text-gray-900">
+            <p className="text-base font-semibold text-gray-900 dark:text-white">
               {formatPrice(service.price, service.currency)}
             </p>
           )}
           <div className={cn(
             'flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors',
-            selected ? 'border-brand-600 bg-brand-600' : 'border-gray-300',
+            selected ? 'border-brand-600 bg-brand-600' : 'border-gray-300 dark:border-gray-600',
           )}>
             {selected && <span className="text-[10px] text-white font-bold">✓</span>}
           </div>
@@ -88,7 +88,7 @@ export function StepServices({ booking }: Props) {
 
   if (services.length === 0) {
     return (
-      <div className="rounded-2xl border bg-white p-10 text-center">
+      <div className="rounded-2xl border bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-800">
         <p className="text-gray-400">Este negocio aún no tiene servicios disponibles.</p>
       </div>
     )
@@ -97,8 +97,8 @@ export function StepServices({ booking }: Props) {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900">¿Qué servicio querés reservar?</h2>
-        <p className="mt-1 text-sm text-gray-500">Podés elegir uno o varios servicios.</p>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">¿Qué servicio querés reservar?</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Podés elegir uno o varios servicios.</p>
       </div>
 
       <div className="space-y-3">
@@ -113,8 +113,8 @@ export function StepServices({ booking }: Props) {
       </div>
 
       {selectedServices.length > 0 && (
-        <div className="mt-6 rounded-xl bg-brand-50 border border-brand-200 p-4">
-          <div className="flex justify-between text-sm text-gray-700">
+        <div className="mt-6 rounded-xl bg-brand-50 border border-brand-200 p-4 dark:bg-brand-900/20 dark:border-brand-700">
+          <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
             <span>{selectedServices.length} servicio{selectedServices.length > 1 ? 's' : ''}</span>
             <span>{totalMinutes} min{totalPrice > 0 ? ` · ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(totalPrice)}` : ''}</span>
           </div>
