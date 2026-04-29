@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, CreditCard, Award, BarChart3, Mail, Lock } from 'lucide-react'
+import { Calendar, Scissors, Users, Clock, Settings, LogOut, Menu, X, ShieldOff, Building2, CreditCard, Award, BarChart3, Mail, Lock, Link2, Copy, Check, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
@@ -80,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Logo */}
       <div className="border-b border-gray-100 p-4 dark:border-gray-800">
         <div className="flex items-center justify-between">
-          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-lg font-extrabold tracking-tight text-transparent">turnIT</span>
+          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">turnIT</span>
           <ThemeToggle />
         </div>
         {user.tenantName && (
@@ -143,7 +143,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Mobile header */}
       <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-gray-100 bg-white/95 px-4 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95 md:hidden">
-        <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-lg font-extrabold tracking-tight text-transparent">turnIT</span>
+        <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">turnIT</span>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
@@ -174,6 +174,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="flex-1 overflow-auto p-4 pt-18 sm:p-6 md:pt-6">
         <MembershipBanner expiresAt={user.tenantMembershipExpiresAt} />
         <EmailVerificationBanner verifiedAt={user.emailVerifiedAt} email={user.email} />
+        {user.tenantSlug && <PublicUrlBar slug={user.tenantSlug} />}
         {children}
       </main>
     </div>
@@ -384,6 +385,67 @@ function EmailVerificationBanner({
         </button>
       </div>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public booking URL — persistent bar across all dashboard pages
+// ─────────────────────────────────────────────────────────────────────────────
+function PublicUrlBar({ slug }: { slug: string }) {
+  const [copied, setCopied] = useState(false)
+  const [url, setUrl] = useState(`/${slug}`)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setUrl(`${window.location.origin}/${slug}`)
+    }
+  }, [slug])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = url
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
+  }
+
+  return (
+    <div className="mb-4 flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/50 px-3 py-2.5 dark:border-brand-600/30 dark:bg-brand-600/10 sm:px-4 sm:py-3">
+      <Link2 size={16} className="flex-shrink-0 text-brand-600 dark:text-brand-400" />
+      <p className="min-w-0 flex-1 truncate text-xs font-mono text-gray-700 dark:text-gray-300 sm:text-sm">{url}</p>
+      <div className="flex flex-shrink-0 items-center gap-1.5">
+        <button
+          onClick={copy}
+          className={cn(
+            'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
+            copied
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-brand-300 bg-white text-brand-700 hover:bg-brand-50 shadow-sm',
+          )}
+        >
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          <span className="hidden sm:inline">{copied ? 'Copiado' : 'Copiar'}</span>
+        </button>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+        >
+          <ExternalLink size={13} />
+          <span className="hidden sm:inline">Abrir</span>
+        </a>
+      </div>
     </div>
   )
 }

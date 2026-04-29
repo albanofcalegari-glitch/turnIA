@@ -37,7 +37,7 @@ async function bootstrap() {
   // CORS: soporta una o múltiples origins separadas por coma.
   // Ej: CORS_ORIGINS=http://localhost:3000,http://localhost:3005
   //     CORS_ORIGINS=https://app.turnia.com
-  const rawOrigins = process.env.CORS_ORIGINS ?? process.env.WEB_URL ?? 'http://localhost:3000,http://localhost:3005'
+  const rawOrigins = process.env.CORS_ORIGINS ?? process.env.WEB_URL ?? 'http://localhost:3000,http://localhost:3001,http://localhost:3005'
   const originList = rawOrigins.split(',').map(o => o.trim()).filter(Boolean)
 
   app.enableCors({

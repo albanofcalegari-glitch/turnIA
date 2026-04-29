@@ -91,13 +91,11 @@ export class AppointmentsService {
     tenantId: string,
     userId: string | null,   // JWT sub — null when the caller is a guest
     dto: CreateAppointmentDto,
+    isAdminBooking = false,
   ) {
     const startAt = new Date(dto.startAt)
 
     // ── 0. Resolve branch (validates ownership + single-branch fallback) ──
-    // Fail loudly if a multi-branch tenant forgets to send branchId; for
-    // single-branch tenants this falls through to the default branch so
-    // existing clients keep working unchanged.
     const branchId = await this.branches.resolveBranchId(tenantId, dto.branchId)
 
     // ── 1. Load professional + tenant config ─────────────────────────────
@@ -110,13 +108,10 @@ export class AppointmentsService {
     if (!professional) {
       throw new NotFoundException('Profesional no encontrado')
     }
-    if (!professional.acceptsOnlineBooking) {
+    if (!isAdminBooking && !professional.acceptsOnlineBooking) {
       throw new BadRequestException('Este profesional no acepta reservas online')
     }
 
-    // Verify the professional actually atende en esa sucursal — protects
-    // multi-branch tenants from booking a pro at a sucursal where they
-    // don't work.
     await this.branches.requireProfessionalInBranch(branchId, dto.professionalId)
 
     const { tenant } = professional
@@ -124,7 +119,7 @@ export class AppointmentsService {
     const isGuest  = !userId
 
     // ── 2. Guest booking validation ───────────────────────────────────────
-    if (isGuest) {
+    if (!isAdminBooking && isGuest) {
       if (!(rules?.allowGuestBooking ?? true)) {
         throw new ForbiddenException('Este negocio no permite reservas de invitados')
       }
@@ -135,20 +130,22 @@ export class AppointmentsService {
       }
     }
 
-    // ── 3. Timing constraints ─────────────────────────────────────────────
-    const nowMs          = Date.now()
-    const minAdvanceMins = rules?.minAdvanceMinutes ?? 60
-    const windowDays     = rules?.bookingWindowDays ?? 0
+    // ── 3. Timing constraints (skipped for admin bookings) ───────────────
+    if (!isAdminBooking) {
+      const nowMs          = Date.now()
+      const minAdvanceMins = rules?.minAdvanceMinutes ?? 60
+      const windowDays     = rules?.bookingWindowDays ?? 0
 
-    if (startAt.getTime() < nowMs + minAdvanceMins * 60_000) {
-      throw new BadRequestException(
-        `La reserva debe hacerse con al menos ${minAdvanceMins} minutos de anticipación`,
-      )
-    }
-    if (windowDays > 0 && startAt.getTime() > nowMs + windowDays * 24 * 60 * 60_000) {
-      throw new BadRequestException(
-        `La reserva debe estar dentro de los próximos ${windowDays} días`,
-      )
+      if (startAt.getTime() < nowMs + minAdvanceMins * 60_000) {
+        throw new BadRequestException(
+          `La reserva debe hacerse con al menos ${minAdvanceMins} minutos de anticipación`,
+        )
+      }
+      if (windowDays > 0 && startAt.getTime() > nowMs + windowDays * 24 * 60 * 60_000) {
+        throw new BadRequestException(
+          `La reserva debe estar dentro de los próximos ${windowDays} días`,
+        )
+      }
     }
 
     // ── 4. Resolve services, compute duration and price ───────────────────
@@ -158,27 +155,25 @@ export class AppointmentsService {
     const endAt        = new Date(startAt.getTime() + totalMinutes * 60_000)
     const totalPrice   = services.reduce((sum, s) => sum + s.price, 0)
 
+    // ── 4b. Resolve capacity for group bookings ──────────────────────────
+    const rawServices = await this.prisma.service.findMany({
+      where: { id: { in: serviceIds } },
+      select: { maxParallelBookings: true },
+    })
+    const maxCapacity = Math.min(...rawServices.map(s => s.maxParallelBookings))
+
     // ── 5. Initial status based on tenant configuration ───────────────────
     const autoConfirm = rules?.autoConfirm ?? true
     const status      = autoConfirm ? AppointmentStatus.CONFIRMED : AppointmentStatus.PENDING
     const confirmedAt = autoConfirm ? new Date() : null
 
     // ── 6. Build client context (outside the transaction) ─────────────────
-    //
-    // If the booking carries explicit guest info (guestName + guestEmail),
-    // always treat it as a guest booking — even if there is a valid JWT.
-    // This covers the common scenario where the tenant admin/professional
-    // is logged in on the same browser and tests (or demonstrates) the
-    // public booking flow: without this check the CRM record would be
-    // created with the admin's name instead of the guest's.
-    //
-    // For authenticated users who book without supplying guest fields, we
-    // load the User record here — before entering the SERIALIZABLE
-    // transaction — to keep the critical section as short as possible.
-    // User data (name, email) is stable enough that reading it outside
-    // the transaction is safe.
-    let clientCtx: ClientContext
-    if (dto.guestName && dto.guestEmail) {
+    let clientCtx: ClientContext | null = null
+    let directClientId: string | null = null
+
+    if (isAdminBooking && dto.clientId) {
+      directClientId = dto.clientId
+    } else if (dto.guestName && dto.guestEmail) {
       clientCtx = {
         kind:  'guest',
         name:  dto.guestName,
@@ -192,28 +187,42 @@ export class AppointmentsService {
       })
       if (!user) throw new NotFoundException('Cuenta de usuario no encontrada')
       clientCtx = { kind: 'user', userId, ...user }
-    } else {
+    } else if (dto.guestName && dto.guestEmail) {
       clientCtx = {
         kind:  'guest',
-        name:  dto.guestName!,
-        email: dto.guestEmail!,
+        name:  dto.guestName,
+        email: dto.guestEmail,
         phone: dto.guestPhone,
       }
     }
 
     // ── 7. Transaction: resolve client + overlap check + atomic insert ────
     let created: Awaited<ReturnType<typeof this.prisma.appointment.create>> | null = null
+    let duplicateClient = false
 
     try {
       created = await this.prisma.$transaction(
         async (tx) => {
-          // Resolve (find or create) the Client record.
-          // Runs inside the transaction so that a failed appointment insert
-          // also rolls back the newly created client record.
-          const resolvedClientId = await this.resolveClient(tx, tenantId, clientCtx)
+          const resolvedClientId = directClientId
+            ?? (clientCtx ? await this.resolveClient(tx, tenantId, clientCtx) : null)
 
-          // Count active appointments that overlap our requested window.
-          // [A, B) and [C, D) overlap when A < D AND C < B.
+          if (resolvedClientId) {
+            const dup = await tx.appointment.count({
+              where: {
+                tenantId,
+                clientId:       resolvedClientId,
+                professionalId: dto.professionalId,
+                status:         { in: BLOCKING },
+                startAt:        { lt: endAt },
+                endAt:          { gt: startAt },
+              },
+            })
+            if (dup > 0) {
+              duplicateClient = true
+              return null
+            }
+          }
+
           const overlap = await tx.appointment.count({
             where: {
               tenantId,
@@ -224,10 +233,7 @@ export class AppointmentsService {
             },
           })
 
-          // Returning null signals "slot taken" without throwing inside the
-          // callback (throwing NestJS exceptions inside Prisma tx callbacks
-          // can interfere with Prisma's rollback signaling in some versions).
-          if (overlap > 0) return null
+          if (overlap >= maxCapacity) return null
 
           return tx.appointment.create({
             data: {
@@ -242,16 +248,13 @@ export class AppointmentsService {
               totalPrice,
               confirmedAt,
               notes:      dto.notes,
-              // Snapshots — always stored, regardless of auth status.
-              // Provides a human-readable record even if the Client row
-              // is later anonymised or the user account deleted.
               guestName:  dto.guestName,
               guestEmail: dto.guestEmail,
               guestPhone: dto.guestPhone,
               items: {
                 create: services.map((svc, idx) => ({
                   serviceId:       svc.id,
-                  serviceName:     svc.name,   // snapshot at booking time
+                  serviceName:     svc.name,
                   durationMinutes: svc.durationMinutes,
                   price:           svc.price,
                   order:           idx,
@@ -269,14 +272,9 @@ export class AppointmentsService {
       )
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError) {
-        // P2002: unique constraint violation — two concurrent requests for
-        // the exact same startAt; the partial index fires.
         if (err.code === 'P2002') {
           throw new ConflictException('Ese horario ya no está disponible')
         }
-        // P2034: serialization failure — PostgreSQL rolled back our
-        // transaction because a concurrent one would have produced a
-        // different result. Client should retry or pick another slot.
         if (err.code === 'P2034') {
           throw new ConflictException(
             'Conflicto de reserva, por favor elegí otro horario o intentá de nuevo',
@@ -286,9 +284,11 @@ export class AppointmentsService {
       throw err
     }
 
-    // overlap > 0 inside the transaction returned null
     if (!created) {
-      throw new ConflictException('Ese horario ya no está disponible')
+      if (duplicateClient) {
+        throw new ConflictException('Este cliente ya tiene un turno en este horario')
+      }
+      throw new ConflictException('Ese horario ya no está disponible (sin cupos)')
     }
 
     this.gcal.syncAppointmentCreated(created.id).catch(() => {})

@@ -369,14 +369,15 @@ export class SchedulesService {
       }
     }
 
-    // ── 6. Collect busy intervals ──────────────────────────────────────────
-    // Query appointments that overlap the requested day (in UTC).
-    //
-    // CRITICAL: this query is intentionally BRANCH-AGNOSTIC. The same
-    // physical professional cannot be in two branches at once, so an
-    // appointment they have at branch A must block their slots at branch B
-    // for that same time window. Filtering by branchId here would re-introduce
-    // the cross-branch double-booking bug we explicitly designed against.
+    // ── 6. Resolve capacity (group bookings) ────────────────────────────
+    const rawSvcs = await this.prisma.service.findMany({
+      where: { id: { in: serviceIds } },
+      select: { maxParallelBookings: true },
+    })
+    const maxCapacity = Math.min(...rawSvcs.map(s => s.maxParallelBookings))
+    const isGroup = maxCapacity > 1
+
+    // ── 7. Collect busy intervals / appointment list ─────────────────────
     const dayStartUtc = this.localToUtc(date, '00:00', timezone)
     const dayEndUtc   = this.localToUtc(date, '23:59', timezone)
 
@@ -390,22 +391,19 @@ export class SchedulesService {
       select: { startAt: true, endAt: true },
     })
 
-    const busyIntervals: TimeInterval[] = [
-      // Existing appointments converted to local minute intervals
-      ...appointments.map(appt => ({
-        startMinutes: this.utcToLocalMinutes(appt.startAt, timezone),
-        endMinutes:   this.utcToLocalMinutes(appt.endAt,   timezone),
-      })),
-      // Partial-day BLOCK exceptions with explicit time ranges
-      ...exceptions
-        .filter(ex => ex.type === ExceptionType.BLOCK && ex.startTime && ex.endTime)
-        .map(ex => ({
-          startMinutes: this.timeToMinutes(ex.startTime!),
-          endMinutes:   this.timeToMinutes(ex.endTime!),
-        })),
-    ]
+    const apptIntervals = appointments.map(appt => ({
+      startMinutes: this.utcToLocalMinutes(appt.startAt, timezone),
+      endMinutes:   this.utcToLocalMinutes(appt.endAt,   timezone),
+    }))
 
-    // ── 7. Generate slots ──────────────────────────────────────────────────
+    const blockIntervals: TimeInterval[] = exceptions
+      .filter(ex => ex.type === ExceptionType.BLOCK && ex.startTime && ex.endTime)
+      .map(ex => ({
+        startMinutes: this.timeToMinutes(ex.startTime!),
+        endMinutes:   this.timeToMinutes(ex.endTime!),
+      }))
+
+    // ── 8. Generate slots ──────────────────────────────────────────────────
     const slots: AvailableSlot[] = []
     const unavailableSlots: UnavailableSlot[] = []
     const now = new Date()
@@ -422,18 +420,23 @@ export class SchedulesService {
         continue
       }
 
-      const isFree = !this.overlapsAny(
-        { startMinutes: slotStart, endMinutes: slotEnd },
-        busyIntervals,
-      )
+      const slotInterval: TimeInterval = { startMinutes: slotStart, endMinutes: slotEnd }
 
-      const slotData = {
+      const isBlocked = this.overlapsAny(slotInterval, blockIntervals)
+      const overlappingCount = apptIntervals.filter(
+        b => slotStart < b.endMinutes && b.startMinutes < slotEnd,
+      ).length
+
+      const remaining = maxCapacity - overlappingCount
+
+      const slotData: AvailableSlot = {
         startAt:         slotStartAt.toISOString(),
         endAt:           this.localToUtc(date, this.minutesToTime(slotEnd), timezone).toISOString(),
         durationMinutes: totalDurationMins,
+        ...(isGroup ? { capacity: maxCapacity, booked: overlappingCount, remainingCapacity: Math.max(0, remaining) } : {}),
       }
 
-      if (isFree) {
+      if (!isBlocked && remaining > 0) {
         slots.push(slotData)
       } else {
         unavailableSlots.push(slotData)

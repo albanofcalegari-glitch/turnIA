@@ -14,9 +14,12 @@ export interface ServiceSnapshot {
 }
 
 export interface AvailableSlot {
-  startAt:         string  // ISO 8601 UTC
-  endAt:           string  // ISO 8601 UTC
-  durationMinutes: number
+  startAt:            string  // ISO 8601 UTC
+  endAt:              string  // ISO 8601 UTC
+  durationMinutes:    number
+  capacity?:          number  // total capacity (only present when > 1)
+  booked?:            number  // current bookings in this slot
+  remainingCapacity?: number  // available spots
 }
 
 export type UnavailableReason =

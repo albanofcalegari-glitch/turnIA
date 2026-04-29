@@ -21,6 +21,7 @@ import { ReportsModule } from './modules/reports/reports.module'
 import { GuestAuthModule } from './modules/guest-auth/guest-auth.module'
 import { GoogleCalendarModule } from './modules/google-calendar/google-calendar.module'
 import { OutlookCalendarModule } from './modules/outlook-calendar/outlook-calendar.module'
+import { ClientsModule } from './modules/clients/clients.module'
 import { TenantMiddleware } from './common/middleware/tenant.middleware'
 
 @Module({
@@ -58,6 +59,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware'
     GuestAuthModule,
     GoogleCalendarModule,
     OutlookCalendarModule,
+    ClientsModule,
   ],
   providers: [
     // Global guard: enforces membership status on every authenticated request.

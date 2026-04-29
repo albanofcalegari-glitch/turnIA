@@ -25,10 +25,11 @@ export class CreateServiceDto {
   @Min(0)
   bufferAfter: number = 0
 
+  @IsOptional()
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  price!: number
+  price?: number
 
   @IsOptional()
   @IsString()
@@ -45,4 +46,9 @@ export class CreateServiceDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxParallelBookings?: number
 }

@@ -269,7 +269,7 @@ model Service {
   durationMinutes  Int
   bufferBefore     Int      @default(0)
   bufferAfter      Int      @default(0)
-  price            Decimal  @db.Decimal(10, 2)
+  price            Decimal  @default(0) @db.Decimal(10, 2)
   currency         String   @default("ARS")
   color            String?
   isActive         Boolean  @default(true)

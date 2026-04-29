@@ -72,4 +72,8 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsString()
   guestPhone?: string
+
+  @IsOptional()
+  @IsString()
+  clientId?: string
 }

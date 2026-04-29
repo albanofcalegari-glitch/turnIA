@@ -71,9 +71,12 @@ export interface Professional {
 }
 
 export interface AvailableSlot {
-  startAt:         string   // ISO UTC
-  endAt:           string   // ISO UTC
-  durationMinutes: number
+  startAt:            string   // ISO UTC
+  endAt:              string   // ISO UTC
+  durationMinutes:    number
+  capacity?:          number
+  booked?:            number
+  remainingCapacity?: number
 }
 
 export interface UnavailableSlot {

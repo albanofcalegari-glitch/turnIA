@@ -30,26 +30,23 @@ export function DayView({ agenda, timezone }: Props) {
   return (
     <div>
       {/* Date nav bar */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => shiftDay(-1)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50"
-          >
-            ‹
-          </button>
-          <button
-            onClick={() => shiftDay(1)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50"
-          >
-            ›
-          </button>
-          <h2 className="ml-1 text-sm font-semibold text-gray-900 capitalize">
-            {formatDateLong(selectedDate)}
-          </h2>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => shiftDay(-1)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50"
+        >
+          ‹
+        </button>
+        <button
+          onClick={() => shiftDay(1)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50"
+        >
+          ›
+        </button>
+        <h2 className="text-sm font-semibold text-gray-900 capitalize">
+          {formatDateLong(selectedDate)}
+        </h2>
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
             className="rounded-lg border bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -60,7 +57,7 @@ export function DayView({ agenda, timezone }: Props) {
             type="date"
             value={selectedDate}
             onChange={e => setSelectedDate(e.target.value)}
-            className="rounded-lg border px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            className="hidden rounded-lg border px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-500 sm:block"
           />
         </div>
       </div>

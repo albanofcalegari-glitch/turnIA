@@ -30,17 +30,6 @@ function assertSafeEmail(v: string) {
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
-  /**
-   * Create a new appointment.
-   *
-   * Open to both authenticated users and guests:
-   * - Authenticated: JWT is read, clientId = user.sub
-   * - Guest: no JWT (or invalid token), clientId = null;
-   *   guestName + guestEmail are required in the body.
-   *
-   * The TenantGuard still runs — the request must include the tenant slug
-   * via subdomain or X-Tenant-Slug header.
-   */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(OptionalJwtAuthGuard, TenantGuard)
@@ -50,6 +39,18 @@ export class AppointmentsController {
     @Body() dto: CreateAppointmentDto,
   ) {
     return this.appointmentsService.create(tenantId, user?.sub ?? null, dto)
+  }
+
+  @Post('admin')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, TenantGuard)
+  adminCreate(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateAppointmentDto,
+  ) {
+    if (user.role !== 'ADMIN') throw new BadRequestException('Solo el administrador puede crear turnos manuales.')
+    return this.appointmentsService.create(tenantId, user.sub, dto, true)
   }
 
   /**

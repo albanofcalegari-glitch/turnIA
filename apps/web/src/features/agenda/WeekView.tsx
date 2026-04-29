@@ -88,72 +88,109 @@ export function WeekView({ agenda, timezone }: Props) {
       {loading ? (
         <div className="flex items-center justify-center py-16"><Spinner size="lg" /></div>
       ) : (
-        <div className="grid min-w-[700px] grid-cols-7 gap-2">
-          {dates.map((date, idx) => {
-            const appts = weekAppointments[date] ?? []
-            const isToday = date === today
-            const isSelected = date === selectedDate
+        <>
+          {/* Desktop: 7-column grid */}
+          <div className="hidden grid-cols-7 gap-2 md:grid">
+            {dates.map((date, idx) => {
+              const appts = weekAppointments[date] ?? []
+              const isToday = date === today
+              const isSelected = date === selectedDate
 
-            return (
-              <div
-                key={date}
-                className={cn(
-                  'rounded-xl border bg-white',
-                  isSelected && 'ring-2 ring-brand-500',
-                )}
-              >
-                {/* Day header */}
-                <button
-                  onClick={() => handleDayClick(date)}
+              return (
+                <div
+                  key={date}
                   className={cn(
-                    'w-full rounded-t-xl px-2 py-2 text-center transition-colors hover:bg-gray-50',
-                    isToday && 'bg-brand-50',
+                    'rounded-xl border bg-white',
+                    isSelected && 'ring-2 ring-brand-500',
                   )}
                 >
-                  <p className={cn('text-xs font-medium', isToday ? 'text-brand-600' : 'text-gray-500')}>
-                    {DAY_SHORT[idx]}
-                  </p>
-                  <p className={cn(
-                    'text-lg font-bold',
-                    isToday ? 'text-brand-700' : 'text-gray-900',
-                  )}>
-                    {new Date(date + 'T12:00:00').getDate()}
-                  </p>
-                  {appts.length > 0 && (
-                    <span className="mt-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">
-                      {appts.length}
-                    </span>
-                  )}
-                </button>
-
-                {/* Compact appointment list */}
-                <div className="space-y-1 p-1.5">
-                  {appts.slice(0, 4).map((appt: Appointment) => (
-                    <div
-                      key={appt.id}
-                      className="rounded-lg border bg-gray-50 px-2 py-1.5 text-left"
-                    >
-                      <p className="text-[10px] font-bold tabular-nums text-gray-700">
-                        {formatTime(appt.startAt, timezone)}
-                      </p>
-                      <p className="truncate text-[10px] text-gray-500">
-                        {appt.guestName
-                          || (appt.client ? `${appt.client.firstName} ${appt.client.lastName}` : 'Invitado')}
-                      </p>
-                      <StatusBadge status={appt.status} size="xs" />
-                    </div>
-                  ))}
-                  {appts.length > 4 && (
-                    <p className="px-1 text-[10px] text-gray-400">+{appts.length - 4} más</p>
-                  )}
-                  {appts.length === 0 && (
-                    <p className="px-1 py-2 text-center text-[10px] text-gray-300">—</p>
-                  )}
+                  <button
+                    onClick={() => handleDayClick(date)}
+                    className={cn(
+                      'w-full rounded-t-xl px-2 py-2 text-center transition-colors hover:bg-gray-50',
+                      isToday && 'bg-brand-50',
+                    )}
+                  >
+                    <p className={cn('text-xs font-medium', isToday ? 'text-brand-600' : 'text-gray-500')}>
+                      {DAY_SHORT[idx]}
+                    </p>
+                    <p className={cn('text-lg font-bold', isToday ? 'text-brand-700' : 'text-gray-900')}>
+                      {new Date(date + 'T12:00:00').getDate()}
+                    </p>
+                    {appts.length > 0 && (
+                      <span className="mt-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">
+                        {appts.length}
+                      </span>
+                    )}
+                  </button>
+                  <div className="space-y-1 p-1.5">
+                    {appts.slice(0, 4).map((appt: Appointment) => (
+                      <div key={appt.id} className="rounded-lg border bg-gray-50 px-2 py-1.5 text-left">
+                        <p className="text-[10px] font-bold tabular-nums text-gray-700">{formatTime(appt.startAt, timezone)}</p>
+                        <p className="truncate text-[10px] text-gray-500">
+                          {appt.guestName || (appt.client ? `${appt.client.firstName} ${appt.client.lastName}` : 'Invitado')}
+                        </p>
+                        <StatusBadge status={appt.status} size="xs" />
+                      </div>
+                    ))}
+                    {appts.length > 4 && <p className="px-1 text-[10px] text-gray-400">+{appts.length - 4} más</p>}
+                    {appts.length === 0 && <p className="px-1 py-2 text-center text-[10px] text-gray-300">—</p>}
+                  </div>
                 </div>
+              )
+            })}
+          </div>
+
+          {/* Mobile: horizontal day selector + vertical list */}
+          <div className="md:hidden">
+            <div className="mb-3 flex gap-1 overflow-x-auto pb-1">
+              {dates.map((date, idx) => {
+                const appts = weekAppointments[date] ?? []
+                const isToday = date === today
+                const isSelected = date === selectedDate
+                return (
+                  <button
+                    key={date}
+                    onClick={() => handleDayClick(date)}
+                    className={cn(
+                      'flex flex-shrink-0 flex-col items-center rounded-xl border px-3 py-2 transition-colors',
+                      isSelected ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-gray-200 bg-white',
+                      isToday && !isSelected && 'border-brand-200 bg-brand-50/50',
+                    )}
+                  >
+                    <span className={cn('text-[10px] font-medium', isToday ? 'text-brand-600' : 'text-gray-500')}>
+                      {DAY_SHORT[idx]}
+                    </span>
+                    <span className={cn('text-base font-bold', isToday ? 'text-brand-700' : 'text-gray-900')}>
+                      {new Date(date + 'T12:00:00').getDate()}
+                    </span>
+                    {appts.length > 0 && (
+                      <span className="mt-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">
+                        {appts.length}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            {(weekAppointments[selectedDate] ?? []).length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-400">Sin turnos</p>
+            ) : (
+              <div className="space-y-2">
+                {(weekAppointments[selectedDate] ?? []).map(appt => (
+                  <AppointmentCard
+                    key={appt.id}
+                    appointment={appt}
+                    timezone={timezone}
+                    isLoading={!!actionLoading[appt.id]}
+                    onAction={(action, payload) => executeAction(appt.id, action, payload)}
+                    onLoyaltyRedeemed={refresh}
+                  />
+                ))}
               </div>
-            )
-          })}
-        </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Detail panel for selected day */}

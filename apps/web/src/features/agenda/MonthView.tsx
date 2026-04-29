@@ -115,38 +115,45 @@ export function MonthView({ agenda, timezone }: Props) {
                   type="button"
                   onClick={() => setOpenDate(date)}
                   className={cn(
-                    'relative flex min-h-[72px] flex-col items-start border-b border-r p-1.5 text-left transition-colors hover:bg-brand-50/60',
+                    'relative flex min-h-[48px] flex-col items-start border-b border-r p-1 text-left transition-colors hover:bg-brand-50/60 sm:min-h-[72px] sm:p-1.5',
                     !inMonth && 'bg-gray-50/60 text-gray-400',
                     isToday && 'bg-brand-50/40',
                   )}
                 >
                   <span className={cn(
-                    'inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium tabular-nums',
+                    'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium tabular-nums sm:h-6 sm:w-6 sm:text-[11px]',
                     isToday ? 'bg-brand-600 text-white' : 'text-gray-700',
                     !inMonth && !isToday && 'text-gray-400',
                   )}>
                     {d.getDate()}
                   </span>
                   {count > 0 && (
-                    <div className="mt-1 flex w-full flex-col gap-0.5">
-                      {appts.slice(0, 3).map(a => (
-                        <span
-                          key={a.id}
-                          className="truncate rounded px-1 py-0.5 text-[10px] font-medium"
-                          style={{
-                            backgroundColor: `${a.professional.color ?? '#6b7280'}22`,
-                            color:           a.professional.color ?? '#374151',
-                          }}
-                        >
-                          {formatTime(a.startAt, timezone)} · {a.guestName || a.client?.firstName || 'Turno'}
-                        </span>
-                      ))}
-                      {count > 3 && (
-                        <span className="text-[10px] font-medium text-gray-500">
-                          +{count - 3} más
-                        </span>
-                      )}
-                    </div>
+                    <>
+                      {/* Mobile: just show count badge */}
+                      <span className="mt-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-600 px-1 text-[9px] font-bold text-white sm:hidden">
+                        {count}
+                      </span>
+                      {/* Desktop: show appointment previews */}
+                      <div className="mt-1 hidden w-full flex-col gap-0.5 sm:flex">
+                        {appts.slice(0, 3).map(a => (
+                          <span
+                            key={a.id}
+                            className="truncate rounded px-1 py-0.5 text-[10px] font-medium"
+                            style={{
+                              backgroundColor: `${a.professional.color ?? '#6b7280'}22`,
+                              color:           a.professional.color ?? '#374151',
+                            }}
+                          >
+                            {formatTime(a.startAt, timezone)} · {a.guestName || a.client?.firstName || 'Turno'}
+                          </span>
+                        ))}
+                        {count > 3 && (
+                          <span className="text-[10px] font-medium text-gray-500">
+                            +{count - 3} más
+                          </span>
+                        )}
+                      </div>
+                    </>
                   )}
                 </button>
               )

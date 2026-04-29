@@ -13,6 +13,7 @@ interface Props {
 
 function formatPrice(price: number | string, currency: string): string {
   const num = typeof price === 'string' ? parseFloat(price) : price
+  if (!num) return ''
   return new Intl.NumberFormat('es-AR', {
     style:    'currency',
     currency: currency || 'ARS',
@@ -60,9 +61,11 @@ function ServiceCard({
         </div>
 
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          <p className="text-base font-semibold text-gray-900">
-            {formatPrice(service.price, service.currency)}
-          </p>
+          {formatPrice(service.price, service.currency) && (
+            <p className="text-base font-semibold text-gray-900">
+              {formatPrice(service.price, service.currency)}
+            </p>
+          )}
           <div className={cn(
             'flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors',
             selected ? 'border-brand-600 bg-brand-600' : 'border-gray-300',
@@ -113,7 +116,7 @@ export function StepServices({ booking }: Props) {
         <div className="mt-6 rounded-xl bg-brand-50 border border-brand-200 p-4">
           <div className="flex justify-between text-sm text-gray-700">
             <span>{selectedServices.length} servicio{selectedServices.length > 1 ? 's' : ''}</span>
-            <span>{totalMinutes} min · {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(totalPrice)}</span>
+            <span>{totalMinutes} min{totalPrice > 0 ? ` · ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(totalPrice)}` : ''}</span>
           </div>
         </div>
       )}

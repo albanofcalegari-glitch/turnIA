@@ -219,11 +219,13 @@ export function StepDetails({ booking }: Props) {
                   <p className="text-sm font-semibold text-gray-900">{b.service.name}</p>
                   <p className="text-xs text-gray-500">con {b.professional.displayName}</p>
                 </div>
-                <p className="text-sm font-semibold text-gray-900">
-                  {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(
-                    typeof b.service.price === 'string' ? parseFloat(b.service.price) : b.service.price,
-                  )}
-                </p>
+                {(typeof b.service.price === 'string' ? parseFloat(b.service.price) : b.service.price) > 0 && (
+                  <p className="text-sm font-semibold text-gray-900">
+                    {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(
+                      typeof b.service.price === 'string' ? parseFloat(b.service.price) : b.service.price,
+                    )}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-3 px-4 py-2.5">
                 <span className="text-sm">📅</span>
@@ -233,12 +235,14 @@ export function StepDetails({ booking }: Props) {
               </div>
             </div>
           ))}
-          <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <p className="text-sm font-medium text-gray-600">Total ({serviceBookings.length} turnos)</p>
-            <p className="text-base font-bold text-gray-900">
-              {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(totalPrice)}
-            </p>
-          </div>
+          {totalPrice > 0 && (
+            <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <p className="text-sm font-medium text-gray-600">Total ({serviceBookings.length} turnos)</p>
+              <p className="text-base font-bold text-gray-900">
+                {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(totalPrice)}
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
@@ -273,15 +277,17 @@ export function StepDetails({ booking }: Props) {
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-3">
-              <span className="text-lg">💰</span>
-              <p className="text-xs text-gray-400 uppercase tracking-wide">Total</p>
+          {totalPrice > 0 && (
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">💰</span>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Total</p>
+              </div>
+              <p className="text-base font-bold text-gray-900">
+                {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(totalPrice)}
+              </p>
             </div>
-            <p className="text-base font-bold text-gray-900">
-              {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(totalPrice)}
-            </p>
-          </div>
+          )}
         </div>
       )}
 

@@ -19,7 +19,7 @@ const UNAVAILABLE_MESSAGES: Record<string, string> = {
   FULLY_BLOCKED:   'No hay horarios disponibles para esta fecha. Probá con otro día.',
 }
 
-type MergedSlot = { startAt: string; endAt: string; durationMinutes: number; available: boolean }
+type MergedSlot = { startAt: string; endAt: string; durationMinutes: number; available: boolean; capacity?: number; booked?: number; remainingCapacity?: number }
 
 function SlotButton({
   slot,
@@ -43,6 +43,8 @@ function SlotButton({
     )
   }
 
+  const isGroup = slot.capacity && slot.capacity > 1
+
   return (
     <button
       onClick={onSelect}
@@ -55,6 +57,11 @@ function SlotButton({
       )}
     >
       {formatTime(slot.startAt, timezone)}
+      {isGroup && (
+        <span className={cn('block text-[10px] font-normal mt-0.5', selected ? 'text-brand-100' : 'text-gray-400')}>
+          {slot.remainingCapacity}/{slot.capacity} libres
+        </span>
+      )}
     </button>
   )
 }

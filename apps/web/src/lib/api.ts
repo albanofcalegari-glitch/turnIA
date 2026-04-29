@@ -659,6 +659,22 @@ class ApiClient {
     this.request<BookingLoyaltyCard | null>(
       `/loyalty/booking-card/${tenantId}?email=${encodeURIComponent(email)}`,
     )
+
+  // ── Clients (admin) ────────────────────────────────────────────────────
+
+  searchClients = (tenantId: string, q: string) =>
+    this.request<ClientSearchResult[]>(`/clients/search?q=${encodeURIComponent(q)}`, {
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
+  // ── Admin booking ──────────────────────────────────────────────────────
+
+  adminCreateAppointment = (tenantId: string, data: object) =>
+    this.request<CreatedAppointment>('/appointments/admin', {
+      method:  'POST',
+      body:    JSON.stringify(data),
+      headers: { 'X-Tenant-ID': tenantId },
+    })
 }
 
 // ── Calendar types ──────────────────────────────────────────────────────────
@@ -916,6 +932,14 @@ export interface AdminStats {
   emailsSentThisMonth:  number
   emailMonthlyLimit:    number
   emailResetsAt:        string
+}
+
+export interface ClientSearchResult {
+  id:        string
+  firstName: string
+  lastName:  string
+  email:     string | null
+  phone:     string | null
 }
 
 export const apiClient = new ApiClient()

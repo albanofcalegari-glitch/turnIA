@@ -103,16 +103,14 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
       )}
 
       {/* Header row */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-sm font-bold tabular-nums text-gray-900">
             {formatTime(startAt, timezone)}
           </span>
           <span className="text-xs text-gray-400">
-            → {formatTime(endAt, timezone)}
+            → {formatTime(endAt, timezone)} · {totalMinutes} min
           </span>
-          <span className="text-xs text-gray-300">·</span>
-          <span className="text-xs text-gray-500">{totalMinutes} min</span>
         </div>
         <StatusBadge status={status} />
       </div>

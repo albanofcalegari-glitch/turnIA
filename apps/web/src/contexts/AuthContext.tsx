@@ -65,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = getSession()
     if (!stored) {
+      clearSession()
       setLoading(false)
       return
     }
