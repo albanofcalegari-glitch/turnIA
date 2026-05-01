@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { apiClient } from '@/lib/api'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 
 interface NavItem {
   href: string
@@ -80,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Logo */}
       <div className="border-b border-gray-100 p-4 dark:border-gray-800">
         <div className="flex items-center justify-between">
-          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">turnIT</span>
+          <BrandLogo size="xl" />
           <ThemeToggle />
         </div>
         {user.tenantName && (
@@ -136,6 +137,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
       </div>
+
+      <div className="px-3 pb-2 text-center">
+        <a href="https://www.qngine.com.ar" target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-400 hover:text-brand-600 transition-colors dark:text-gray-500 dark:hover:text-brand-400">
+          Desarrollado por <span className="font-semibold">Qngine</span>
+        </a>
+      </div>
     </>
   )
 
@@ -143,7 +150,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Mobile header */}
       <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-gray-100 bg-white/95 px-4 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95 md:hidden">
-        <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">turnIT</span>
+        <BrandLogo size="xl" />
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
@@ -490,7 +497,7 @@ function DeactivatedScreen({
         )}
 
         <div className="mt-6 rounded-lg bg-amber-50 p-3 text-left text-xs text-amber-800">
-          Para reactivar el servicio, comunicate con el administrador de turnIT y regularizá el pago de tu membresía.
+          Para reactivar el servicio, comunicate con el administrador de Turnit y regularizá el pago de tu membresía.
         </div>
 
         <button

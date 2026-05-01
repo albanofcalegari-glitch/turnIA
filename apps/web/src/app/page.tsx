@@ -1,12 +1,14 @@
 import Link from 'next/link'
 import { Calendar, Users, Clock, Shield } from 'lucide-react'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       <nav className="border-b border-gray-100 px-4 py-4 flex items-center justify-between max-w-7xl mx-auto sm:px-6">
-        <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">turnIT</span>
+        <BrandLogo size="xl" />
         <div className="flex items-center gap-2 sm:gap-4">
+          <Link href="/que-es-turnit" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">¿Qué es Turnit?</Link>
           <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Iniciar sesión</Link>
           <Link href="/register" className="text-sm font-semibold bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-all shadow-sm hover:shadow sm:px-5">
             Registrar negocio
@@ -46,6 +48,15 @@ export default function LandingPage() {
           <FeatureCard icon={<Shield size={22} />} title="Pagos con MP" description="Cobrá suscripciones automáticas con Mercado Pago." />
         </div>
       </section>
+
+      <footer className="border-t border-gray-100 py-6 text-center">
+        <p className="text-xs text-gray-400">
+          Desarrollado por{' '}
+          <a href="https://www.qngine.com.ar" target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-500 hover:text-brand-600 transition-colors">
+            Qngine
+          </a>
+        </p>
+      </footer>
     </main>
   )
 }

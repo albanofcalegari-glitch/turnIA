@@ -7,6 +7,7 @@ import { use } from 'react'
 import { apiClient, ApiError } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 
 export default function ResetPasswordPage({ params }: { params: Promise<{ token: string }> }) {
   const { token }   = use(params)
@@ -51,7 +52,7 @@ export default function ResetPasswordPage({ params }: { params: Promise<{ token:
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <span className="text-3xl font-bold text-brand-600">turnIT</span>
+          <BrandLogo size="lg" />
         </div>
 
         <div className="rounded-2xl border bg-white p-8 shadow-sm">

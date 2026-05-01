@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Award, ChevronDown, ChevronUp, Search } from 'lucide-react'
+import { Award, ChevronDown, ChevronUp, Search, HelpCircle } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
@@ -215,6 +215,15 @@ export function BookingFlow({ tenantSlug }: Props) {
         {step === 'slots'        && <StepSlots        booking={booking} />}
         {step === 'details'      && <StepDetails      booking={booking} />}
       </main>
+
+      <footer className="border-t border-gray-200 py-4 text-center dark:border-gray-700">
+        <p className="text-xs text-gray-400 dark:text-gray-500">
+          Desarrollado por{' '}
+          <a href="https://www.qngine.com.ar" target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-500 hover:text-brand-600 transition-colors dark:text-gray-400 dark:hover:text-brand-400">
+            Qngine
+          </a>
+        </p>
+      </footer>
     </div>
   )
 }
@@ -337,6 +346,10 @@ function BookingHeader({ tenant, slug }: { tenant: { name: string; logoUrl: stri
         <h1 className="text-base font-bold text-gray-900 sm:text-lg dark:text-white">{tenant.name}</h1>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
+          <Link href="/que-es-turnit" className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-brand-600 sm:text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-brand-400">
+            <HelpCircle size={14} />
+            <span className="hidden sm:inline">¿Qué es Turnit?</span>
+          </Link>
           <Link href={`/${slug}/cancelar`} className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 sm:text-sm dark:border-red-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700">
             Cancelar turno
           </Link>

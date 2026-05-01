@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 const LINKS = [
   { href: '/login',          label: 'Iniciar sesión', icon: LogIn },
   { href: '/register',       label: 'Crear cuenta',   icon: UserPlus },
-  { href: '/que-es-turnit',  label: '¿Qué es turnIT?', icon: HelpCircle },
+  { href: '/que-es-turnit',  label: '¿Qué es Turnit?', icon: HelpCircle },
 ]
 
 export function PublicMenu() {

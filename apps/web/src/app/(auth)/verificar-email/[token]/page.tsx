@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { apiClient } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 
 type State = 'loading' | 'ok' | 'error'
 
@@ -21,7 +22,7 @@ export default function VerifyEmailPage({ params }: { params: Promise<{ token: s
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <span className="text-3xl font-bold text-brand-600">turnIT</span>
+          <BrandLogo size="lg" />
         </div>
 
         <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { apiClient } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 
 export default function ForgotPasswordPage() {
   const [email,   setEmail]   = useState('')
@@ -31,7 +32,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <span className="text-3xl font-bold text-brand-600">turnIT</span>
+          <Link href="/"><BrandLogo size="lg" /></Link>
         </div>
 
         <div className="rounded-2xl border bg-white p-8 shadow-sm">

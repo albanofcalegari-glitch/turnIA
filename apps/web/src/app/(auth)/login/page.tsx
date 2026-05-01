@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { ApiError } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -40,7 +41,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">turnIT</span>
+          <Link href="/"><BrandLogo size="lg" /></Link>
           <p className="mt-1 text-sm text-gray-500">Panel de administración</p>
         </div>
 

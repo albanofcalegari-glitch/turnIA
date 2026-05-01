@@ -7,6 +7,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { Shield } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 
 export default function AdminLoginPage() {
   const { login } = useAuth()
@@ -43,7 +44,7 @@ export default function AdminLoginPage() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-600/20">
             <Shield size={24} className="text-brand-600 dark:text-brand-400" />
           </div>
-          <span className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">turnIT</span>
+          <BrandLogo size="md" />
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Panel de administración</p>
         </div>
 
@@ -87,7 +88,7 @@ export default function AdminLoginPage() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-500">Acceso exclusivo para administradores de turnIT</p>
+        <p className="mt-6 text-center text-xs text-gray-500">Acceso exclusivo para administradores de Turnit</p>
       </div>
     </div>
   )

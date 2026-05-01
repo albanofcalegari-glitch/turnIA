@@ -7,6 +7,7 @@ import { Shield, LogOut, LayoutDashboard, Building2, CreditCard, BarChart3, Menu
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 
 const NAV = [
   { href: '/admin',            label: 'Dashboard',     icon: LayoutDashboard },
@@ -38,7 +39,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield size={18} className="text-brand-600 dark:text-brand-400" />
-            <span className="text-lg font-bold text-gray-900 dark:text-white">turnIT</span>
+            <BrandLogo size="md" />
           </div>
           <ThemeToggle />
         </div>
@@ -91,7 +92,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-gray-200 bg-white/95 px-4 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95 md:hidden">
         <div className="flex items-center gap-2">
           <Shield size={16} className="text-brand-600 dark:text-brand-400" />
-          <span className="font-bold text-gray-900 dark:text-white">turnIT</span>
+          <BrandLogo size="sm" />
         </div>
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
           {sidebarOpen ? <X size={20} /> : <Menu size={20} />}

@@ -3,10 +3,11 @@ import {
   Calendar, Smartphone, Award, UserPlus, Share2, LayoutDashboard,
   Scissors, Clock, BarChart3, Shield, ChevronRight,
 } from 'lucide-react'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 
 export const metadata = {
-  title: '¿Qué es turnIT? — Sistema de turnos online',
-  description: 'turnIT es la plataforma para que tus clientes reserven turnos online 24/7. Agenda inteligente, fidelidad y más.',
+  title: '¿Qué es Turnit? — Sistema de turnos online',
+  description: 'Turnit es la plataforma para que tus clientes reserven turnos online 24/7. Agenda inteligente, fidelidad y más.',
 }
 
 const FEATURES = [
@@ -65,9 +66,9 @@ export default function QueEsTurnitPage() {
     <div className="min-h-screen bg-white">
       {/* Navbar */}
       <nav className="sticky top-0 z-30 border-b border-gray-100 bg-white/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-5xl items-center px-4">
-          <Link href="/que-es-turnit" className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-xl font-extrabold tracking-tight text-transparent">
-            turnIT
+        <div className="mx-auto flex max-w-7xl items-center px-4 py-4 sm:px-6">
+          <Link href="/">
+            <BrandLogo size="xl" />
           </Link>
         </div>
       </nav>
@@ -86,7 +87,7 @@ export default function QueEsTurnitPage() {
               <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">sin esfuerzo</span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-500 sm:text-xl">
-              turnIT es la plataforma para que tus clientes reserven turnos online 24/7,
+              Turnit es la plataforma para que tus clientes reserven turnos online 24/7,
               desde cualquier dispositivo. Vos solo te ocupás de atenderlos.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -124,7 +125,7 @@ export default function QueEsTurnitPage() {
               <div className="flex">
                 {/* Sidebar */}
                 <div className="hidden w-44 border-r border-gray-100 bg-gray-50/60 p-3 sm:block">
-                  <div className="mb-4 bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-sm font-extrabold text-transparent">turnIT</div>
+                  <div className="mb-4"><BrandLogo size="sm" /></div>
                   {['Agenda', 'Servicios', 'Profesionales', 'Horarios', 'Fidelidad', 'Estadísticas'].map((item, i) => (
                     <div key={item} className={`rounded-md px-2 py-1.5 text-[11px] font-medium mb-0.5 ${i === 0 ? 'bg-brand-50 text-brand-700' : 'text-gray-400'}`}>
                       {item}
@@ -242,7 +243,7 @@ export default function QueEsTurnitPage() {
       <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-5xl px-4 text-center">
           <h2 className="text-xl font-extrabold text-gray-900 sm:text-2xl">Para todo tipo de negocio</h2>
-          <p className="mt-2 text-sm text-gray-500">turnIT se adapta a cualquier rubro de servicios con turnos.</p>
+          <p className="mt-2 text-sm text-gray-500">Turnit se adapta a cualquier rubro de servicios con turnos.</p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
             {RUBROS.map(r => (
               <span key={r} className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
@@ -275,8 +276,14 @@ export default function QueEsTurnitPage() {
       {/* Footer */}
       <footer className="border-t border-gray-100 bg-gray-50 py-8">
         <div className="mx-auto max-w-5xl px-4 text-center">
-          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-sm font-extrabold text-transparent">turnIT</span>
+          <BrandLogo size="sm" />
           <p className="mt-1 text-xs text-gray-400">Sistema de turnos online &copy; {new Date().getFullYear()}</p>
+          <p className="mt-2 text-xs text-gray-400">
+            Desarrollado por{' '}
+            <a href="https://www.qngine.com.ar" target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-500 hover:text-brand-600 transition-colors">
+              Qngine
+            </a>
+          </p>
         </div>
       </footer>
     </div>

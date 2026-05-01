@@ -8,7 +8,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title:       'turnIT — Sistema de turnos',
+  title:       'Turnit — Sistema de turnos',
   description: 'Plataforma de gestión de turnos para negocios de servicios',
 }
 
