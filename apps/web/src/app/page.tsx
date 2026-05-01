@@ -1,20 +1,11 @@
 import Link from 'next/link'
 import { Calendar, Users, Clock, Shield } from 'lucide-react'
-import { BrandLogo } from '@/components/ui/BrandLogo'
+import { LandingNav } from '@/components/ui/LandingNav'
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-white to-gray-50">
-      <nav className="border-b border-gray-100 px-4 py-4 flex items-center justify-between max-w-7xl mx-auto sm:px-6">
-        <BrandLogo size="xl" />
-        <div className="flex items-center gap-2 sm:gap-4">
-          <Link href="/que-es-turnit" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">¿Qué es Turnit?</Link>
-          <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Iniciar sesión</Link>
-          <Link href="/register" className="text-sm font-semibold bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-all shadow-sm hover:shadow sm:px-5">
-            Registrar negocio
-          </Link>
-        </div>
-      </nav>
+      <LandingNav />
 
       <section className="max-w-4xl mx-auto px-4 py-16 text-center sm:px-6 sm:py-28">
         <div className="inline-flex items-center gap-1.5 bg-brand-50 text-brand-700 text-xs font-semibold tracking-wide uppercase px-4 py-1.5 rounded-full mb-5 border border-brand-100 sm:text-sm sm:mb-7">
