@@ -151,6 +151,47 @@ export class ProfessionalsService {
     return { deleted: true, professionalId, serviceId }
   }
 
+  async updateBranches(tenantId: string, professionalId: string, branchIds: string[]) {
+    const uniqueBranchIds = [...new Set(branchIds.filter(Boolean))]
+    if (uniqueBranchIds.length === 0) {
+      throw new BadRequestException('Seleccioná al menos una sucursal')
+    }
+
+    const professional = await this.prisma.professional.findFirst({
+      where:  { id: professionalId, tenantId, isActive: true },
+      select: { id: true },
+    })
+    if (!professional) throw new NotFoundException('Profesional no encontrado')
+
+    const branches = await this.prisma.branch.findMany({
+      where:  { id: { in: uniqueBranchIds }, tenantId, isActive: true },
+      select: { id: true },
+    })
+    if (branches.length !== uniqueBranchIds.length) {
+      throw new BadRequestException('Una o más sucursales no existen o están inactivas')
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.professionalBranch.deleteMany({ where: { professionalId } })
+      await tx.professionalBranch.createMany({
+        data: uniqueBranchIds.map(branchId => ({ professionalId, branchId })),
+        skipDuplicates: true,
+      })
+
+      return tx.professional.findFirst({
+        where: { id: professionalId, tenantId },
+        include: {
+          user:     { select: { id: true, firstName: true, lastName: true, email: true } },
+          services: { include: { service: true } },
+          branches: {
+            include: { branch: true },
+            orderBy: { branch: { order: 'asc' } },
+          },
+        },
+      })
+    })
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Read
   // ─────────────────────────────────────────────────────────────────────────
@@ -161,6 +202,10 @@ export class ProfessionalsService {
       include: {
         user:     { select: { id: true, firstName: true, lastName: true, email: true } },
         services: { include: { service: true } },
+        branches: {
+          include: { branch: true },
+          orderBy: { branch: { order: 'asc' } },
+        },
       },
     })
   }
@@ -171,6 +216,7 @@ export class ProfessionalsService {
       include: {
         user:      true,
         services:  { include: { service: true } },
+        branches:  { include: { branch: true } },
         schedules: true,
       },
     })

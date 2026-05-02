@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Clock, Save, Check } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Building2, Clock, Save, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError, type WorkScheduleItem } from '@/lib/api'
+import type { Branch } from '@/features/booking/booking.types'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 
@@ -16,6 +17,7 @@ interface ProfessionalOption {
   id:          string
   displayName: string
   color:       string | null
+  branches?:   Array<{ branchId: string }>
 }
 
 /** Local state for each day row — may or may not have a backend id yet. */
@@ -57,7 +59,9 @@ export default function HorariosPage() {
   const tenantId = user?.tenantId ?? ''
 
   const [professionals, setProfessionals] = useState<ProfessionalOption[]>([])
+  const [branches, setBranches]           = useState<Branch[]>([])
   const [selectedProId, setSelectedProId] = useState<string>('')
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('')
   const [week, setWeek]                   = useState<DayRow[]>(emptyWeek())
   const [loadingPros, setLoadingPros]     = useState(true)
   const [loadingSchedule, setLoadingSchedule] = useState(false)
@@ -70,27 +74,32 @@ export default function HorariosPage() {
   useEffect(() => {
     if (!tenantId) return
     setLoadingPros(true)
-    apiClient.getProfessionals(tenantId)
-      .then((data) => {
+    Promise.all([
+      apiClient.getProfessionals(tenantId),
+      user?.tenantHasMultipleBranches ? apiClient.getBranches(tenantId) : Promise.resolve([] as Branch[]),
+    ])
+      .then(([data, brs]) => {
         const pros = (data as ProfessionalOption[]).map(p => ({
-          id: p.id, displayName: p.displayName, color: p.color,
+          id: p.id, displayName: p.displayName, color: p.color, branches: p.branches,
         }))
         setProfessionals(pros)
         if (pros.length > 0) setSelectedProId(pros[0].id)
+        setBranches(brs)
+        if (brs.length > 0) setSelectedBranchId(brs[0].id)
       })
-      .catch(() => setError('No se pudieron cargar los profesionales.'))
+      .catch(() => setError('No se pudieron cargar los datos de horarios.'))
       .finally(() => setLoadingPros(false))
-  }, [tenantId])
+  }, [tenantId, user?.tenantHasMultipleBranches])
 
   // ── Load schedule when professional changes ────────────────────────────
 
-  const loadSchedule = useCallback(async (proId: string) => {
+  const loadSchedule = useCallback(async (proId: string, branchId?: string) => {
     if (!tenantId || !proId) return
     setLoadingSchedule(true)
     setError(null)
     setSaved(false)
     try {
-      const items = await apiClient.getWorkSchedule(tenantId, proId)
+      const items = await apiClient.getWorkSchedule(tenantId, proId, branchId || undefined)
       const newWeek = emptyWeek()
       for (const item of items) {
         newWeek[item.dayOfWeek] = {
@@ -110,8 +119,25 @@ export default function HorariosPage() {
   }, [tenantId])
 
   useEffect(() => {
-    if (selectedProId) loadSchedule(selectedProId)
-  }, [selectedProId, loadSchedule])
+    if (selectedProId) loadSchedule(selectedProId, selectedBranchId)
+  }, [selectedProId, selectedBranchId, loadSchedule])
+
+  const visibleProfessionals = useMemo(() => (
+    selectedBranchId
+      ? professionals.filter(p => !p.branches || p.branches.length === 0 || p.branches.some(b => b.branchId === selectedBranchId))
+      : professionals
+  ), [professionals, selectedBranchId])
+
+  useEffect(() => {
+    if (visibleProfessionals.length === 0) {
+      setSelectedProId('')
+      setWeek(emptyWeek())
+      return
+    }
+    if (!visibleProfessionals.some(p => p.id === selectedProId)) {
+      setSelectedProId(visibleProfessionals[0].id)
+    }
+  }, [visibleProfessionals, selectedProId])
 
   // ── Day row handlers ───────────────────────────────────────────────────
 
@@ -151,6 +177,7 @@ export default function HorariosPage() {
               dayOfWeek: day,
               startTime: row.startTime,
               endTime:   row.endTime,
+              branchId:  selectedBranchId || undefined,
             })
             newWeek[day] = { ...row, id: created.id, dirty: false }
           }
@@ -215,25 +242,53 @@ export default function HorariosPage() {
       {!loadingPros && professionals.length > 0 && (
         <div className="space-y-6">
           {/* Professional selector */}
-          <div className="flex flex-wrap items-center gap-2">
-            {professionals.map(pro => (
-              <button
-                key={pro.id}
-                onClick={() => setSelectedProId(pro.id)}
-                className={cn(
-                  'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
-                  selectedProId === pro.id
-                    ? 'border-brand-500 bg-brand-50 text-brand-700'
-                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
-                )}
-              >
-                <span
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: pro.color ?? '#6b7280' }}
-                />
-                {pro.displayName}
-              </button>
-            ))}
+          <div className="space-y-3">
+            {branches.length > 1 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {branches.map(branch => (
+                  <button
+                    key={branch.id}
+                    onClick={() => setSelectedBranchId(branch.id)}
+                    className={cn(
+                      'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                      selectedBranchId === branch.id
+                        ? 'border-brand-500 bg-brand-50 text-brand-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
+                    )}
+                  >
+                    <Building2 size={14} />
+                    {branch.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              {visibleProfessionals.map(pro => (
+                <button
+                  key={pro.id}
+                  onClick={() => setSelectedProId(pro.id)}
+                  className={cn(
+                    'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                    selectedProId === pro.id
+                      ? 'border-brand-500 bg-brand-50 text-brand-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
+                  )}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: pro.color ?? '#6b7280' }}
+                  />
+                  {pro.displayName}
+                </button>
+              ))}
+            </div>
+
+            {visibleProfessionals.length === 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                No hay profesionales asignados a esta sucursal.
+              </div>
+            )}
           </div>
 
           {/* Schedule grid */}

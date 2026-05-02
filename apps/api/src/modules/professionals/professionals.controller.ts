@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Delete,
   Body,
   Param,
@@ -11,6 +12,7 @@ import {
 } from '@nestjs/common'
 import { ProfessionalsService } from './professionals.service'
 import { CreateProfessionalDto } from './dto/create-professional.dto'
+import { UpdateProfessionalBranchesDto } from './dto/update-professional-branches.dto'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../../common/guards/roles.guard'
 import { TenantGuard } from '../../common/guards/tenant.guard'
@@ -105,6 +107,22 @@ export class ProfessionalsController {
     @Param('serviceId')      serviceId:      string,
   ) {
     return this.professionalsService.removeService(tenantId, professionalId, serviceId)
+  }
+
+  /**
+   * PUT /api/v1/professionals/:id/branches
+   *
+   * Replaces the set of active branches where this professional attends.
+   */
+  @Put(':id/branches')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(TenantRole.ADMIN)
+  updateBranches(
+    @TenantId()   tenantId:       string,
+    @Param('id')  professionalId: string,
+    @Body()       dto:            UpdateProfessionalBranchesDto,
+  ) {
+    return this.professionalsService.updateBranches(tenantId, professionalId, dto.branchIds)
   }
 
   /**

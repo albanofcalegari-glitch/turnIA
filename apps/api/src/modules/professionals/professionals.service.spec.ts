@@ -18,6 +18,7 @@ const CALLER_ID  = 'usr_admin'
 const USER_ID    = 'usr_staff'
 const PRO_ID     = 'pro_001'
 const SVC_ID     = 'svc_001'
+const BRANCH_ID  = 'br_001'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Factories
@@ -59,8 +60,11 @@ describe('ProfessionalsService', () => {
     user:                { findUnique: jest.fn() },
     tenantUser:          { findUnique: jest.fn() },
     professional:        { create: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() },
+    branch:              { findMany: jest.fn() },
+    professionalBranch:  { createMany: jest.fn(), deleteMany: jest.fn() },
     service:             { findFirst: jest.fn() },
     professionalService: { findUnique: jest.fn(), create: jest.fn(), delete: jest.fn() },
+    $transaction:         jest.fn(),
   }
 
   beforeEach(async () => {
@@ -73,6 +77,7 @@ describe('ProfessionalsService', () => {
 
     service = module.get<ProfessionalsService>(ProfessionalsService)
     jest.clearAllMocks()
+    mockPrisma.$transaction.mockImplementation(async (cb: any) => cb(mockPrisma))
   })
 
   // ── create ────────────────────────────────────────────────────────────────
@@ -83,15 +88,19 @@ describe('ProfessionalsService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: CALLER_ID })
       mockPrisma.tenantUser.findUnique.mockResolvedValue({ role: 'ADMIN' })
       mockPrisma.professional.create.mockResolvedValue(makeProfessional())
+      mockPrisma.branch.findMany.mockResolvedValue([{ id: BRANCH_ID }])
+      mockPrisma.professionalBranch.createMany.mockResolvedValue({ count: 1 })
     })
 
-    it('uses callerId as userId when dto.userId is not provided', async () => {
+    it('creates an unlinked professional when dto.userId is not provided', async () => {
       await service.create(TENANT_ID, CALLER_ID, makeDto())
 
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where:  { id: CALLER_ID },
-        select: { id: true },
-      })
+      expect(mockPrisma.user.findUnique).not.toHaveBeenCalled()
+      expect(mockPrisma.professional.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ userId: null }),
+        }),
+      )
     })
 
     it('uses dto.userId when explicitly provided', async () => {
@@ -120,7 +129,7 @@ describe('ProfessionalsService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             tenantId:             TENANT_ID,
-            userId:               CALLER_ID,
+            userId:               null,
             displayName:          'Barber Joe',
             color:                '#FF5722',
             acceptsOnlineBooking: false,
@@ -142,7 +151,7 @@ describe('ProfessionalsService', () => {
     it('throws NotFoundException when user does not exist', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null)
 
-      await expect(service.create(TENANT_ID, CALLER_ID, makeDto()))
+      await expect(service.create(TENANT_ID, CALLER_ID, makeDto({ userId: USER_ID })))
         .rejects.toThrow(NotFoundException)
     })
 
@@ -150,7 +159,7 @@ describe('ProfessionalsService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: CALLER_ID })
       mockPrisma.tenantUser.findUnique.mockResolvedValue(null)
 
-      await expect(service.create(TENANT_ID, CALLER_ID, makeDto()))
+      await expect(service.create(TENANT_ID, CALLER_ID, makeDto({ userId: CALLER_ID })))
         .rejects.toThrow(BadRequestException)
     })
 

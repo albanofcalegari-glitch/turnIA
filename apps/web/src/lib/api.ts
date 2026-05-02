@@ -58,6 +58,7 @@ export interface GuestAppointment {
 
 export interface WorkScheduleItem {
   id:             string
+  branchId:       string
   professionalId: string
   dayOfWeek:      number
   startTime:      string
@@ -292,6 +293,13 @@ class ApiClient {
       headers: { 'X-Tenant-ID': tenantId },
     })
 
+  updateProfessionalBranches = (tenantId: string, professionalId: string, branchIds: string[]) =>
+    this.request<Professional>(`/professionals/${professionalId}/branches`, {
+      method:  'PUT',
+      body:    JSON.stringify({ branchIds }),
+      headers: { 'X-Tenant-ID': tenantId },
+    })
+
   // ── Schedules ─────────────────────────────────────────────────────────────
 
   /**
@@ -337,10 +345,14 @@ class ApiClient {
 
   // ── Work Schedules (admin) ─────────────────────────────────────────────
 
-  getWorkSchedule = (tenantId: string, professionalId: string) =>
-    this.request<WorkScheduleItem[]>(`/schedules/${professionalId}/work-schedule`, {
+  getWorkSchedule = (tenantId: string, professionalId: string, branchId?: string | null) => {
+    const params = new URLSearchParams()
+    if (branchId) params.set('branchId', branchId)
+    const query = params.toString()
+    return this.request<WorkScheduleItem[]>(`/schedules/${professionalId}/work-schedule${query ? '?' + query : ''}`, {
       headers: { 'X-Tenant-ID': tenantId },
     })
+  }
 
   createWorkSchedule = (tenantId: string, professionalId: string, data: object) =>
     this.request<WorkScheduleItem>(`/schedules/${professionalId}/work-schedule`, {
