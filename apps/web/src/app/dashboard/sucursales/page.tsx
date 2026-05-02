@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, type FormEvent } from 'react'
-import { Building2, Plus, Trash2, X, Star } from 'lucide-react'
+import { Building2, Plus, Trash2, X, Star, Users, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError, type AdminBranch } from '@/lib/api'
@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { useConfirm } from '@/components/ui/Dialog'
 import { ActionsMenu } from '@/components/ui/ActionsMenu'
+import type { Professional } from '@/features/booking/booking.types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Input classes (mirrors /dashboard/servicios so the look stays consistent)
@@ -29,9 +30,11 @@ export default function SucursalesPage() {
   const tenantId = user?.tenantId ?? ''
 
   const [branches, setBranches] = useState<AdminBranch[]>([])
+  const [professionals, setProfessionals] = useState<Professional[]>([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [savingProfessionalId, setSavingProfessionalId] = useState<string | null>(null)
   const { confirm, element: confirmDialog } = useConfirm()
 
   // ── Fetch branches ──────────────────────────────────────────────────────
@@ -39,11 +42,40 @@ export default function SucursalesPage() {
   useEffect(() => {
     if (!tenantId) return
     setLoading(true)
-    apiClient.getAllBranches(tenantId)
-      .then(setBranches)
+    Promise.all([
+      apiClient.getAllBranches(tenantId),
+      apiClient.getProfessionals(tenantId),
+    ])
+      .then(([brs, pros]) => {
+        setBranches(brs)
+        setProfessionals(pros)
+      })
       .catch(() => setError('No se pudieron cargar las sucursales.'))
       .finally(() => setLoading(false))
   }, [tenantId])
+
+  async function handleToggleProfessional(pro: Professional, branchId: string, checked: boolean) {
+    const current = pro.branches?.map(b => b.branchId) ?? []
+    const next = checked
+      ? [...new Set([...current, branchId])]
+      : current.filter(id => id !== branchId)
+
+    if (next.length === 0) {
+      setError('Cada profesional debe atender en al menos una sucursal.')
+      return
+    }
+
+    setSavingProfessionalId(pro.id)
+    setError(null)
+    try {
+      const updated = await apiClient.updateProfessionalBranches(tenantId, pro.id, next)
+      setProfessionals(prev => prev.map(p => p.id === pro.id ? updated : p))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo actualizar la asignación.')
+    } finally {
+      setSavingProfessionalId(null)
+    }
+  }
 
   // ── Delete (soft) ───────────────────────────────────────────────────────
 
@@ -134,7 +166,7 @@ export default function SucursalesPage() {
             <div
               key={br.id}
               className={cn(
-                'flex flex-col gap-2 rounded-xl border bg-white p-4 sm:flex-row sm:items-center sm:justify-between',
+                'flex flex-col gap-3 rounded-xl border bg-white p-4',
                 !br.isActive && 'opacity-60',
               )}
             >
@@ -176,16 +208,49 @@ export default function SucursalesPage() {
                   />
                 )}
               </div>
+              <div className="border-t border-gray-100 pt-3">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+                  <Users size={13} />
+                  Profesionales
+                </div>
+                {professionals.length === 0 ? (
+                  <p className="text-sm text-gray-500">Todavía no hay profesionales cargados.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {professionals.map(pro => {
+                      const assigned = pro.branches?.some(pb => pb.branchId === br.id) ?? false
+                      const assignedCount = pro.branches?.length ?? 0
+                      const disabled = savingProfessionalId === pro.id || (assigned && assignedCount <= 1)
+                      return (
+                        <button
+                          key={pro.id}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => handleToggleProfessional(pro, br.id, !assigned)}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                            assigned
+                              ? 'border-brand-200 bg-brand-50 text-brand-700'
+                              : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50',
+                            disabled && 'cursor-not-allowed opacity-60',
+                          )}
+                          title={assigned && assignedCount <= 1 ? 'El profesional debe quedar asignado al menos a una sucursal' : undefined}
+                        >
+                          {assigned && <Check size={12} />}
+                          {pro.displayName}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Caveat — until Phase 3.5 there's no way to assign professionals to a
-          specific sucursal from the UI. Existing professionals stay linked to
-          the default branch only. */}
-      <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-        Por ahora todos los profesionales atienden en la sucursal principal. La asignación de profesionales a sucursales adicionales se habilitará en una próxima actualización.
+      <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-800">
+        Los horarios se configuran por profesional y sucursal desde la sección Horarios.
       </div>
     </div>
   )

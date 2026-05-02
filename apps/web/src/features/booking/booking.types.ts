@@ -68,6 +68,7 @@ export interface Professional {
   color:                string | null
   acceptsOnlineBooking: boolean
   services:             ProfessionalService[]
+  branches?:            Array<{ branchId: string; branch: Branch }>
 }
 
 export interface AvailableSlot {

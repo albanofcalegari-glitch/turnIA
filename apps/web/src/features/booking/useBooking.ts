@@ -65,8 +65,11 @@ export function useBooking(tenantSlug: string) {
   // mistakenly skipping (it always used per-service iteration whenever
   // length > 1).
   const isMultiService = state.selectedServices.length > 1
+  const professionalsForBranch = state.selectedBranch
+    ? professionals.filter(p => !p.branches || p.branches.length === 0 || p.branches.some(pb => pb.branchId === state.selectedBranch?.id))
+    : professionals
   const unifiedProfessionals = state.selectedServices.length > 0
-    ? professionals.filter(p =>
+    ? professionalsForBranch.filter(p =>
         state.selectedServices.every(svc =>
           p.services.some(ps => ps.serviceId === svc.id),
         ),
@@ -429,7 +432,11 @@ export function useBooking(tenantSlug: string) {
 
   // ── Reset for a new booking from success ─────────────────────────────────
   function reset() {
-    setState(INITIAL_BOOKING_STATE)
+    setState({
+      ...INITIAL_BOOKING_STATE,
+      step: showBranchStep ? 'branch' : 'services',
+      selectedBranch: showBranchStep ? null : branches[0] ?? null,
+    })
     setSlotsResponse(null)
     setCreatedAppointments([])
   }
@@ -449,7 +456,7 @@ export function useBooking(tenantSlug: string) {
    *   may pick a different pro for each service.
    */
   const eligibleProfessionals = requiresMultiTurno && currentService
-    ? professionals.filter(p =>
+    ? professionalsForBranch.filter(p =>
         p.services.some(ps => ps.serviceId === currentService.id),
       )
     : unifiedProfessionals
