@@ -27,3 +27,14 @@ export class UpdateScheduleRulesDto {
   @Max(120)
   slotDurationMinutes?: number
 }
+
+/**
+ * Tenant-owned settings that an ADMIN can change from their dashboard.
+ * Keep this separate from the SuperAdmin DTO so tenant admins cannot patch
+ * billing or activation fields by accident.
+ */
+export class UpdateMyTenantSettingsDto {
+  @IsOptional()
+  @IsBoolean()
+  hasMultipleBranches?: boolean
+}

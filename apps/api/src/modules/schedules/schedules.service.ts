@@ -63,8 +63,9 @@ export class SchedulesService {
    *
    * Rules:
    * - Only ADMIN or the professional themselves can create schedules.
-   * - One entry per day of week per professional (service-level enforcement).
-   *   Updating hours for a day already configured requires PATCH, not a new POST.
+   * - One entry per day of week, branch and professional.
+   * - Active schedules cannot overlap with the same professional's active
+   *   schedule in another branch.
    * - startTime must be before endTime.
    */
   async createWorkSchedule(
@@ -91,6 +92,17 @@ export class SchedulesService {
       throw new ConflictException(
         `Ya existe un horario laboral para el día ${dto.dayOfWeek} en esta sucursal (id: ${existing.id}). Usá PATCH para actualizarlo.`,
       )
+    }
+
+    if (dto.isActive ?? true) {
+      await this.assertNoCrossBranchScheduleOverlap({
+        tenantId,
+        professionalId: professional.id,
+        branchId,
+        dayOfWeek: dto.dayOfWeek,
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+      })
     }
 
     return this.prisma.workSchedule.create({
@@ -120,14 +132,27 @@ export class SchedulesService {
     await this.requireProfessionalAccess(tenantId, professionalId, caller)
 
     const entry = await this.prisma.workSchedule.findFirst({
-      where: { id, professionalId },
+      where: { id, tenantId, professionalId },
     })
     if (!entry) throw new NotFoundException('Horario laboral no encontrado')
 
     // Resolve effective times for range validation
     const effectiveStart = dto.startTime ?? entry.startTime
     const effectiveEnd   = dto.endTime   ?? entry.endTime
+    const effectiveActive = dto.isActive ?? entry.isActive
     this.validateTimeRange(effectiveStart, effectiveEnd)
+
+    if (effectiveActive) {
+      await this.assertNoCrossBranchScheduleOverlap({
+        tenantId,
+        professionalId,
+        branchId: entry.branchId,
+        dayOfWeek: entry.dayOfWeek,
+        startTime: effectiveStart,
+        endTime: effectiveEnd,
+        excludeId: entry.id,
+      })
+    }
 
     return this.prisma.workSchedule.update({
       where: { id },
@@ -631,6 +656,54 @@ export class SchedulesService {
       const pre = idx === 0 ? svc.bufferBefore : 0
       return total + pre + svc.durationMinutes + svc.bufferAfter
     }, 0)
+  }
+
+  /**
+   * A professional is one physical person: they may work in multiple branches,
+   * but not at overlapping times on the same weekday.
+   */
+  private async assertNoCrossBranchScheduleOverlap(params: {
+    tenantId: string
+    professionalId: string
+    branchId: string
+    dayOfWeek: number
+    startTime: string
+    endTime: string
+    excludeId?: string
+  }): Promise<void> {
+    const candidate: TimeInterval = {
+      startMinutes: this.timeToMinutes(params.startTime),
+      endMinutes:   this.timeToMinutes(params.endTime),
+    }
+
+    const otherSchedules = await this.prisma.workSchedule.findMany({
+      where: {
+        tenantId:       params.tenantId,
+        professionalId: params.professionalId,
+        dayOfWeek:      params.dayOfWeek,
+        isActive:       true,
+        branchId:       { not: params.branchId },
+        ...(params.excludeId && { id: { not: params.excludeId } }),
+      },
+      include: {
+        branch: { select: { name: true } },
+      },
+    })
+
+    const overlap = otherSchedules.find(schedule => {
+      const existing: TimeInterval = {
+        startMinutes: this.timeToMinutes(schedule.startTime),
+        endMinutes:   this.timeToMinutes(schedule.endTime),
+      }
+      return candidate.startMinutes < existing.endMinutes &&
+        existing.startMinutes < candidate.endMinutes
+    })
+
+    if (overlap) {
+      throw new ConflictException(
+        `Este profesional ya tiene un horario superpuesto en ${overlap.branch.name} (${overlap.startTime}-${overlap.endTime}).`,
+      )
+    }
   }
 
   /**
