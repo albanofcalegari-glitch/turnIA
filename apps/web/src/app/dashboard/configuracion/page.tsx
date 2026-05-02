@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Settings, Clock, Calendar, Users, Shield, Award } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Settings, Clock, Calendar, Shield, Award, Building2, ArrowRight } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError, type LoyaltyProgram, type CalendarStatus } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
+import { Button } from '@/components/ui/Button'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -18,6 +20,7 @@ interface TenantConfig {
   timezone: string
   phone:    string | null
   address:  string | null
+  hasMultipleBranches: boolean
   scheduleRules: {
     slotDurationMinutes: number
     bookingWindowDays:   number
@@ -63,7 +66,8 @@ function InfoRow({ label, value, hint }: { label: string; value: string; hint?: 
 const SLOT_OPTIONS = [5, 10, 15, 20, 30, 45, 60] as const
 
 export default function ConfiguracionPage() {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
+  const router = useRouter()
   const tenantSlug = user?.tenantSlug ?? ''
 
   const [config,  setConfig]  = useState<TenantConfig | null>(null)
@@ -75,6 +79,9 @@ export default function ConfiguracionPage() {
   const [editingSlot, setEditingSlot] = useState(false)
   const [savingSlot,  setSavingSlot]  = useState(false)
   const [slotError,   setSlotError]   = useState<string | null>(null)
+
+  const [savingBranchesMode, setSavingBranchesMode] = useState(false)
+  const [branchesModeError,  setBranchesModeError]  = useState<string | null>(null)
 
   const [loyaltyProgram, setLoyaltyProgram] = useState<LoyaltyProgram | null>(null)
   const [savingLoyalty,  setSavingLoyalty]   = useState(false)
@@ -154,6 +161,23 @@ export default function ConfiguracionPage() {
       setSlotError(msg)
     } finally {
       setSavingSlot(false)
+    }
+  }
+
+  async function enableMultipleBranches() {
+    if (!config || savingBranchesMode) return
+    setSavingBranchesMode(true)
+    setBranchesModeError(null)
+    try {
+      const updated = await apiClient.updateMyTenantSettings({ hasMultipleBranches: true })
+      setConfig({ ...config, hasMultipleBranches: updated.hasMultipleBranches })
+      await refreshUser()
+      router.push('/dashboard/sucursales')
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'No se pudo activar la gestión de sucursales.'
+      setBranchesModeError(msg)
+    } finally {
+      setSavingBranchesMode(false)
     }
   }
 
@@ -243,6 +267,52 @@ export default function ConfiguracionPage() {
             <InfoRow label="Zona horaria" value={config.timezone} />
             <InfoRow label="Teléfono" value={config.phone ?? 'No configurado'} />
             <InfoRow label="Dirección" value={config.address ?? 'No configurada'} />
+          </div>
+        </section>
+
+        {/* Branches */}
+        <section className="rounded-xl border border-gray-200/80 bg-white p-5 shadow-card">
+          <div className="flex items-center gap-2 mb-4">
+            <Building2 size={16} className="text-gray-400" />
+            <h2 className="text-sm font-semibold text-gray-700">Sucursales</h2>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">
+                {config.hasMultipleBranches ? 'Gestión de sucursales activa' : 'Tu negocio atiende en una sola sucursal'}
+              </p>
+              <p className="mt-1 max-w-2xl text-xs text-gray-500">
+                {config.hasMultipleBranches
+                  ? 'Podés administrar sedes, asignar profesionales y configurar horarios por sucursal.'
+                  : 'Cuando abras una segunda sede, activá esta opción para mostrar Sucursales en el menú y cargarla desde el panel.'}
+              </p>
+              {branchesModeError && (
+                <p className="mt-2 text-xs text-red-600">{branchesModeError}</p>
+              )}
+            </div>
+
+            {config.hasMultipleBranches ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => router.push('/dashboard/sucursales')}
+              >
+                Administrar
+                <ArrowRight size={15} />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="w-full sm:w-auto"
+                disabled={savingBranchesMode}
+                onClick={enableMultipleBranches}
+              >
+                {savingBranchesMode ? <Spinner size="sm" className="text-white" /> : <Building2 size={15} />}
+                Activar sucursales
+              </Button>
+            )}
           </div>
         </section>
 

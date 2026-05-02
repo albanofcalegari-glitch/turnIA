@@ -232,6 +232,12 @@ class ApiClient {
       body:   JSON.stringify(data),
     })
 
+  updateMyTenantSettings = (data: { hasMultipleBranches?: boolean }) =>
+    this.request<Tenant>('/tenants/me/settings', {
+      method: 'PATCH',
+      body:   JSON.stringify(data),
+    })
+
   // ── Branches ──────────────────────────────────────────────────────────────
 
   /**

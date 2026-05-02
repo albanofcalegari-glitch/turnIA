@@ -120,6 +120,17 @@ export class TenantsService {
     return updated
   }
 
+  /**
+   * Updates settings owned by the tenant admin. Today this is intentionally
+   * narrow: enabling multi-branch mode only reveals branch management UI.
+   */
+  async updateMySettings(tenantId: string, data: { hasMultipleBranches?: boolean }) {
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data,
+    })
+  }
+
   // ── SuperAdmin methods ──────────────────────────────────────────────────
 
   async findAll() {

@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Patch, Param, Body, UseGuards, ForbiddenException } from '@nestjs/common'
 import { TenantsService } from './tenants.service'
 import { CreateTenantDto } from './dto/create-tenant.dto'
-import { UpdateTenantDto, UpdateScheduleRulesDto } from './dto/update-tenant.dto'
+import { UpdateTenantDto, UpdateScheduleRulesDto, UpdateMyTenantSettingsDto } from './dto/update-tenant.dto'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { JwtPayload, TenantRole } from '@turnia/shared'
@@ -44,6 +44,21 @@ export class TenantsController {
     }
     return this.tenantsService.updateScheduleRules(user.tenantId, {
       slotDurationMinutes: dto.slotDurationMinutes,
+    })
+  }
+
+  @Patch('me/settings')
+  @UseGuards(JwtAuthGuard)
+  async updateMySettings(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateMyTenantSettingsDto,
+  ) {
+    if (!user.tenantId) throw new ForbiddenException()
+    if (user.role !== TenantRole.ADMIN) {
+      throw new ForbiddenException('Solo administradores pueden cambiar la configuración')
+    }
+    return this.tenantsService.updateMySettings(user.tenantId, {
+      hasMultipleBranches: dto.hasMultipleBranches,
     })
   }
 
