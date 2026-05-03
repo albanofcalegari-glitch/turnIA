@@ -579,7 +579,7 @@ class ApiClient {
    * tenant's membership is only extended once MP confirms the first
    * payment via webhook.
    */
-  subscribe = (tier: 'standard' | 'pro' = 'standard') =>
+  subscribe = (tier: 'standard' | 'pro' | 'business' = 'standard') =>
     this.request<{ initPoint: string; subscriptionId: string; reused: boolean }>('/subscriptions/me', {
       method: 'POST',
       body:   JSON.stringify({ tier }),
