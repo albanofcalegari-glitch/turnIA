@@ -48,7 +48,7 @@ export interface JwtPayload {
 
 // ── Plans ────────────────────────────────────────────────────────────────────
 
-export type PlanTier = 'trial' | 'standard' | 'pro'
+export type PlanTier = 'trial' | 'standard' | 'pro' | 'business'
 
 export interface PlanConfig {
   tier:             PlanTier
@@ -75,6 +75,14 @@ export const PLANS: Record<Exclude<PlanTier, 'trial'>, PlanConfig> = {
     currency:         'ARS',
     maxProfessionals: null,
     reason:           'Suscripción TurnIT Pro',
+  },
+  business: {
+    tier:             'business',
+    label:            'Business',
+    amount:           100_000,
+    currency:         'ARS',
+    maxProfessionals: null,
+    reason:           'Suscripción TurnIT Business',
   },
 }
 

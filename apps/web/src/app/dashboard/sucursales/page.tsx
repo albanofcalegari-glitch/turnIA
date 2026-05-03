@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, type FormEvent } from 'react'
-import { Building2, Plus, Trash2, X, Star, Users, Check } from 'lucide-react'
+import { Building2, Plus, Trash2, RotateCcw, X, Star, Users, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError, type AdminBranch } from '@/lib/api'
@@ -104,6 +104,15 @@ export default function SucursalesPage() {
     }
   }
 
+  async function handleActivate(b: AdminBranch) {
+    try {
+      const updated = await apiClient.updateBranch(tenantId, b.id, { isActive: true })
+      setBranches(prev => prev.map(x => x.id === b.id ? updated : x))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Error al activar la sucursal.')
+    }
+  }
+
   return (
     <div>
       {confirmDialog}
@@ -170,43 +179,55 @@ export default function SucursalesPage() {
                 !br.isActive && 'opacity-60',
               )}
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-                  <Building2 size={18} />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-gray-900 truncate">{br.name}</p>
-                    {br.isDefault && (
-                      <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                        <Star size={10} />
-                        Principal
-                      </span>
-                    )}
-                    {!br.isActive && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-                        Inactiva
-                      </span>
-                    )}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                    <Building2 size={18} />
                   </div>
-                  {br.address && <p className="text-sm text-gray-500 truncate">{br.address}</p>}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-900 truncate">{br.name}</p>
+                      {br.isDefault && (
+                        <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                          <Star size={10} />
+                          Principal
+                        </span>
+                      )}
+                      {!br.isActive && (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                          Inactiva
+                        </span>
+                      )}
+                    </div>
+                    {br.address && <p className="text-sm text-gray-500 truncate">{br.address}</p>}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0 sm:ml-4">
-                {br.phone && <span className="text-sm text-gray-500">{br.phone}</span>}
-                {!br.isDefault && br.isActive && (
-                  <ActionsMenu
-                    label={`Acciones para ${br.name}`}
-                    items={[
-                      {
-                        label:   'Desactivar',
-                        icon:    <Trash2 size={14} />,
-                        onClick: () => handleDelete(br),
-                        danger:  true,
-                      },
-                    ]}
-                  />
-                )}
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {br.phone && <span className="text-sm text-gray-500">{br.phone}</span>}
+                  {!br.isDefault && br.isActive && (
+                    <ActionsMenu
+                      label={`Acciones para ${br.name}`}
+                      items={[
+                        {
+                          label:   'Desactivar',
+                          icon:    <Trash2 size={14} />,
+                          onClick: () => handleDelete(br),
+                          danger:  true,
+                        },
+                      ]}
+                    />
+                  )}
+                  {!br.isDefault && !br.isActive && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleActivate(br)}
+                    >
+                      <RotateCcw size={14} />
+                      Activar
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="border-t border-gray-100 pt-3">
                 <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-400">

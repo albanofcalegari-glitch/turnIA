@@ -15,7 +15,7 @@ const sizes = {
 export function BrandLogo({ size = 'md', className }: Props) {
   return (
     <span className={cn('font-extrabold tracking-tight', sizes[size], className)}>
-      <span style={{ color: '#111827' }} className="dark:text-white">Turn</span>
+      <span className="dark:!text-white" style={{ color: '#111827' }}>Turn</span>
       <span style={{ color: '#16a34a' }}>it</span>
     </span>
   )

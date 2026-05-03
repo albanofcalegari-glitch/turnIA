@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CreditCard, CheckCircle2, AlertTriangle, XCircle, Clock, Users, Zap } from 'lucide-react'
+import { CreditCard, CheckCircle2, AlertTriangle, XCircle, Clock, Users, Zap, Building2 } from 'lucide-react'
 import { apiClient, type MySubscription } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { useConfirm } from '@/components/ui/Dialog'
 import { PLANS } from '@turnia/shared'
 
-type Tier = 'standard' | 'pro'
+type Tier = 'standard' | 'pro' | 'business'
 
 export default function SuscripcionPage() {
   const { user } = useAuth()
@@ -94,7 +94,7 @@ export default function SuscripcionPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Plan actual</p>
             <h2 className="mt-1 text-xl font-bold text-gray-900">
               {sub && sub.status === 'authorized'
-                ? (currentPlan === 'pro' ? PLANS.pro.label : PLANS.standard.label)
+                ? (PLANS[currentPlan as Tier]?.label ?? PLANS.standard.label)
                 : 'Prueba gratuita'}
             </h2>
             {sub && sub.status === 'authorized' ? (
@@ -148,25 +148,28 @@ export default function SuscripcionPage() {
       {isTrial && user?.role === 'ADMIN' && (
         <section>
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Elegí tu plan</h2>
-          {requiredTier === 'pro' && (
+          {requiredTier !== 'standard' && (
             <div className="mb-4 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
-              Tenés <strong>{profCount} profesionales</strong> activos. Necesitás el plan <strong>Pro</strong> para mantenerlos.
+              {requiredTier === 'business'
+                ? <>Tenés múltiples sucursales activas. Necesitás el plan <strong>Business</strong>.</>
+                : <>Tenés <strong>{profCount} profesionales</strong> activos. Necesitás el plan <strong>Pro</strong> para mantenerlos.</>}
             </div>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <PlanCard
               tier="standard"
               icon={<Users size={20} />}
               features={[
                 '1 profesional',
+                '1 sucursal',
                 'Turnos ilimitados',
                 'Programa de fidelidad',
                 'Reportes',
               ]}
               onSubscribe={() => handleSubscribe('standard')}
               submitting={submitting}
-              disabled={requiredTier === 'pro'}
-              disabledReason={`Tenés ${profCount} profesionales — necesitás Pro`}
+              disabled={requiredTier === 'pro' || requiredTier === 'business'}
+              disabledReason={requiredTier === 'business' ? 'Necesitás Business' : `Tenés ${profCount} profesionales — necesitás Pro`}
             />
             <PlanCard
               tier="pro"
@@ -174,12 +177,30 @@ export default function SuscripcionPage() {
               features={[
                 'Profesionales ilimitados',
                 'Servicios ilimitados',
+                '1 sucursal',
                 'Turnos ilimitados',
                 'Programa de fidelidad',
                 'Reportes y métricas',
               ]}
               recommended={requiredTier === 'pro'}
               onSubscribe={() => handleSubscribe('pro')}
+              submitting={submitting}
+              disabled={requiredTier === 'business'}
+              disabledReason="Necesitás Business para multisucursal"
+            />
+            <PlanCard
+              tier="business"
+              icon={<Building2 size={20} />}
+              features={[
+                'Profesionales ilimitados',
+                'Servicios ilimitados',
+                'Sucursales ilimitadas',
+                'Turnos ilimitados',
+                'Programa de fidelidad',
+                'Reportes y métricas',
+              ]}
+              recommended={requiredTier === 'business'}
+              onSubscribe={() => handleSubscribe('business')}
               submitting={submitting}
             />
           </div>

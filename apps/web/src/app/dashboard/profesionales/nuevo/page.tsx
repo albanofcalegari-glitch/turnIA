@@ -15,6 +15,7 @@ const inputCls = cn(
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900',
   'placeholder:text-gray-400',
   'focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20',
+  'dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400',
 )
 
 export default function NewProfessionalPage() {
@@ -48,14 +49,14 @@ export default function NewProfessionalPage() {
     <div className="max-w-2xl">
       <Link
         href="/dashboard/profesionales"
-        className="mb-5 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+        className="mb-5 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
       >
         <ArrowLeft size={14} />
         Volver a profesionales
       </Link>
 
-      <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Agregar profesional</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">Agregar profesional</h1>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Completá los datos básicos. Después vas a poder configurar horarios y asignar servicios.
       </p>
 

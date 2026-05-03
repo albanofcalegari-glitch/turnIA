@@ -16,6 +16,7 @@ const inputCls = cn(
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900',
   'placeholder:text-gray-400',
   'focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20',
+  'dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400',
 )
 
 export function CancelFlow({ tenantSlug }: Props) {
@@ -93,11 +94,11 @@ export function CancelFlow({ tenantSlug }: Props) {
 
   if (initError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-sm rounded-2xl border bg-white p-8 text-center shadow-sm">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-gray-900">
+        <div className="max-w-sm rounded-2xl border bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <p className="text-2xl">😕</p>
-          <p className="mt-3 font-semibold text-gray-900">Negocio no encontrado</p>
-          <p className="mt-1 text-sm text-gray-500">Verificá la dirección e intentá de nuevo.</p>
+          <p className="mt-3 font-semibold text-gray-900 dark:text-white">Negocio no encontrado</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Verificá la dirección e intentá de nuevo.</p>
         </div>
       </div>
     )
@@ -106,12 +107,12 @@ export function CancelFlow({ tenantSlug }: Props) {
   const activeAppointments = appointments.filter(a => !cancelled.has(a.id))
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {confirmDialog}
       {/* Header */}
-      <header className="border-b bg-white px-6 py-4">
+      <header className="border-b bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <h1 className="text-lg font-bold text-gray-900">{tenantName || tenantSlug.replace(/-/g, ' ')}</h1>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">{tenantName || tenantSlug.replace(/-/g, ' ')}</h1>
           <span className="ml-auto text-sm text-gray-400">Cancelar turno</span>
         </div>
       </header>
@@ -120,13 +121,13 @@ export function CancelFlow({ tenantSlug }: Props) {
         {/* Back to booking */}
         <Link
           href={`/${tenantSlug}`}
-          className="mb-6 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="mb-6 inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           ← Volver a reservar
         </Link>
 
-        <h2 className="text-xl font-bold text-gray-900">Cancelar un turno</h2>
-        <p className="mt-1 text-sm text-gray-500 mb-6">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Cancelar un turno</h2>
+        <p className="mt-1 text-sm text-gray-500 mb-6 dark:text-gray-400">
           Ingresá el email con el que reservaste para ver tus turnos.
         </p>
 
@@ -147,7 +148,7 @@ export function CancelFlow({ tenantSlug }: Props) {
 
         {/* Error */}
         {error && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
             {error}
           </div>
         )}
@@ -156,8 +157,8 @@ export function CancelFlow({ tenantSlug }: Props) {
         {searched && (
           <div className="mt-6">
             {activeAppointments.length === 0 && cancelled.size === 0 && (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-white py-10 text-center">
-                <p className="text-sm text-gray-500">No se encontraron turnos activos para este email.</p>
+              <div className="rounded-xl border border-dashed border-gray-300 bg-white py-10 text-center dark:border-gray-600 dark:bg-gray-800">
+                <p className="text-sm text-gray-500 dark:text-gray-400">No se encontraron turnos activos para este email.</p>
               </div>
             )}
 
@@ -172,17 +173,17 @@ export function CancelFlow({ tenantSlug }: Props) {
                     <div
                       key={appt.id}
                       className={cn(
-                        'rounded-xl border bg-white p-4',
+                        'rounded-xl border bg-white p-4 dark:border-gray-700 dark:bg-gray-800',
                         isCancelled && 'opacity-50',
                       )}
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-gray-900">{serviceName}</p>
-                          <p className="mt-0.5 text-sm text-gray-500">
+                          <p className="font-semibold text-gray-900 dark:text-white">{serviceName}</p>
+                          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                             con {appt.professional.displayName}
                           </p>
-                          <p className="mt-1 text-sm text-gray-700 capitalize">
+                          <p className="mt-1 text-sm text-gray-700 capitalize dark:text-gray-300">
                             📅 {formatDateLong(date)} — {formatTime(appt.startAt, timezone)}
                           </p>
                         </div>
@@ -213,14 +214,14 @@ export function CancelFlow({ tenantSlug }: Props) {
             )}
 
             {cancelled.size > 0 && (
-              <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-5 text-center">
+              <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-5 text-center dark:border-green-800 dark:bg-green-900/30">
                 <p className="text-2xl">✅</p>
-                <p className="mt-2 font-semibold text-gray-900">
+                <p className="mt-2 font-semibold text-gray-900 dark:text-white">
                   {cancelled.size === 1
                     ? 'Tu turno fue cancelado correctamente'
                     : `${cancelled.size} turnos fueron cancelados correctamente`}
                 </p>
-                <p className="mt-1 text-sm text-gray-600">
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                   Si querés podés volver a reservar cuando quieras.
                 </p>
                 <Link

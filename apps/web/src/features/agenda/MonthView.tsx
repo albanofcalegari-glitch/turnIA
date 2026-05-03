@@ -50,26 +50,26 @@ export function MonthView({ agenda, timezone }: Props) {
         <div className="flex items-center gap-2">
           <button
             onClick={goToPrevMonth}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
             aria-label="Mes anterior"
           >
             <ChevronLeft size={14} />
           </button>
           <button
             onClick={goToNextMonth}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
             aria-label="Mes siguiente"
           >
             <ChevronRight size={14} />
           </button>
-          <h2 className="ml-1 text-sm font-semibold text-gray-900 capitalize">
+          <h2 className="ml-1 text-sm font-semibold text-gray-900 capitalize dark:text-white">
             {MONTH_NAMES[monthIdx]} {anchor.getFullYear()}
           </h2>
         </div>
 
         <button
           onClick={() => setSelectedDate(toDateString(new Date()))}
-          className="rounded-lg border bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
         >
           Hoy
         </button>
@@ -77,9 +77,9 @@ export function MonthView({ agenda, timezone }: Props) {
 
       {/* Error */}
       {error && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-          <span className="text-sm text-red-700">{error}</span>
-          <button onClick={refresh} className="text-xs font-medium text-red-700 underline">
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/30">
+          <span className="text-sm text-red-700 dark:text-red-400">{error}</span>
+          <button onClick={refresh} className="text-xs font-medium text-red-700 underline dark:text-red-400">
             Reintentar
           </button>
         </div>
@@ -94,9 +94,9 @@ export function MonthView({ agenda, timezone }: Props) {
 
       {/* Grid */}
       {!loading && (
-        <div className="overflow-hidden rounded-xl border">
+        <div className="overflow-hidden rounded-xl border dark:border-gray-700">
           {/* Weekday header */}
-          <div className="grid grid-cols-7 border-b bg-gray-50 text-center text-[10px] font-medium uppercase tracking-wide text-gray-500">
+          <div className="grid grid-cols-7 border-b bg-gray-50 text-center text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
             {WEEKDAYS.map(w => (
               <div key={w} className="py-2">{w}</div>
             ))}
@@ -115,15 +115,17 @@ export function MonthView({ agenda, timezone }: Props) {
                   type="button"
                   onClick={() => setOpenDate(date)}
                   className={cn(
-                    'relative flex min-h-[48px] flex-col items-start border-b border-r p-1 text-left transition-colors hover:bg-brand-50/60 sm:min-h-[72px] sm:p-1.5',
-                    !inMonth && 'bg-gray-50/60 text-gray-400',
-                    isToday && 'bg-brand-50/40',
+                    'relative flex min-h-[48px] flex-col items-start border-b border-r p-1 text-left transition-colors sm:min-h-[72px] sm:p-1.5',
+                    'hover:bg-brand-50/60 dark:hover:bg-brand-900/40',
+                    'dark:border-gray-700',
+                    !inMonth && 'bg-gray-50/60 text-gray-400 dark:bg-gray-800/40 dark:text-gray-600',
+                    isToday && 'bg-brand-50/40 dark:bg-brand-900/30',
                   )}
                 >
                   <span className={cn(
                     'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium tabular-nums sm:h-6 sm:w-6 sm:text-[11px]',
-                    isToday ? 'bg-brand-600 text-white' : 'text-gray-700',
-                    !inMonth && !isToday && 'text-gray-400',
+                    isToday ? 'bg-brand-600 text-white' : 'text-gray-700 dark:text-gray-300',
+                    !inMonth && !isToday && 'text-gray-400 dark:text-gray-600',
                   )}>
                     {d.getDate()}
                   </span>
@@ -148,7 +150,7 @@ export function MonthView({ agenda, timezone }: Props) {
                           </span>
                         ))}
                         {count > 3 && (
-                          <span className="text-[10px] font-medium text-gray-500">
+                          <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
                             +{count - 3} más
                           </span>
                         )}
@@ -170,7 +172,7 @@ export function MonthView({ agenda, timezone }: Props) {
         className="max-w-lg"
       >
         {openAppointments.length === 0 ? (
-          <p className="py-4 text-center text-sm text-gray-400">
+          <p className="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
             Sin turnos para este día.
           </p>
         ) : (
@@ -190,7 +192,7 @@ export function MonthView({ agenda, timezone }: Props) {
         <div className="mt-4 flex justify-end">
           <button
             onClick={() => setOpenDate(null)}
-            className="rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            className="rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
           >
             Cerrar
           </button>

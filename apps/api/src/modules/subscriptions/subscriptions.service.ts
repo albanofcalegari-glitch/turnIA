@@ -102,11 +102,14 @@ export class SubscriptionsService {
   }
 
   async getPlanRequirement(tenantId: string) {
-    const profCount = await this.prisma.professional.count({
-      where: { tenantId, isActive: true },
-    })
-    const requiredTier = profCount > (PLANS.standard.maxProfessionals ?? 1) ? 'pro' : 'standard'
-    return { profCount, requiredTier, plans: PLANS }
+    const [profCount, branchCount] = await Promise.all([
+      this.prisma.professional.count({ where: { tenantId, isActive: true } }),
+      this.prisma.branch.count({ where: { tenantId, isActive: true } }),
+    ])
+    let requiredTier: Exclude<PlanTier, 'trial'> = 'standard'
+    if (profCount > (PLANS.standard.maxProfessionals ?? 1)) requiredTier = 'pro'
+    if (branchCount > 1) requiredTier = 'business'
+    return { profCount, branchCount, requiredTier, plans: PLANS }
   }
 
   async getMySubscription(tenantId: string) {
@@ -212,7 +215,10 @@ export class SubscriptionsService {
                  : now
       const newExpiry = new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000)
 
-      const planTier = sub.amount.toNumber() >= PLANS.pro.amount ? 'pro' : 'standard'
+      const amt = sub.amount.toNumber()
+      const planTier = amt >= PLANS.business.amount ? 'business'
+                     : amt >= PLANS.pro.amount      ? 'pro'
+                     : 'standard'
 
       await this.prisma.tenant.update({
         where: { id: tenantId },
