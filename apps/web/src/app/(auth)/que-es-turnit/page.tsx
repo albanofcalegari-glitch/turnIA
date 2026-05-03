@@ -68,7 +68,7 @@ export default function QueEsTurnitPage() {
       <nav className="sticky top-0 z-30 border-b border-gray-100 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center px-4 py-4 sm:px-6">
           <Link href="/">
-            <BrandLogo size="xl" />
+            <BrandLogo size="xl" forceDark />
           </Link>
         </div>
       </nav>
@@ -125,7 +125,7 @@ export default function QueEsTurnitPage() {
               <div className="flex">
                 {/* Sidebar */}
                 <div className="hidden w-44 border-r border-gray-100 bg-gray-50/60 p-3 sm:block">
-                  <div className="mb-4"><BrandLogo size="sm" /></div>
+                  <div className="mb-4"><BrandLogo size="sm" forceDark /></div>
                   {['Agenda', 'Servicios', 'Profesionales', 'Horarios', 'Fidelidad', 'Estadísticas'].map((item, i) => (
                     <div key={item} className={`rounded-md px-2 py-1.5 text-[11px] font-medium mb-0.5 ${i === 0 ? 'bg-brand-50 text-brand-700' : 'text-gray-400'}`}>
                       {item}
@@ -276,7 +276,7 @@ export default function QueEsTurnitPage() {
       {/* Footer */}
       <footer className="border-t border-gray-100 bg-gray-50 py-8">
         <div className="mx-auto max-w-5xl px-4 text-center">
-          <BrandLogo size="sm" />
+          <BrandLogo size="sm" forceDark />
           <p className="mt-1 text-xs text-gray-400">Sistema de turnos online &copy; {new Date().getFullYear()}</p>
           <p className="mt-2 text-xs text-gray-400">
             Desarrollado por{' '}
