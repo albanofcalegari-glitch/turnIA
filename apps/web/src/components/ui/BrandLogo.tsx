@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 interface Props {
   size?: 'sm' | 'md' | 'lg' | 'xl'
   className?: string
-  forceDark?: boolean
+  darkAware?: boolean
 }
 
 const sizes = {
@@ -13,10 +13,10 @@ const sizes = {
   xl: 'text-4xl',
 }
 
-export function BrandLogo({ size = 'md', className, forceDark = false }: Props) {
+export function BrandLogo({ size = 'md', className, darkAware = false }: Props) {
   return (
     <span className={cn('font-extrabold tracking-tight', sizes[size], className)}>
-      <span className={forceDark ? '' : 'dark:!text-white'} style={{ color: '#111827' }}>Turn</span>
+      <span className={darkAware ? 'dark:!text-white' : ''} style={{ color: '#111827' }}>Turn</span>
       <span style={{ color: '#16a34a' }}>it</span>
     </span>
   )
