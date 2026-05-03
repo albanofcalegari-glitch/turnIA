@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CalendarDays, CalendarRange, Calendar, Users, Plus } from 'lucide-react'
+import { CalendarDays, CalendarRange, Calendar, Users, Building2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
@@ -9,7 +9,7 @@ import { useAgenda } from '@/features/agenda/useAgenda'
 import { DayView } from '@/features/agenda/DayView'
 import { WeekView } from '@/features/agenda/WeekView'
 import { MonthView } from '@/features/agenda/MonthView'
-import type { Professional } from '@/features/booking/booking.types'
+import type { Professional, Branch } from '@/features/booking/booking.types'
 import { useConfirm } from '@/components/ui/Dialog'
 import { NewAppointmentModal } from '@/features/agenda/NewAppointmentModal'
 
@@ -34,17 +34,24 @@ export default function AgendaPage() {
 
   const { confirm, element: confirmDialog } = useConfirm()
   const agenda = useAgenda(tenantId, confirm)
-  const { view, setView, proFilter, setProFilter, stats } = agenda
+  const { view, setView, proFilter, setProFilter, branchFilter, setBranchFilter, stats } = agenda
 
   const [professionals, setProfessionals] = useState<Professional[]>([])
+  const [branches,      setBranches]      = useState<Branch[]>([])
   const [showNewAppt,   setShowNewAppt]   = useState(false)
+  const hasMultipleBranches = user?.tenantHasMultipleBranches ?? false
 
   useEffect(() => {
     if (!tenantId) return
     apiClient.getProfessionals(tenantId)
       .then(setProfessionals)
       .catch(() => {})
-  }, [tenantId])
+    if (hasMultipleBranches) {
+      apiClient.getAllBranches(tenantId)
+        .then(brs => setBranches(brs.filter(b => b.isActive)))
+        .catch(() => {})
+    }
+  }, [tenantId, hasMultipleBranches])
 
   return (
     <div>
@@ -53,6 +60,7 @@ export default function AgendaPage() {
       {showNewAppt && (
         <NewAppointmentModal
           tenantId={tenantId}
+          branches={branches}
           onCreated={() => { setShowNewAppt(false); agenda.refresh() }}
           onClose={() => setShowNewAppt(false)}
         />
@@ -61,6 +69,21 @@ export default function AgendaPage() {
       <div className="mb-4 sm:mb-6">
         <h1 className="mb-3 text-lg font-bold text-gray-900 dark:text-white sm:text-2xl">Agenda</h1>
         <div className="flex flex-wrap items-center gap-2">
+          {branches.length > 1 && (
+            <div className="flex items-center gap-1.5 rounded-lg border bg-white px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800">
+              <Building2 size={14} className="text-gray-400" />
+              <select
+                value={branchFilter}
+                onChange={e => setBranchFilter(e.target.value)}
+                className="max-w-[140px] bg-transparent text-xs text-gray-700 focus:outline-none dark:text-gray-300 sm:max-w-none"
+              >
+                <option value="">Todas las sucursales</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {professionals.length > 0 && (
             <div className="flex items-center gap-1.5 rounded-lg border bg-white px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800">
               <Users size={14} className="text-gray-400" />

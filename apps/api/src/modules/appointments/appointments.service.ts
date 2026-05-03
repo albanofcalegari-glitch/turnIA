@@ -632,6 +632,7 @@ export class AppointmentsService {
       include: {
         items:        { include: { service: true }, orderBy: { order: 'asc' } },
         professional: true,
+        branch:       { select: { id: true, name: true } },
         client: {
           select: {
             id: true, firstName: true, lastName: true, email: true,

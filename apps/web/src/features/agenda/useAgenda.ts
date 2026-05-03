@@ -59,6 +59,7 @@ export function useAgenda(tenantId: string, confirmFn?: ConfirmFn) {
   const [view,         setView]         = useState<AgendaView>('day')
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()))
   const [proFilter,    setProFilter]    = useState<string>('')     // '' = all
+  const [branchFilter, setBranchFilter] = useState<string>('')    // '' = all
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading,      setLoading]      = useState(true)
@@ -74,13 +75,17 @@ export function useAgenda(tenantId: string, confirmFn?: ConfirmFn) {
     setLoading(true)
     setError(null)
     try {
+      const optionalFilters = {
+        ...(proFilter    ? { professionalId: proFilter }    : {}),
+        ...(branchFilter ? { branchId:       branchFilter } : {}),
+      }
       if (view === 'month') {
         const anchor = new Date(selectedDate + 'T12:00:00')
         const dates  = monthGridDates(anchor)
         const result = await apiClient.getAppointments(tenantId, {
           from: dates[0],
           to:   dates[dates.length - 1],
-          ...(proFilter ? { professionalId: proFilter } : {}),
+          ...optionalFilters,
         })
         setAppointments(result)
       } else if (view === 'week') {
@@ -89,13 +94,13 @@ export function useAgenda(tenantId: string, confirmFn?: ConfirmFn) {
         const result = await apiClient.getAppointments(tenantId, {
           from: dates[0],
           to:   dates[6],
-          ...(proFilter ? { professionalId: proFilter } : {}),
+          ...optionalFilters,
         })
         setAppointments(result)
       } else {
         const result = await apiClient.getAppointments(tenantId, {
           date: selectedDate,
-          ...(proFilter ? { professionalId: proFilter } : {}),
+          ...optionalFilters,
         })
         setAppointments(result)
       }
@@ -104,7 +109,7 @@ export function useAgenda(tenantId: string, confirmFn?: ConfirmFn) {
     } finally {
       setLoading(false)
     }
-  }, [tenantId, selectedDate, proFilter, view])
+  }, [tenantId, selectedDate, proFilter, branchFilter, view])
 
   useEffect(() => {
     fetchAppointments()
@@ -238,6 +243,8 @@ export function useAgenda(tenantId: string, confirmFn?: ConfirmFn) {
     setSelectedDate,
     proFilter,
     setProFilter,
+    branchFilter,
+    setBranchFilter,
 
     // Data
     dayAppointments,

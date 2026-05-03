@@ -141,7 +141,7 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
         </div>
       </div>
 
-      {/* Professional */}
+      {/* Professional + Branch */}
       <div className="mt-2 flex items-center gap-1.5">
         <div
           className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
@@ -150,6 +150,9 @@ export function AppointmentCard({ appointment, timezone, isLoading, onAction, on
           {professional.displayName.slice(0, 1).toUpperCase()}
         </div>
         <span className="text-xs text-gray-500">{professional.displayName}</span>
+        {appointment.branch && (
+          <span className="text-[10px] text-gray-400">· {appointment.branch.name}</span>
+        )}
       </div>
 
       {/* Payment method badge (completed appointments) */}

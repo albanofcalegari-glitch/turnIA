@@ -409,12 +409,13 @@ class ApiClient {
       headers: { 'X-Tenant-ID': tenantId },
     })
 
-  getAppointments = (tenantId: string, filters?: { date?: string; from?: string; to?: string; professionalId?: string }) => {
+  getAppointments = (tenantId: string, filters?: { date?: string; from?: string; to?: string; professionalId?: string; branchId?: string }) => {
     const params = new URLSearchParams()
     if (filters?.date)           params.set('date', filters.date)
     if (filters?.from)           params.set('from', filters.from)
     if (filters?.to)             params.set('to',   filters.to)
     if (filters?.professionalId) params.set('professionalId', filters.professionalId)
+    if (filters?.branchId)       params.set('branchId', filters.branchId)
     const q = params.toString()
     return this.request<Appointment[]>(`/appointments${q ? '?' + q : ''}`, {
       headers: { 'X-Tenant-ID': tenantId },

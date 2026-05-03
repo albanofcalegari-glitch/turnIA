@@ -64,9 +64,11 @@ export interface Appointment {
   cancellationReason: string | null
   createdAt:      string
   updatedAt:      string
+  branchId:       string | null
   // Relations
   items:          AppointmentItem[]
   professional:   AppointmentProfessional
+  branch:         { id: string; name: string } | null
   client:         AppointmentClient | null
 }
 

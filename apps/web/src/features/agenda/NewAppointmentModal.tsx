@@ -4,7 +4,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { X, Search, User, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { apiClient, ApiError, type ClientSearchResult } from '@/lib/api'
-import type { Service, Professional } from '@/features/booking/booking.types'
+import type { Service, Professional, Branch } from '@/features/booking/booking.types'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 
@@ -16,17 +16,19 @@ const inputCls = cn(
 
 interface Props {
   tenantId: string
+  branches?: Branch[]
   onCreated: () => void
   onClose: () => void
 }
 
-export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
+export function NewAppointmentModal({ tenantId, branches = [], onCreated, onClose }: Props) {
   // Data
   const [services,      setServices]      = useState<Service[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [slots,         setSlots]         = useState<{ startAt: string; endAt: string }[]>([])
 
   // Selection state
+  const [selectedBranchId,   setSelectedBranchId]   = useState(branches.length === 1 ? branches[0].id : '')
   const [selectedServiceId,  setSelectedServiceId]  = useState('')
   const [selectedProfId,     setSelectedProfId]     = useState('')
   const [selectedDate,       setSelectedDate]       = useState('')
@@ -70,11 +72,11 @@ export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
     }
     setLoadingSlots(true)
     setSelectedSlot('')
-    apiClient.getSlots(tenantId, selectedProfId, selectedDate, [selectedServiceId])
+    apiClient.getSlots(tenantId, selectedProfId, selectedDate, [selectedServiceId], selectedBranchId || null)
       .then(res => setSlots(res.slots))
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false))
-  }, [tenantId, selectedServiceId, selectedProfId, selectedDate])
+  }, [tenantId, selectedServiceId, selectedProfId, selectedDate, selectedBranchId])
 
   // ── Client search debounce ────────────────────────────────────────────
   useEffect(() => {
@@ -117,6 +119,7 @@ export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
         startAt:        selectedSlot,
         items:          [{ serviceId: selectedServiceId }],
         notes:          notes.trim() || undefined,
+        branchId:       selectedBranchId || undefined,
       }
 
       if (clientMode === 'existing' && selectedClient) {
@@ -256,6 +259,23 @@ export function NewAppointmentModal({ tenantId, onCreated, onClose }: Props) {
               </div>
             )}
           </div>
+
+          {/* ── Branch ──────────────────────────────────────────────── */}
+          {branches.length > 1 && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Sucursal</label>
+              <select
+                value={selectedBranchId}
+                onChange={e => { setSelectedBranchId(e.target.value); setSelectedSlot('') }}
+                className={inputCls}
+              >
+                <option value="">Todas las sucursales</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* ── Service ───────────────────────────────────────────────── */}
           <div>
