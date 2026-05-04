@@ -178,7 +178,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto p-4 pt-18 sm:p-6 md:pt-6">
+      <main className="flex-1 overflow-auto p-3 pt-16 sm:p-6 md:pt-6">
         <MembershipBanner expiresAt={user.tenantMembershipExpiresAt} />
         <EmailVerificationBanner verifiedAt={user.emailVerifiedAt} email={user.email} />
         {user.tenantSlug && <PublicUrlBar slug={user.tenantSlug} />}
@@ -427,21 +427,19 @@ function PublicUrlBar({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="mb-4 rounded-xl border border-brand-200 bg-brand-50/50 px-3 py-2.5 dark:border-brand-600/30 dark:bg-brand-600/10 sm:px-4 sm:py-3">
-      <p
-        className="mb-2 text-xs font-mono text-gray-700 dark:text-gray-300 sm:mb-0 sm:hidden"
-        style={{ wordBreak: 'break-all' }}
-      >
-        {url}
-      </p>
-      <div className="flex items-center gap-3">
-        <Link2 size={16} className="hidden flex-shrink-0 text-brand-600 dark:text-brand-400 sm:block" />
-        <p className="hidden min-w-0 flex-1 truncate font-mono text-sm text-gray-700 dark:text-gray-300 sm:block">{url}</p>
-        <div className="ml-auto flex flex-shrink-0 items-center gap-1.5">
+    <div className="mb-4 rounded-xl border border-brand-200 bg-brand-50/50 px-3 py-2 dark:border-brand-600/30 dark:bg-brand-600/10 sm:px-4 sm:py-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Link2 size={14} className="flex-shrink-0 text-brand-600 dark:text-brand-400 sm:block" />
+        <p
+          className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-600 dark:text-gray-300 sm:text-sm"
+        >
+          {url}
+        </p>
+        <div className="flex flex-shrink-0 items-center gap-1.5">
           <button
             onClick={copy}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
+              'flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors sm:gap-1.5 sm:px-2.5',
               copied
                 ? 'border-green-200 bg-green-50 text-green-700'
                 : 'border-brand-300 bg-white text-brand-700 hover:bg-brand-50 shadow-sm',
@@ -454,7 +452,7 @@ function PublicUrlBar({ slug }: { slug: string }) {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+            className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 sm:gap-1.5 sm:px-2.5"
           >
             <ExternalLink size={13} />
             <span className="hidden sm:inline">Abrir</span>

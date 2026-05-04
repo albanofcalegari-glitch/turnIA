@@ -16,11 +16,11 @@ import { NewAppointmentModal } from '@/features/agenda/NewAppointmentModal'
 function StatCard({ label, value, highlight = false }: { label: string; value: number; highlight?: boolean }) {
   return (
     <div className={cn(
-      'rounded-xl border bg-white p-3 shadow-card transition-shadow duration-200 hover:shadow-card-hover dark:border-gray-800 dark:bg-gray-900 dark:shadow-none sm:p-5',
+      'rounded-xl border bg-white p-2 shadow-card transition-shadow duration-200 hover:shadow-card-hover dark:border-gray-800 dark:bg-gray-900 dark:shadow-none sm:p-5',
       highlight && 'border-brand-100 bg-brand-50/30 dark:border-brand-600/30 dark:bg-brand-600/10',
     )}>
-      <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 sm:text-xs">{label}</p>
-      <p className={cn('mt-1 text-2xl font-extrabold tabular-nums sm:mt-2 sm:text-3xl', highlight ? 'text-brand-700 dark:text-brand-400' : 'text-gray-900 dark:text-white')}>
+      <p className="text-[9px] font-medium uppercase tracking-wide text-gray-400 sm:text-xs">{label}</p>
+      <p className={cn('text-xl font-extrabold tabular-nums sm:mt-2 sm:text-3xl', highlight ? 'text-brand-700 dark:text-brand-400' : 'text-gray-900 dark:text-white')}>
         {value}
       </p>
     </div>
@@ -66,8 +66,16 @@ export default function AgendaPage() {
         />
       )}
 
-      <div className="mb-4 sm:mb-6">
-        <h1 className="mb-3 text-lg font-bold text-gray-900 dark:text-white sm:text-2xl">Agenda</h1>
+      <div className="mb-3 space-y-1.5 sm:mb-6 sm:space-y-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white sm:text-2xl">Agenda</h1>
+          <button
+            onClick={() => setShowNewAppt(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-700 active:scale-95"
+          >
+            <Plus size={14} /> Nuevo turno
+          </button>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {branches.length > 1 && (
             <div className="flex items-center gap-1.5 rounded-lg border bg-white px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800">
@@ -75,7 +83,7 @@ export default function AgendaPage() {
               <select
                 value={branchFilter}
                 onChange={e => setBranchFilter(e.target.value)}
-                className="max-w-[140px] bg-transparent text-xs text-gray-700 focus:outline-none dark:text-gray-300 sm:max-w-none"
+                className="max-w-[120px] bg-transparent text-xs text-gray-700 focus:outline-none dark:text-gray-300 sm:max-w-none"
               >
                 <option value="">Todas las sucursales</option>
                 {branches.map(b => (
@@ -90,7 +98,7 @@ export default function AgendaPage() {
               <select
                 value={proFilter}
                 onChange={e => setProFilter(e.target.value)}
-                className="max-w-[140px] bg-transparent text-xs text-gray-700 focus:outline-none dark:text-gray-300 sm:max-w-none"
+                className="max-w-[120px] bg-transparent text-xs text-gray-700 focus:outline-none dark:text-gray-300 sm:max-w-none"
               >
                 <option value="">Todos</option>
                 {professionals.map(p => (
@@ -128,24 +136,17 @@ export default function AgendaPage() {
               <Calendar size={13} /> Mes
             </button>
           </div>
-          <button
-            onClick={() => setShowNewAppt(true)}
-            className="ml-auto flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-700"
-          >
-            <Plus size={14} />
-            Nuevo turno
-          </button>
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:grid-cols-4 sm:gap-4">
+      <div className="mb-3 grid grid-cols-2 gap-1.5 sm:mb-6 sm:grid-cols-4 sm:gap-4">
         <StatCard label="Turnos"      value={stats.total}     />
         <StatCard label="Confirmados" value={stats.confirmed} highlight />
         <StatCard label="Pendientes"  value={stats.pending}   />
         <StatCard label="Completados" value={stats.completed} />
       </div>
 
-      <div className="rounded-xl border border-gray-200/80 bg-white p-3 shadow-card dark:border-gray-800 dark:bg-gray-900 dark:shadow-none sm:p-5 overflow-x-auto">
+      <div className="rounded-xl border border-gray-200/80 bg-white p-2 shadow-card dark:border-gray-800 dark:bg-gray-900 dark:shadow-none sm:p-5 overflow-x-auto">
         {view === 'day'
           ? <DayView   agenda={agenda} timezone={timezone} />
           : view === 'week'
