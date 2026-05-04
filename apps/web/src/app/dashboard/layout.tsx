@@ -427,10 +427,12 @@ function PublicUrlBar({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="mb-4 flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/50 px-3 py-2.5 dark:border-brand-600/30 dark:bg-brand-600/10 sm:px-4 sm:py-3">
-      <Link2 size={16} className="flex-shrink-0 text-brand-600 dark:text-brand-400" />
-      <p className="min-w-0 flex-1 truncate text-xs font-mono text-gray-700 dark:text-gray-300 sm:text-sm">{url}</p>
-      <div className="flex flex-shrink-0 items-center gap-1.5">
+    <div className="mb-4 flex flex-col gap-2 rounded-xl border border-brand-200 bg-brand-50/50 px-3 py-2.5 dark:border-brand-600/30 dark:bg-brand-600/10 sm:flex-row sm:items-center sm:gap-3 sm:px-4 sm:py-3">
+      <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3">
+        <Link2 size={16} className="mt-0.5 flex-shrink-0 text-brand-600 dark:text-brand-400 sm:mt-0" />
+        <p className="min-w-0 break-all text-xs font-mono text-gray-700 dark:text-gray-300 sm:truncate sm:text-sm">{url}</p>
+      </div>
+      <div className="flex flex-shrink-0 items-center gap-1.5 self-end sm:self-auto">
         <button
           onClick={copy}
           className={cn(
