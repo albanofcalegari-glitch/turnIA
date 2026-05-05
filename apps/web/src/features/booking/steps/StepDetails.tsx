@@ -360,6 +360,7 @@ export function StepDetails({ booking }: Props) {
                 ref={el => { inputRefs.current[i] = el }}
                 type="text"
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 maxLength={1}
                 value={digit}
                 onChange={e => handleDigitChange(i, e.target.value)}

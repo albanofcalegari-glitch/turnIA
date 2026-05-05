@@ -339,6 +339,7 @@ function EmailVerificationBanner({
                 ref={setRef(i)}
                 type="text"
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 maxLength={6}
                 value={d}
                 onChange={e => handleDigit(i, e.target.value)}
