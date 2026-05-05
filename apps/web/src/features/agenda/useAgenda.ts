@@ -56,7 +56,7 @@ function monthGridDates(anchor: Date): string[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function useAgenda(tenantId: string, confirmFn?: ConfirmFn) {
-  const [view,         setView]         = useState<AgendaView>('day')
+  const [view,         setView]         = useState<AgendaView>('month')
   const [selectedDate, setSelectedDate] = useState(toDateString(new Date()))
   const [proFilter,    setProFilter]    = useState<string>('')     // '' = all
   const [branchFilter, setBranchFilter] = useState<string>('')    // '' = all

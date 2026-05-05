@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -46,6 +47,9 @@ export default function RegisterPage() {
   // Single-location tenants leave both at default and never see branch UI.
   const [hasMultipleBranches, setHasMultipleBranches] = useState(false)
   const [defaultBranchName,   setDefaultBranchName]   = useState('')
+  const [confirmPwd,   setConfirmPwd]   = useState('')
+  const [showPwd,      setShowPwd]      = useState(false)
+  const [showConfirm,  setShowConfirm]  = useState(false)
   const [loading,      setLoading]      = useState(false)
   const [error,        setError]        = useState<string | null>(null)
 
@@ -65,7 +69,8 @@ export default function RegisterPage() {
     businessName.trim() &&
     slug.length >= 3 &&
     email.trim() &&
-    password.length >= 6
+    password.length >= 6 &&
+    password === confirmPwd
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -265,16 +270,54 @@ export default function RegisterPage() {
             {/* Password */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Contraseña</label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                autoComplete="new-password"
-                className={inputCls}
-              />
+              <div className="relative">
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  autoComplete="new-password"
+                  className={cn(inputCls, 'pr-10')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(v => !v)}
+                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm password */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Confirmar contraseña</label>
+              <div className="relative">
+                <input
+                  type={showConfirm ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={confirmPwd}
+                  onChange={e => setConfirmPwd(e.target.value)}
+                  placeholder="Repetí la contraseña"
+                  autoComplete="new-password"
+                  className={cn(inputCls, 'pr-10', confirmPwd && password !== confirmPwd && 'border-red-400')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(v => !v)}
+                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {confirmPwd && password !== confirmPwd && (
+                <p className="mt-1 text-xs text-red-500">Las contraseñas no coinciden</p>
+              )}
             </div>
 
             {/* Error */}

@@ -41,7 +41,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Shield size={18} className="text-brand-600 dark:text-brand-400" />
             <BrandLogo size="md" />
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button onClick={logout} title="Cerrar sesión" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300">
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
         <p className="mt-0.5 text-[11px] font-medium text-gray-400 dark:text-gray-500">Panel de administración</p>
       </div>
@@ -78,9 +83,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <p className="truncate text-xs font-semibold text-gray-700 dark:text-gray-300">{user.email}</p>
             <p className="text-[10px] text-gray-400 dark:text-gray-500">Super Admin</p>
           </div>
-          <button onClick={logout} title="Cerrar sesión" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300">
-            <LogOut size={14} />
-          </button>
         </div>
       </div>
     </>

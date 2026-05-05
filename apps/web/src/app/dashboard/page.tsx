@@ -67,15 +67,7 @@ export default function AgendaPage() {
       )}
 
       <div className="mb-3 space-y-1.5 sm:mb-6 sm:space-y-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white sm:text-2xl">Agenda</h1>
-          <button
-            onClick={() => setShowNewAppt(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-700 active:scale-95"
-          >
-            <Plus size={14} /> Nuevo turno
-          </button>
-        </div>
+        <h1 className="text-lg font-bold text-gray-900 dark:text-white sm:text-2xl">Agenda</h1>
         <div className="flex flex-wrap items-center gap-2">
           {branches.length > 1 && (
             <div className="flex items-center gap-1.5 rounded-lg border bg-white px-2 py-1.5 dark:border-gray-700 dark:bg-gray-800">
@@ -136,6 +128,12 @@ export default function AgendaPage() {
               <Calendar size={13} /> Mes
             </button>
           </div>
+          <button
+            onClick={() => setShowNewAppt(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-700 active:scale-95"
+          >
+            <Plus size={14} /> Nuevo turno
+          </button>
         </div>
       </div>
 

@@ -116,28 +116,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         })}
       </nav>
 
-      {/* User footer */}
-      <div className="border-t border-gray-100 p-3 dark:border-gray-800">
-        <div className="flex items-center gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-xs font-bold text-white shadow-sm">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-gray-800 dark:text-gray-200">
-              {user.firstName} {user.lastName}
-            </p>
-            <p className="truncate text-[10px] text-gray-400">{user.email}</p>
-          </div>
-          <button
-            onClick={logout}
-            title="Cerrar sesión"
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-          >
-            <LogOut size={14} />
-          </button>
-        </div>
-      </div>
-
       <div className="px-3 pb-2 text-center">
         <a href="https://www.qngine.com.ar" target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-400 hover:text-brand-600 transition-colors dark:text-gray-500 dark:hover:text-brand-400">
           Desarrollado por <span className="font-semibold">Qngine</span>
@@ -179,6 +157,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content */}
       <main className="flex-1 overflow-auto p-3 pt-16 sm:p-6 md:pt-6">
+        {/* Top bar: user + logout */}
+        <div className="mb-4 flex items-center justify-end gap-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-[10px] font-bold text-white shadow-sm">
+              {initials}
+            </div>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {user.firstName} {user.lastName}
+            </span>
+          </div>
+          <button
+            onClick={logout}
+            title="Cerrar sesión"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+          >
+            <LogOut size={14} />
+            Salir
+          </button>
+        </div>
         <MembershipBanner expiresAt={user.tenantMembershipExpiresAt} />
         <EmailVerificationBanner verifiedAt={user.emailVerifiedAt} email={user.email} />
         {user.tenantSlug && <PublicUrlBar slug={user.tenantSlug} />}

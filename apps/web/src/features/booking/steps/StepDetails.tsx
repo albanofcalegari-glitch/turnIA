@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { Award } from 'lucide-react'
 import { cn, formatDateLong, formatTime } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
+import { LoyaltyCardView } from '@/features/loyalty/LoyaltyCardView'
 import { apiClient } from '@/lib/api'
 import type { useBooking } from '../useBooking'
 
@@ -64,6 +66,8 @@ export function StepDetails({ booking }: Props) {
     timezone,
     requiresMultiTurno,
     serviceBookings,
+    loyaltyProgram,
+    loyaltyCard,
   } = booking
 
   // ── OTP state ─────────────────────────────────────────────────────────────
@@ -445,6 +449,28 @@ export function StepDetails({ booking }: Props) {
               />
             </Field>
           </div>
+
+          {/* Loyalty card */}
+          {loyaltyProgram && tenant && (
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/50">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
+                <Award size={16} />
+                {loyaltyProgram.cardTitle}
+              </div>
+              <LoyaltyCardView
+                program={loyaltyProgram}
+                stampsCount={loyaltyCard?.stampsCount ?? 0}
+                rewardsAvailable={loyaltyCard?.rewardsAvailable}
+                clientName={loyaltyCard?.clientName}
+                tenantName={tenant.name}
+              />
+              {!loyaltyCard && (
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  Al confirmar tu turno se creará tu tarjeta de fidelidad automáticamente.
+                </p>
+              )}
+            </div>
+          )}
 
           {submitError && (
             <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
