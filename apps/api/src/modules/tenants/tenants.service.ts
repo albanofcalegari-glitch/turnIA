@@ -165,6 +165,111 @@ export class TenantsService {
     return { deactivated: result.count }
   }
 
+  async findOneAdmin(id: string) {
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+    const [
+      tenant,
+      totalAppointments,
+      appointmentsThisMonth,
+      byStatus,
+      totalClients,
+      activeServices,
+      activeProfessionals,
+      appointments,
+      clients,
+      payments,
+      services,
+      professionals,
+    ] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id },
+        include: {
+          scheduleRules: true,
+          subscription: true,
+          _count: { select: { appointments: true, professionals: true, services: true, clients: true, branches: true } },
+        },
+      }),
+      this.prisma.appointment.count({ where: { tenantId: id } }),
+      this.prisma.appointment.count({ where: { tenantId: id, createdAt: { gte: startOfMonth } } }),
+      this.prisma.appointment.groupBy({ by: ['status'], where: { tenantId: id }, _count: true }),
+      this.prisma.client.count({ where: { tenantId: id } }),
+      this.prisma.service.count({ where: { tenantId: id, isActive: true } }),
+      this.prisma.professional.count({ where: { tenantId: id, isActive: true } }),
+      this.prisma.appointment.findMany({
+        where: { tenantId: id },
+        orderBy: { startAt: 'desc' },
+        take: 50,
+        include: {
+          client: { select: { firstName: true, lastName: true, email: true } },
+          professional: { select: { displayName: true } },
+          items: { select: { serviceName: true } },
+        },
+      }),
+      this.prisma.client.findMany({
+        where: { tenantId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        include: {
+          _count: { select: { appointments: true } },
+          appointments: { select: { startAt: true }, orderBy: { startAt: 'desc' }, take: 1 },
+        },
+      }),
+      this.prisma.payment.findMany({
+        where: { tenantId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          id: true, mpPaymentId: true, status: true, statusDetail: true,
+          amount: true, currency: true, paymentMethod: true, paymentType: true,
+          paidAt: true, createdAt: true,
+        },
+      }),
+      this.prisma.service.findMany({
+        where: { tenantId: id },
+        orderBy: { name: 'asc' },
+        select: {
+          id: true, name: true, durationMinutes: true, price: true, currency: true,
+          isActive: true, createdAt: true,
+          category: { select: { name: true } },
+        },
+      }),
+      this.prisma.professional.findMany({
+        where: { tenantId: id },
+        orderBy: { displayName: 'asc' },
+        include: { _count: { select: { services: true, appointments: true } } },
+      }),
+    ])
+
+    if (!tenant) throw new NotFoundException('Negocio no encontrado')
+
+    const statusMap: Record<string, number> = {}
+    for (const s of byStatus) statusMap[s.status] = s._count
+
+    return {
+      tenant,
+      kpis: {
+        totalAppointments,
+        appointmentsThisMonth,
+        totalClients,
+        activeServices,
+        activeProfessionals,
+        appointmentsByStatus: statusMap,
+      },
+      appointments,
+      clients: clients.map(c => ({
+        ...c,
+        appointments: undefined,
+        _count: c._count,
+        lastVisit: c.appointments[0]?.startAt ?? null,
+      })),
+      payments,
+      services,
+      professionals,
+    }
+  }
+
   async adminStats() {
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)

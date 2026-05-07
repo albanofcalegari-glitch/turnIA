@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Building2, Users, Calendar, Scissors, AlertTriangle, Search } from 'lucide-react'
+import Link from 'next/link'
+import { Building2, Users, Calendar, Scissors, AlertTriangle, Search, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { apiClient, type AdminTenant } from '@/lib/api'
 import { Spinner } from '@/components/ui/Spinner'
@@ -165,7 +166,7 @@ function TenantRow({ tenant, isEditing, onToggleEdit, onToggleActive, onSaveMemb
           <div className={cn('h-3 w-3 flex-shrink-0 rounded-full', tenant.isActive ? 'bg-green-500' : 'bg-red-400')} />
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold text-gray-900 dark:text-white">{tenant.name}</p>
+              <Link href={`/admin/negocios/${tenant.id}` as any} className="font-semibold text-gray-900 hover:text-brand-600 dark:text-white dark:hover:text-brand-400 hover:underline">{tenant.name}</Link>
               <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', PLAN_COLORS[tenant.plan] ?? PLAN_COLORS.free)}>
                 {PLAN_LABELS[tenant.plan] ?? tenant.plan}
               </span>

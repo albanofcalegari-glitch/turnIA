@@ -155,7 +155,7 @@ export default function AdminDashboard() {
           </div>
           <div className="space-y-2">
             {stats.topTenants.map((t, i) => (
-              <div key={t.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              <Link key={t.id} href={`/admin/negocios/${t.id}` as any} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 dark:bg-gray-800 dark:text-gray-400">{i + 1}</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{t.name}</p>
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t._count.appointments}</p>
                   <p className="text-[10px] text-gray-500">turnos</p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -178,7 +178,7 @@ export default function AdminDashboard() {
           <h2 className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Últimos registros</h2>
           <div className="space-y-2">
             {stats.recentTenants.map(t => (
-              <div key={t.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              <Link key={t.id} href={`/admin/negocios/${t.id}` as any} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <div className={cn('h-2.5 w-2.5 rounded-full', t.isActive ? 'bg-green-500' : 'bg-red-400')} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">{t.name}</p>
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
                   {t.plan}
                 </span>
                 <span className="text-xs text-gray-500">{formatDate(t.createdAt)}</span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

@@ -71,6 +71,16 @@ export class TenantsController {
     return this.tenantsService.findAll()
   }
 
+  @Get('admin/:id/detail')
+  @UseGuards(JwtAuthGuard)
+  async getTenantDetail(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    if (!user.isSuperAdmin) throw new ForbiddenException()
+    return this.tenantsService.findOneAdmin(id)
+  }
+
   @Patch('admin/:id')
   @UseGuards(JwtAuthGuard)
   async updateTenant(

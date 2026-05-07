@@ -558,6 +558,9 @@ class ApiClient {
   getAllTenants = () =>
     this.request<AdminTenant[]>('/tenants/admin/all')
 
+  adminGetTenantDetail = (id: string) =>
+    this.request<AdminTenantDetail>(`/tenants/admin/${id}/detail`)
+
   updateTenant = (id: string, data: { isActive?: boolean; plan?: string; membershipExpiresAt?: string | null }) =>
     this.request<AdminTenant>(`/tenants/admin/${id}`, {
       method: 'PATCH',
@@ -965,6 +968,102 @@ export interface ClientSearchResult {
   lastName:  string
   email:     string | null
   phone:     string | null
+}
+
+export interface AdminTenantDetail {
+  tenant: AdminTenant & {
+    timezone:            string
+    logoUrl:             string | null
+    phone:               string | null
+    address:             string | null
+    hasMultipleBranches: boolean
+    updatedAt:           string
+    settings:            Record<string, unknown>
+    scheduleRules: {
+      slotDurationMinutes: number
+      bookingWindowDays:   number
+      minAdvanceMinutes:   number
+    } | null
+    subscription: {
+      status:          string
+      amount:          string
+      currency:        string
+      payerEmail:      string
+      nextPaymentDate: string | null
+    } | null
+    _count: {
+      appointments:  number
+      professionals: number
+      services:      number
+      clients:       number
+      branches:      number
+    }
+  }
+  kpis: {
+    totalAppointments:     number
+    appointmentsThisMonth: number
+    totalClients:          number
+    activeServices:        number
+    activeProfessionals:   number
+    appointmentsByStatus:  Record<string, number>
+  }
+  appointments: Array<{
+    id:         string
+    startAt:    string
+    endAt:      string
+    status:     string
+    totalPrice: string
+    currency:   string
+    guestName:  string | null
+    guestEmail: string | null
+    client: { firstName: string; lastName: string; email: string | null } | null
+    professional: { displayName: string }
+    items: Array<{ serviceName: string }>
+    createdAt: string
+  }>
+  clients: Array<{
+    id:        string
+    firstName: string
+    lastName:  string
+    email:     string | null
+    phone:     string | null
+    isActive:  boolean
+    createdAt: string
+    _count:    { appointments: number }
+    lastVisit: string | null
+  }>
+  payments: Array<{
+    id:            string
+    mpPaymentId:   string
+    status:        string
+    statusDetail:  string | null
+    amount:        string
+    currency:      string
+    paymentMethod: string | null
+    paymentType:   string | null
+    paidAt:        string | null
+    createdAt:     string
+  }>
+  services: Array<{
+    id:              string
+    name:            string
+    durationMinutes: number
+    price:           string
+    currency:        string
+    isActive:        boolean
+    createdAt:       string
+    category: { name: string } | null
+  }>
+  professionals: Array<{
+    id:                   string
+    displayName:          string
+    avatarUrl:            string | null
+    color:                string | null
+    isActive:             boolean
+    acceptsOnlineBooking: boolean
+    createdAt:            string
+    _count: { services: number; appointments: number }
+  }>
 }
 
 export const apiClient = new ApiClient()
