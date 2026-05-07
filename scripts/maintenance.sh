@@ -56,7 +56,7 @@ server {
 
     error_page 503 /index.html;
 
-    listen [::]:443 ssl ipv6only=on;
+    listen [::]:443 ssl;
     listen 443 ssl;
     ssl_certificate /etc/letsencrypt/live/turnit.com.ar/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/turnit.com.ar/privkey.pem;
@@ -64,16 +64,38 @@ server {
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 }
 server {
-    if ($host = www.turnit.com.ar) {
-        return 301 https://$host$request_uri;
+    server_name admin.turnit.com.ar;
+
+    client_max_body_size 10M;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
-    if ($host = turnit.com.ar) {
-        return 301 https://$host$request_uri;
+
+    location / {
+        root /var/www/maintenance;
+        try_files /index.html =503;
     }
+
+    error_page 503 /index.html;
+
+    listen [::]:443 ssl;
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/admin.turnit.com.ar/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/admin.turnit.com.ar/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+server {
     listen 80;
     listen [::]:80;
-    server_name turnit.com.ar www.turnit.com.ar;
-    return 404;
+    server_name turnit.com.ar www.turnit.com.ar admin.turnit.com.ar;
+    return 301 https://$host$request_uri;
 }
 NGINX
 
