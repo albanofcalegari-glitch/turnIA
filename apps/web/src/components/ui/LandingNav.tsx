@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import { BrandLogo } from '@/components/ui/BrandLogo'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 export function LandingNav() {
   const [open, setOpen] = useState(false)
@@ -26,6 +27,7 @@ export function LandingNav() {
       <div className="hidden sm:flex items-center gap-4">
         <Link href="/que-es-turnit" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">¿Qué es Turnit?</Link>
         <Link href="/login" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">Iniciar sesión</Link>
+        <ThemeToggle />
         <Link href="/register" className="text-sm font-semibold bg-brand-600 text-white px-5 py-2 rounded-lg hover:bg-brand-700 transition-all shadow-sm hover:shadow">
           Registrar negocio
         </Link>
@@ -33,6 +35,8 @@ export function LandingNav() {
 
       {/* Mobile hamburger */}
       <div ref={ref} className="relative sm:hidden">
+
+        <ThemeToggle className="mr-2" />
         <button
           onClick={() => setOpen(!open)}
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 shadow-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"

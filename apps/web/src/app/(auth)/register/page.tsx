@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { BrandLogo } from '@/components/ui/BrandLogo'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 const BUSINESS_TYPES = [
   { value: 'peluqueria', label: 'Peluquería' },
@@ -29,7 +30,7 @@ function slugify(text: string): string {
 }
 
 const inputCls =
-  'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20'
+  'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500'
 
 export default function RegisterPage() {
   const { login } = useAuth()
@@ -114,22 +115,25 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 px-4">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="mb-8 text-center">
           <Link href="/"><BrandLogo size="lg" /></Link>
-          <p className="mt-1 text-sm text-gray-500">Creá tu cuenta y empezá a recibir turnos</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Creá tu cuenta y empezá a recibir turnos</p>
         </div>
 
-        <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-card sm:p-8">
-          <h1 className="mb-6 text-xl font-bold text-gray-900">Registrar tu negocio</h1>
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-card dark:border-gray-700 dark:bg-gray-800 sm:p-8">
+          <h1 className="mb-6 text-xl font-bold text-gray-900 dark:text-white">Registrar tu negocio</h1>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Admin name */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">Nombre</label>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre</label>
                 <input
                   type="text"
                   required
@@ -141,7 +145,7 @@ export default function RegisterPage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">Apellido</label>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Apellido</label>
                 <input
                   type="text"
                   required
@@ -156,7 +160,7 @@ export default function RegisterPage() {
 
             {/* Business name */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Nombre del negocio</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre del negocio</label>
               <input
                 type="text"
                 required
@@ -169,7 +173,7 @@ export default function RegisterPage() {
 
             {/* Slug */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Identificador (URL)
               </label>
               <div className="flex items-center gap-1.5">
@@ -191,7 +195,7 @@ export default function RegisterPage() {
 
             {/* Business type */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Tipo de negocio</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de negocio</label>
               <select
                 value={type}
                 onChange={e => setType(e.target.value)}
@@ -205,7 +209,7 @@ export default function RegisterPage() {
 
             {/* ── Multi-branch question ──────────────────────────────────── */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 ¿Tu negocio tiene varias sucursales?
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -216,7 +220,7 @@ export default function RegisterPage() {
                     'rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
                     !hasMultipleBranches
                       ? 'border-brand-500 bg-brand-50 text-brand-700'
-                      : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50',
+                      : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600',
                   )}
                 >
                   No, una sola
@@ -228,7 +232,7 @@ export default function RegisterPage() {
                     'rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
                     hasMultipleBranches
                       ? 'border-brand-500 bg-brand-50 text-brand-700'
-                      : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50',
+                      : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600',
                   )}
                 >
                   Sí, varias
@@ -236,7 +240,7 @@ export default function RegisterPage() {
               </div>
               {hasMultipleBranches && (
                 <div className="mt-3">
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Nombre de la sucursal principal
                   </label>
                   <input
@@ -255,7 +259,7 @@ export default function RegisterPage() {
 
             {/* Email */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Email</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
               <input
                 type="email"
                 required
@@ -269,7 +273,7 @@ export default function RegisterPage() {
 
             {/* Password */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Contraseña</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña</label>
               <div className="relative">
                 <input
                   type={showPwd ? 'text' : 'password'}
@@ -285,7 +289,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={() => setShowPwd(v => !v)}
                   tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                 >
                   {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -294,7 +298,7 @@ export default function RegisterPage() {
 
             {/* Confirm password */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Confirmar contraseña</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Confirmar contraseña</label>
               <div className="relative">
                 <input
                   type={showConfirm ? 'text' : 'password'}
@@ -310,7 +314,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={() => setShowConfirm(v => !v)}
                   tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                 >
                   {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -322,7 +326,7 @@ export default function RegisterPage() {
 
             {/* Error */}
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
                 {error}
               </div>
             )}
@@ -345,9 +349,9 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <p className="mt-4 text-center text-sm text-gray-500">
+          <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
             ¿Ya tenés cuenta?{' '}
-            <Link href="/login" className="font-medium text-brand-600 hover:text-brand-700">
+            <Link href="/login" className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
               Iniciar sesión
             </Link>
           </p>
