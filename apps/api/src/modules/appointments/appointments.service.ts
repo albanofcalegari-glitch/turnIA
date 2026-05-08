@@ -133,7 +133,7 @@ export class AppointmentsService {
     // ── 3. Timing constraints (skipped for admin bookings) ───────────────
     if (!isAdminBooking) {
       const nowMs          = Date.now()
-      const minAdvanceMins = rules?.minAdvanceMinutes ?? 60
+      const minAdvanceMins = rules?.minAdvanceMinutes ?? 5
       const windowDays     = rules?.bookingWindowDays ?? 0
 
       if (startAt.getTime() < nowMs + minAdvanceMins * 60_000) {
@@ -375,7 +375,7 @@ export class AppointmentsService {
 
     // ── 3. Timing constraints (same as create) ────────────────────────────
     const nowMs          = Date.now()
-    const minAdvanceMins = rules?.minAdvanceMinutes ?? 60
+    const minAdvanceMins = rules?.minAdvanceMinutes ?? 5
     const windowDays     = rules?.bookingWindowDays ?? 0
 
     if (startAt.getTime() < nowMs + minAdvanceMins * 60_000) {
