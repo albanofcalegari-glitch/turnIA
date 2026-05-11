@@ -44,6 +44,7 @@ export class TenantsController {
     }
     return this.tenantsService.updateScheduleRules(user.tenantId, {
       slotDurationMinutes: dto.slotDurationMinutes,
+      autoConfirm: dto.autoConfirm,
     })
   }
 

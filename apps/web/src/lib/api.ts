@@ -221,13 +221,8 @@ class ApiClient {
   getTenantBySlug = (slug: string) =>
     this.request<Tenant>(`/tenants/${slug}/public`)
 
-  /**
-   * Patches the current tenant's schedule rules. Today only `slotDurationMinutes`
-   * is exposed by the backend DTO. Authenticated — JWT scopes the update to
-   * the caller's tenant.
-   */
-  updateMyScheduleRules = (data: { slotDurationMinutes?: number }) =>
-    this.request<{ slotDurationMinutes: number }>('/tenants/me/schedule-rules', {
+  updateMyScheduleRules = (data: { slotDurationMinutes?: number; autoConfirm?: boolean }) =>
+    this.request<{ slotDurationMinutes: number; autoConfirm: boolean }>('/tenants/me/schedule-rules', {
       method: 'PATCH',
       body:   JSON.stringify(data),
     })

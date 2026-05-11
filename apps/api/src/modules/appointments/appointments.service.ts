@@ -600,21 +600,29 @@ export class AppointmentsService {
     tenantId: string,
     filters?: { professionalId?: string; branchId?: string; date?: string; from?: string; to?: string },
   ) {
-    // Build date filter: prefer from/to range, fallback to single date
     let dateFilter: Record<string, unknown> | undefined
-    if (filters?.from && filters?.to) {
-      dateFilter = {
-        startAt: {
-          gte: new Date(filters.from + 'T00:00:00.000Z'),
-          lt:  new Date(filters.to   + 'T23:59:59.999Z'),
-        },
-      }
-    } else if (filters?.date) {
-      dateFilter = {
-        startAt: {
-          gte: new Date(filters.date + 'T00:00:00.000Z'),
-          lt:  new Date(filters.date + 'T23:59:59.999Z'),
-        },
+
+    if (filters?.from || filters?.date) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { timezone: true },
+      })
+      const tz = tenant?.timezone ?? 'America/Argentina/Buenos_Aires'
+
+      if (filters?.from && filters?.to) {
+        dateFilter = {
+          startAt: {
+            gte: this.localMidnightToUtc(filters.from, '00:00', tz),
+            lt:  this.localMidnightToUtc(filters.to,   '23:59', tz),
+          },
+        }
+      } else if (filters?.date) {
+        dateFilter = {
+          startAt: {
+            gte: this.localMidnightToUtc(filters.date, '00:00', tz),
+            lt:  this.localMidnightToUtc(filters.date, '23:59', tz),
+          },
+        }
       }
     }
 
@@ -792,5 +800,18 @@ export class AppointmentsService {
         cancellationReason: null,
       },
     })
+  }
+
+  private localMidnightToUtc(dateStr: string, timeStr: string, timezone: string): Date {
+    const noonUtc = new Date(`${dateStr}T12:00:00Z`)
+    const noonLocal = new Intl.DateTimeFormat('sv', {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).format(noonUtc)
+    const noonLocalAsUtc = new Date(noonLocal.replace(' ', 'T') + 'Z')
+    const offsetMs = noonUtc.getTime() - noonLocalAsUtc.getTime()
+    const localTarget = new Date(`${dateStr}T${timeStr}:00Z`)
+    return new Date(localTarget.getTime() + offsetMs)
   }
 }

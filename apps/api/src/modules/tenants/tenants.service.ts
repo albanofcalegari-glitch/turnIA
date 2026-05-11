@@ -112,7 +112,7 @@ export class TenantsService {
    * UI exposes are accepted by the controller's DTO. The schedule_rules row
    * is created on tenant registration so we can use a simple update().
    */
-  async updateScheduleRules(tenantId: string, data: { slotDurationMinutes?: number }) {
+  async updateScheduleRules(tenantId: string, data: { slotDurationMinutes?: number; autoConfirm?: boolean }) {
     const updated = await this.prisma.scheduleRule.update({
       where: { tenantId },
       data,

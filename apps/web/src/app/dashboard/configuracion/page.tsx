@@ -80,6 +80,8 @@ export default function ConfiguracionPage() {
   const [savingSlot,  setSavingSlot]  = useState(false)
   const [slotError,   setSlotError]   = useState<string | null>(null)
 
+  const [savingAutoConfirm, setSavingAutoConfirm] = useState(false)
+
   const [savingBranchesMode, setSavingBranchesMode] = useState(false)
   const [branchesModeError,  setBranchesModeError]  = useState<string | null>(null)
 
@@ -162,6 +164,20 @@ export default function ConfiguracionPage() {
     } finally {
       setSavingSlot(false)
     }
+  }
+
+  async function handleAutoConfirmToggle() {
+    if (!config?.scheduleRules || savingAutoConfirm) return
+    const newValue = !config.scheduleRules.autoConfirm
+    setSavingAutoConfirm(true)
+    try {
+      await apiClient.updateMyScheduleRules({ autoConfirm: newValue })
+      setConfig({
+        ...config,
+        scheduleRules: { ...config.scheduleRules, autoConfirm: newValue },
+      })
+    } catch { /* fail silently */ }
+    finally { setSavingAutoConfirm(false) }
   }
 
   async function enableMultipleBranches() {
@@ -390,7 +406,27 @@ export default function ConfiguracionPage() {
             </div>
             <div className="px-1">
               <InfoRow label="Reservas de invitados" value={rules.allowGuestBooking ? 'Permitidas' : 'Solo usuarios registrados'} />
-              <InfoRow label="Confirmación automática" value={rules.autoConfirm ? 'Sí — turnos se confirman al reservar' : 'No — requiere confirmación manual'} />
+              <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                <div className="min-w-0">
+                  <span className="text-sm text-gray-500">Confirmación automática</span>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {rules.autoConfirm
+                      ? 'Los turnos se confirman automáticamente al reservar'
+                      : 'Los turnos quedan pendientes hasta que los confirmes manualmente'}
+                  </p>
+                </div>
+                <button
+                  onClick={handleAutoConfirmToggle}
+                  disabled={savingAutoConfirm}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 ${
+                    rules.autoConfirm ? 'bg-brand-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                    rules.autoConfirm ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
             </div>
           </section>
         )}
